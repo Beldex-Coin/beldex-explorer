@@ -38,6 +38,23 @@ def get_mns_future(lmq, beldexd):
 def get_mempool_future(lmq, beldexd):
     return FutureJSON(lmq, beldexd, 'rpc.get_transaction_pool', 5, args={"tx_extra":True, "stake_info":True})
 
+def parse_mempool(mempool_future):
+    # mempool RPC return values are about as nasty as can be.  For each mempool tx, we get back
+    # *both* binary+hex encoded values and JSON-encoded values slammed into a string, which means we
+    # have to invoke an *extra* JSON parser for each tx.  This is terrible.
+    mp = mempool_future.get()
+    if 'transactions' in mp:
+        # If we have a cached value we have already sorted it
+        if '_sorted' not in mp:
+            mp['transactions'].sort(key=lambda tx: (tx['receive_time'], tx['id_hash']))
+            mp['_sorted'] = True
+
+        for tx in mp['transactions']:
+            tx['info'] = json.loads(tx["tx_json"])
+    else:
+        mp['transactions'] = []
+    return mp
+
 def main(refresh=None, page=0, per_page=None, first=None, last=None):
     lmq, beldexd = lmq_connection()
     inforeq = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
@@ -131,7 +148,7 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
             checkpoints=checkpoints.get(),
             refresh=refresh,
             )
-            
+
 @app.route('/txpool')
 def mempool():
     lmq, beldexd = lmq_connection()
