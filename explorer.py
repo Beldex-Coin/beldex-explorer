@@ -53,3 +53,81 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     # using a restricted RPC interface.
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
             args={"height":0, "count":2**31-1})
+
+    custom_per_page = ''
+    if per_page is None or per_page <= 0 or per_page > config.max_blocks_per_page:
+        per_page = config.blocks_per_page
+    else:
+        custom_per_page = '/{}'.format(per_page)
+
+    # We have some chained request dependencies here and below, so get() them as needed; all other
+    # non-dependent requests should already have a future initiated above so that they can
+    # potentially run in parallel.
+    info = inforeq.get()
+    height = info['height']
+
+    # Permalinked block range:
+    if first is not None and last is not None and 0 <= first <= last and last <= first + 99:
+        start_height, end_height = first, last
+        if end_height - start_height + 1 != per_page:
+            per_page = end_height - start_height + 1;
+            custom_per_page = '/{}'.format(per_page)
+        # We generally can't get a perfect page number because our range (e.g. 5-14) won't line up
+        # with pages (e.g. 10-19, 0-19), so just get as close as we can.  Next/Prev page won't be
+        # quite right, but they'll be within half a page.
+        page = round((height - 1 - end_height) / per_page)
+    else:
+        end_height = max(0, height - per_page*page - 1)
+        start_height = max(0, end_height - per_page + 1)
+
+    blocks = FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', cache_key='main', args={
+        'start_height': start_height,
+        'end_height': end_height,
+        'get_tx_hashes': True,
+        }).get()['headers']
+
+    # If 'txs' is already there then it is probably left over from our cached previous call through
+    # here.
+    if blocks and 'txs' not in blocks[0]:
+        txids = []
+        for b in blocks:
+            b['txs'] = []
+            txids.append(b['miner_tx_hash'])
+            if 'tx_hashes' in b:
+                txids += b['tx_hashes']
+        txs = parse_txs(tx_req(lmq, beldexd, txids, cache_key='mempool').get())
+        i = 0
+        for tx in txs:
+            # TXs should come back in the same order so we can just skip ahead one when the block
+            # height changes rather than needing to search for the block
+            if blocks[i]['height'] != tx['block_height']:
+                i += 1
+                while i < len(blocks) and blocks[i]['height'] != tx['block_height']:
+                    print("Something getting wrong: missing txes?", file=sys.stderr)
+                    i += 1
+                if i >= len(blocks):
+                    print("Something getting wrong: have leftover txes")
+                    break
+            blocks[i]['txs'].append(tx)
+
+    # Clean up the MN data a bit to make things easier for the templates
+    awaiting_mns, active_mns, inactive_mns = get_mns(mns, inforeq)
+
+    return flask.render_template('index.html',
+            info=info,
+            stake=stake.get(),
+            fees=base_fee.get(),
+            emission=coinbase.get(),
+            hf=hfinfo.get(),
+            active_mns=active_mns,
+            inactive_mns=inactive_mns,
+            awaiting_mns=awaiting_mns,
+            blocks=blocks,
+            block_size_median=statistics.median(b['block_size'] for b in blocks),
+            page=page,
+            per_page=per_page,
+            custom_per_page=custom_per_page,
+            mempool=parse_mempool(mempool),
+            checkpoints=checkpoints.get(),
+            refresh=refresh,
+            )
