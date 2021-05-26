@@ -7,10 +7,20 @@ import statistics
 import string
 import requests
 from werkzeug.routing import BaseConverter
+import subprocess
 
 import config
 import local_config
 from lmq import FutureJSON, lmq_connection
+
+# Make a dict of config.* to pass to templating
+conf = {x: getattr(config, x) for x in dir(config) if not x.startswith('__')}
+
+git_rev = subprocess.run(["git", "rev-parse", "--short=9", "HEAD"], stdout=subprocess.PIPE, text=True)
+if git_rev.returncode == 0:
+    git_rev = git_rev.stdout.strip()
+else:
+    git_rev = "(unknown)"
 
 app = flask.Flask(__name__)
 
