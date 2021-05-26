@@ -25,9 +25,19 @@ app.url_map.converters['hex64'] = Hex64Converter
 @app.route('/autorefresh/<int:refresh>')
 @app.route('/')
 
+def get_mns_future(lmq, beldexd):
+    return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 5,
+            args={
+                'all': False,
+                'fields': { x: True for x in ('master_node_pubkey', 'requested_unlock_height', 'last_reward_block_height',
+                    'last_reward_transaction_index', 'active', 'funded', 'earned_downtime_blocks',
+                    'master_node_version', 'contributors', 'total_contributed', 'total_reserved',
+                    'staking_requirement', 'portions_for_operator', 'operator_address', 'pubkey_ed25519',
+                    'last_uptime_proof', 'state_height', 'swarm_id') } })
+
 def get_mempool_future(lmq, beldexd):
     return FutureJSON(lmq, beldexd, 'rpc.get_transaction_pool', 5, args={"tx_extra":True, "stake_info":True})
-    
+
 def main(refresh=None, page=0, per_page=None, first=None, last=None):
     lmq, beldexd = lmq_connection()
     inforeq = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
