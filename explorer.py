@@ -131,3 +131,14 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
             checkpoints=checkpoints.get(),
             refresh=refresh,
             )
+            
+@app.route('/txpool')
+def mempool():
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    mempool = get_mempool_future(lmq, beldexd)
+
+    return flask.render_template('mempool.html',
+            info=info.get(),
+            mempool=parse_mempool(mempool),
+            )
