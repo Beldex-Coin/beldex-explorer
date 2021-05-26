@@ -7,6 +7,9 @@ import statistics
 import string
 import requests
 from werkzeug.routing import BaseConverter
+
+import config
+import local_config
 from lmq import FutureJSON, lmq_connection
 
 app = flask.Flask(__name__)
