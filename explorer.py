@@ -172,3 +172,23 @@ def mempool():
             info=info.get(),
             mempool=parse_mempool(mempool),
             )
+
+def parse_txs(txs_rpc):
+    """Takes a tx_req(...).get() response and parses the embedded nested json into something useful
+
+    This modifies the txs_rpc['txs'] values in-place.  Returns txs_rpc['txs'] if it exists, otherwise an empty list.
+    """
+    if 'txs' not in txs_rpc:
+        return []
+
+    for tx in txs_rpc['txs']:
+        if 'info' not in tx:
+            # We have serialized JSON data inside a field in the JSON, because of beldexd's
+            # multiple incompatible JSON generators 🤮:
+            tx['info'] = json.loads(tx["as_json"])
+            del tx['as_json']
+            # The "extra" field inside as_json is retardedly in per-byte integer values,
+            # convert it to a hex string 🤮:
+            tx['info']['extra'] = bytes_to_hex(tx['info']['extra'])
+    return txs_rpc['txs']
+
