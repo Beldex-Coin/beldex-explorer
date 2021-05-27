@@ -31,6 +31,13 @@ class Hex64Converter(BaseConverter):
 
 app.url_map.converters['hex64'] = Hex64Converter
 
+# For some inexplicable reason some hex fields are provided as array of byte integer values rather
+# than hex.  This converts such a monstrosity to hex.
+@app.template_filter('bytes_to_hex')
+def bytes_to_hex(b):
+    return "".join("{:02x}".format(x) for x in b)
+
+
 
 @app.route('/page/<int:page>')
 @app.route('/page/<int:page>/<int:per_page>')
@@ -47,6 +54,26 @@ def get_mns_future(lmq, beldexd):
                     'master_node_version', 'contributors', 'total_contributed', 'total_reserved',
                     'staking_requirement', 'portions_for_operator', 'operator_address', 'pubkey_ed25519',
                     'last_uptime_proof', 'state_height', 'swarm_id') } })
+
+def get_mns(mns_future, info_future):
+    info = info_future.get()
+    awaiting_mns, active_mns, inactive_mns = [], [], []
+    mn_states = mns_future.get()
+    mn_states = mn_states['master_node_states'] if 'master_node_states' in mn_states else []
+    for mn in mn_states:
+        mn['contribution_open'] = mn['staking_requirement'] - mn['total_reserved']
+        mn['contribution_required'] = mn['staking_requirement'] - mn['total_contributed']
+        mn['num_contributions'] = sum(len(x['locked_contributions']) for x in mn['contributors'] if 'locked_contributions' in x)
+
+        if mn['active']:
+            active_mns.append(mn)
+        elif mn['funded']:
+            mn['decomm_blocks_remaining'] = max(mn['earned_downtime_blocks'], 0)
+            mn['decomm_blocks'] = info['height'] - mn['state_height']
+            inactive_mns.append(mn)
+        else:
+            awaiting_mns.append(mn)
+    return awaiting_mns, active_mns, inactive_mns
 
 def get_mempool_future(lmq, beldexd):
     return FutureJSON(lmq, beldexd, 'rpc.get_transaction_pool', 5, args={"tx_extra":True, "stake_info":True})
@@ -172,6 +199,17 @@ def mempool():
             info=info.get(),
             mempool=parse_mempool(mempool),
             )
+
+def tx_req(lmq, beldexd, txids, cache_key='single', **kwargs):
+    return FutureJSON(lmq, beldexd, 'rpc.get_transactions', cache_seconds=10, cache_key=cache_key,
+            args={
+                "txs_hashes": txids,
+                "decode_as_json": True,
+                "tx_extra": True,
+                "prune": True,
+                "stake_info": True,
+                },
+            **kwargs)
 
 def parse_txs(txs_rpc):
     """Takes a tx_req(...).get() response and parses the embedded nested json into something useful
