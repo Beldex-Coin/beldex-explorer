@@ -1,0 +1,6 @@
+mainnet.sock
+testnet.sock
+devnet.sock
+pylokimq.cpython-*.so
+__pycache__
+local_config.py
