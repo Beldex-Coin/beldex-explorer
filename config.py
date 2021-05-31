@@ -1,4 +1,4 @@
-# Default configuration options for block observer.
+# Default configuration options for block explorer.
 #
 # To override settings add `config.whatever = ...` into `local_config.py`; adding settings *here*
 # will often cause git conflicts.
@@ -7,9 +7,9 @@
 # into `mainnet.py`/`testnet.py`/etc.
 
 
-# LMQ RPC endpoint of oxend; can be a unix socket 'ipc:///path/to/oxend.sock' (preferred) or a tcp
+# LMQ RPC endpoint of beldexd; can be a unix socket 'ipc:///path/to/beldexd.sock' (preferred) or a tcp
 # socket 'tcp://127.0.0.1:5678'.  Typically you want this running with admin permission.
-# Leave this as None here, and set it for each observer in the mainnet.py/testnet.py/etc. script.
+# Leave this as None here, and set it for each beldex in the mainnet.py/testnet.py/etc. script.
 beldexd_rpc = 'ipc://beldex-explorer/testnet.sock'
 
 # Default blocks per page for the index.
