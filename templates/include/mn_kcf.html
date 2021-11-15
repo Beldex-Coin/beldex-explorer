@@ -1,0 +1,10 @@
+{# First three commons columns of MN tables: pubkey, # contributors, and op fee #}
+
+{%-set portions_base = 2**64 - 4-%}
+{%-set solo_node = mn.contributors|length == 1 and mn.funded %}
+
+<td><a href="/mn/{{mn.master_node_pubkey}}">{{mn.master_node_pubkey}}</a></td>
+<td title="
+{%-for c in mn.contributors%}{%for lc in c.locked_contributions%}{{c.address | truncate(15)}} ({{lc.amount | beldex(decimals=0)}} = {{(lc.amount / mn.staking_requirement * 100) | round(1) | chop0}}%)
+{%endfor%}{%endfor%}"><span class="icon">{{mn.contributors | length}}/4</span></td>
+<td>{%if not solo_node%}{{ (mn.portions_for_operator / portions_base * 100) | round(3) | chop0 }}{%endif%}</td>

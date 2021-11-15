@@ -1,0 +1,39 @@
+<table style="width:100%">
+    <thead>
+        <tr>
+            <td>Public Key</td>
+            <td>Contri&shy;butors</td>
+            <td>Operator Fee (%)</td>
+            <td>Staking Requirement</td>
+            <td title="Can also be the height of the last activation, IP penalty, or recommission">Last Reward Height</td>
+            <td>Last Uptime Proof</td>
+            <td>Expiry Date UTC (Estimated)</td>
+        </tr>
+    </thead>
+
+    <tbody>
+        {%for mn in (active_mns)[:limit_active]%}
+
+            <tr>
+                {%include 'include/mn_kcf.html'%}
+                <td>{{mn.staking_requirement | beldex(tag=false, fixed=true)}}</td>
+                <td>{{mn.last_reward_block_height}}</td>
+                <td>{{mn.last_uptime_proof | from_timestamp | ago if mn.last_uptime_proof > 0 else "Not Received"}}</td>
+                <td>
+                    {%if mn.requested_unlock_height%}
+                        <span title="Master Node unlock in progress (unlocks at block {{mn.requested_unlock_height}})">🔓</span>
+                        {{((mn.requested_unlock_height - info.height) * 120 + server.datetime.timestamp()) | from_timestamp | format_datetime('short')}}
+                        ({{((mn.requested_unlock_height - info.height) * 120) | reltime}})
+                    {%else%}
+                        Staking Infinitely
+                    {%endif%}
+                </td>
+            </tr>
+        {%endfor%}
+    </tbody>
+    {%if limit_active and active_mns|length > limit_active%}
+    <tr>
+        <td class="mn-more" colspan="7"><a href="/master_nodes">+ {{active_mns|length - limit_active}} more ↪</a></td>
+    </tr>
+    {%endif%}
+</table>

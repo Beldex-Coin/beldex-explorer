@@ -1,0 +1,45 @@
+
+<table style="width:100%">
+    <thead>
+        <tr>
+            <td>Public Key</td>
+            <td>Contributors</td>
+            <td>Operator Fee (%)</td>
+            <td>Contributed</td>
+            <td>Open For Contribution</td>
+            <td>Min. Contribution</td>
+            <td>Expiry Date UTC (Estimated)</td>
+        </tr>
+    </thead>
+
+    <tbody>
+        {%for mn in (awaiting_mns | sort(attribute='portions_for_operator,contribution_open,contribution_required,master_node_pubkey'))[:limit_awaiting]%}
+            <tr>
+                {%include 'include/mn_kcf.html'%}
+                <td>{{mn.total_contributed | beldex(tag=false, fixed=true)}}</td>
+                {%if mn.total_reserved >= mn.staking_requirement%}
+                    <td title="All remaining contribution room is reserved for specific contributors">
+                        ⛔ {{mn.contribution_open | beldex(tag=false, fixed=true)}}
+                    </td>
+                {%else%}
+                    <td>{{mn.contribution_open | beldex(tag=false, fixed=true)}}</td>
+                {%endif%}
+                <td>{{ (0 if mn.num_contributions >= 4 else (mn.contribution_open / (4 - mn.num_contributions)) | round(method='ceil')) | beldex(tag=false, fixed=true) }}</td>
+                <td>
+                    {%if mn.requested_unlock_height%}
+                        <span title="Master Node unlock in progress (unlocks at block {{mn.requested_unlock_height}})">🔓</span>
+                        {{((mn.requested_unlock_height - info.height) * 120 + server.datetime.timestamp()) | from_timestamp | format_datetime('short')}}
+                        ({{((mn.requested_unlock_height - info.height) * 120) | reltime}})
+                    {%else%}
+                        Staking Infinitely
+                    {%endif%}
+                </td>
+            </tr>
+        {%endfor%}
+        {%if limit_awaiting and (awaiting_mns | length) > limit_awaiting%}
+            <tr>
+                <td class="mn-more" colspan="7"><a href="/master_nodes#master-nodes-awaiting">+ {{(awaiting_mns | length) - limit_awaiting}} more ↪</a></td>
+            </tr>
+        {%endif%}
+    </tbody>
+</table>

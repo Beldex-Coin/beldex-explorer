@@ -1,0 +1,235 @@
+{% extends "_basic.html" %}
+
+{% block content %}
+
+{%-set portions_base = 2**64 - 4 %}
+{%-set solo_node = mn.contributors|length == 1 and mn.funded %}
+{%-set decommed = mn.funded and not mn.active %}
+
+<div class="mn-details Wrapper">
+  <div class="mn-details-main">
+    <div class="details">
+      <h2>Master Node Details</h2>
+      <div class="TitleUnderliner"></div>
+      <h4 style="margin:5px"><label>Master Node Public Key:</label> {{mn.master_node_pubkey}}</h4>
+      {%if mn.pubkey_ed25519 %}
+        {%if mn.pubkey_ed25519 != mn.master_node_pubkey%}
+          <h4 style="margin:5px"><label>Master Node Auxiliary Pubkey:</label> {{mn.pubkey_ed25519}}</h4>
+        {%endif%}
+        <h4 style="margin:5px"><label>Beldexnet Address:</label> {{mn.pubkey_ed25519 | base32z}}.mnode</h4>
+      {%endif%}
+      <h4 style="margin:5px"><label>Operator Address:</label> {{mn.operator_address}}</h4>
+    </div>
+    <img class="qr" src="/qr/{{mn.master_node_pubkey}}" title="{{mn.master_node_pubkey}}">
+  </div>
+
+  <h2>Metadata</h2>
+  <div class="TitleUnderliner"></div>
+  <h4 class="info_list nowrap-spans">
+
+    <span><label>Registration height:</label> <a href="/block/{{mn.registration_height}}">{{mn.registration_height}}</a>
+      {%if mn.registration_hf_version < hf.version%}
+        (hardfork v{{mn.registration_hf_version}})
+      {%endif%}
+    </span>
+
+    <span title="TX index: {{mn.last_reward_transaction_index}}">
+      {%if mn.funded%}
+        {%if mn.active%}
+          <label>Active since block:</label>
+        {%else%}{# decommissioned #}
+          <label>Decommissioned since block:</label>
+        {%endif%}
+      {%else%}
+        <label>Last contribution block:</label>
+      {%endif%}
+      <a href="/block/{{mn.state_height}}">{{mn.state_height}}</a>
+    </span>
+
+    <span><label>Staking requirement:</label> {{mn.staking_requirement | beldex}}</span>
+
+    {%if not solo_node%}
+      <span><label>Operator fee:</label> {{(mn.portions_for_operator / portions_base * 100) | round(3) | chop0}}%</span>
+    {%endif%}
+
+    <span><label>Total contributed:</label>
+      {%if mn.total_contributed >= mn.staking_requirement%}100%
+      {%else%} 
+      {{mn.total_contributed | beldex}} ({{(mn.total_contributed / mn.staking_requirement * 100) | round(2) | chop0}}%)
+      {%endif%}
+    </span>
+
+    {%if mn.total_reserved != mn.total_contributed%}
+      <span><label>Total reserved:</label> {{mn.total_reserved | beldex}}</span>
+    {%endif%}
+
+    <span>
+    <label>{%if decommed %}Remaining{%else%}Allowed{%endif%} downtime:</label>
+    {%if mn.earned_downtime_blocks > 0%}
+      {{ (mn.earned_downtime_blocks * 120) | reltime(in_ago=false) }} ({{mn.earned_downtime_blocks}} blocks)
+      {%if not decommed and mn.earned_downtime_blocks < 60%}
+        <span class="note">(Note: ≥ 60 blocks required)</span>
+      {%endif%}
+    {%else%}
+      None
+    {%endif%}
+    </span>
+
+    <span>
+      <label>Version:</label>
+      {%if mn.last_uptime_proof == 0%}
+        <span>Not received</span>
+      {%else%}
+        <span>{{mn.master_node_version[0]}}.{{mn.master_node_version[1]}}.{{mn.master_node_version[2]}}</span>
+      {%endif%}
+    </span>
+
+    <span>
+      <label class="omg{%if server.timestamp - mn.last_uptime_proof > 3900%} warning{%endif%}">Last uptime proof:</label>
+      {%if mn.last_uptime_proof == 0%}
+        <span>Not received</span>
+      {%else%}
+        <span title="{{mn.last_uptime_proof|from_timestamp|format_datetime}}">{{mn.last_uptime_proof | from_timestamp | ago}} ago</span>
+      {%endif%}
+    </span>
+
+    {%if info.master_node%}{# MN tests are only conducted by MNs #}
+      <span>
+        <label{%if not mn.storage_server_reachable%} class="omg warning"{%endif%}>Storage server:</label>
+        {%if mn.storage_server_reachable_timestamp == 0%}
+          Not yet tested
+        {%else%}
+          {%if mn.storage_server_reachable%}Reachable{%else%}Not reachable{%endif%}
+          (as of {{mn.last_uptime_proof | from_timestamp | ago}} ago)
+        {%endif%}
+      </span>
+    {%endif%}
+
+    {%set POS_voted = mn.POS_participation | selectattr("voted") | list | length%}
+    {%set POS_total = mn.POS_participation | length%}
+    <span title="How many times the master node participated in POS block production from the last 8 blocks it was supposed to participate. (Master nodes may miss at most 4 before being decommissioned).">
+      <label{%if POS_total >= 8 and POS_voted < 4%} class="omg warning"{%endif%}>POS votes:</label>
+      {{POS_voted}} / {{POS_total}}
+    </span>
+
+    {%set cp_voted = mn.checkpoint_participation | selectattr("voted") | list | length%}
+    {%set cp_total = mn.checkpoint_participation | length%}
+    <span title="How many times the master node contributed a checkpoint vote from the last 8 blocks it was supposed to participate. (Master nodes may miss at most 4 before being decommissioned).">
+      <label{%if cp_total >= 8 and cp_voted < 4%} class="omg warning"{%endif%}>Checkpoint votes:</label>
+      {{cp_voted}} / {{cp_total}}
+    </span>
+
+    <span title="Storage server swarm">
+        <label>Swarm ID:</label>
+        {%if mn.swarm_id == 18446744073709551615%}(none){%else%}0x{{'{:016x}'.format(mn.swarm_id)}}{%endif%}
+    </span>
+
+    <!--<pre>{{quorums}}</pre>-->
+    {%set next_test = namespace(height=none)%}
+    {%for q in quorums.obligation[-13:]%}
+      {%if next_test.height%}{%break%}{%endif%}
+      {%if q.height + 13 >= info.height%}
+        {%for w in q.quorum.workers%}
+          {%if w == mn.master_node_pubkey%}
+            {%set next_test.height = q.height + 13%}
+            {%break%}
+          {%endif%}
+        {%endfor%}
+      {%endif%}
+    {%endfor%}
+    <span title="Next MN test">
+      <label>Next MN test:</label>
+      {%if next_test.height%}
+        Block {{next_test.height}}
+        ({%if next_test.height == info.height%}Now!{%else%}~{{((next_test.height - info.height) * 120) | reltime(in_ago=false)}}{%endif%})
+      {%else%}
+        <span title="&gt;12 blocks (~24 minutes): future test quorums are only known 12 blocks in advance">Unknown</span>
+      {%endif%}
+    </span>
+
+  </h4>
+
+  <h2>Master Node Status</h2>
+  <div class="TitleDivider"></div>
+  {%if mn.active %}
+    <p class="mn-active">Registered, staked, and active on the network since block {{mn.state_height}}.</p>
+  {%elif mn.funded%}
+    <p class="mn-decomm"><span class="omg">Decommissioned</span>: this master node is
+    registered and staked, but is currently <span class="omg">decommissioned</span> (since block
+    {{mn.state_height}}) for failing to meet master node requirements.
+    {%if mn.earned_downtime_blocks > 0%}
+      If it does not return to active duty within {{mn.earned_downtime_blocks}} blocks (about
+      {{(mn.earned_downtime_blocks * 120) | reltime(in_ago=false)}}) it will face <span class="omg">deregistration</span>.
+    {%else%}
+      The decommission time has expired; master node <span class="omg">deregistration</span> is imminent.
+    {%endif%}
+    </p>
+  {%else%}
+    <p class="mn-awaiting">Awaiting registration.  This master node has <span class="beldex required">{{(mn.staking_requirement - mn.total_contributed) | beldex}}</span>
+    remaining to be contributed.
+    {%if mn.num_open_spots > 0%}
+      The minimum required stake contribution is <span class="beldex required">{{((mn.staking_requirement - mn.total_reserved) / mn.num_open_spots) | beldex}}</span>.
+    {%endif%}
+    </p>
+  {%endif%}
+
+  <p class="mn-expiration{%if mn.requested_unlock_height > 0%} unlocking{%endif%}">
+    {%if mn.requested_unlock_height > 0%}
+      This master node is <span class="omg">scheduled to expire at block {{mn.requested_unlock_height}}</span>, in approximately
+      {{((mn.requested_unlock_height - info.height + 1) * 120) | reltime(in_ago=false) }}
+      ({{(server.timestamp + (mn.requested_unlock_height - info.height + 1) * 120) | from_timestamp | format_datetime('short')}} UTC, est.)
+    {%else%}
+      This master node is staking infinitely: no unlock has been initiated by any of its contributors.
+    {%endif%}
+  </p>
+
+  <h2>{{mn.contributors|length}} Contributor{%if mn.contributors|length > 1%}s{%endif%}</h2>
+    <div class="TitleDivider"></div>
+
+    <table style="width:100%">
+      <thead>
+        <tr>
+          <td>Contributor</td>
+          <td>Amount</td>
+          <td>Reserved</td>
+        </tr>
+      </thead>
+
+      <tbody>
+        {%for c in mn.contributors%}
+          <tr>
+            <td>{{c.address}}</td>
+            <td>{{c.amount | beldex}}
+              {%-if c.locked_contributions and c.locked_contributions|length > 1%}
+                ({{c.locked_contributions|length}} contributions)
+              {%endif-%}
+            </td>
+            <td>{{c.reserved | beldex}}</td>
+          </tr>
+        {%endfor%}
+      </tbody>
+    </table>
+
+    {#FIXME:#}
+    {%if pending_stakes and pending_stakes|length > 0%}
+      <h2>{{pending_stakes|length}} pending mempool contribution(s)</h2>
+      <div class="TitleDivider"></div>
+
+      <table class="pending-mempool-stakes">
+        <tr class="TableHeader">
+          <td>Contributor</td>
+          <td class="tx">TX</td>
+          <td>Amount</td>
+        </tr>
+
+        {%for s in pending_stakes%}
+          <tr>
+            <td>{{s.address}}</td>
+            <td class="tx"><a href="/tx/{{s.txid}}">{{s.txid}}</a></td>
+            <td>{{s.amount}}</td>
+          </tr>
+        {%endfor%}
+      </table>
+    {%endif%}
+</div>
+{%endblock%}
