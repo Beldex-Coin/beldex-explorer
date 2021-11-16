@@ -1,0 +1,32 @@
+<table style="width:100%">
+    <thead>
+        <tr>
+            <td>Public Key</td>
+            <td>Contributors</td>
+            <td>Operator Fee (%)</td>
+            <td>Decommission Height</td>
+            <td>Last Uptime Proof</td>
+            <td>Blocks until Dereg.</td>
+        </tr>
+    </thead>
+
+    <tbody>
+        {%for mn in (inactive_mns )[:limit_inactive]%}
+            <tr>
+                {%include 'include/mn_kcf.html'%}
+                <td>{{mn.state_height}}</td>
+                <td>{{mn.last_uptime_proof | from_timestamp | ago if mn.last_uptime_proof > 0 else "Not Received"}}</td>
+                <td>{%if mn.decomm_blocks_remaining > 0%}{{mn.decomm_blocks_remaining}} ({{(mn.decomm_blocks_remaining * 120) | reltime}})
+                        {%-else%}None (deregistration imminent!)
+                        {%-endif%}</td>
+            </tr>
+        {%endfor%}
+
+        {%if limit_inactive and inactive_mns | count > limit_inactive%}
+            <tr>
+                <td class="mn-more" colspan="6"><a href="/master_nodes#master-nodes-inactive">+ {{inactive_mns | count - limit_inactive}} more ↪</a></td>
+            </tr>
+        {%endif%}
+    </tbody>
+</table>
+

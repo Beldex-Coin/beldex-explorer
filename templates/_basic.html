@@ -1,0 +1,53 @@
+{# Basic content template: provides an overridable header/content/footer #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  {% block head %}
+      <title>{% block title %}{% endblock %}Beldex{{' TESTNET' if info and info.testnet else ' DEVNET' if info and info.devnet else ''}}
+  Blockchain Explorer</title>
+    <link rel="stylesheet" type="text/css" href="/static/style.css">
+    {% if refresh %}
+        <meta http-equiv="refresh" content="{{refresh}}">
+    {% endif %}
+  {% endblock %}
+</head>
+
+<body>
+<div id="header" class="Wrapper">
+    {% block header %}
+    <div id="header-content">
+        <!-- <h1 class="Header"><a href="/">Beldex
+                {%if info and info.testnet%}
+                    <span style="color:#ff6b62">Testnet</span>
+                {%elif info and info.devnet%}
+                    <span style="color:#af5bd2">Devnet</span>
+                {%endif%}
+                Blockchain Explorer1</a></h1> -->
+                <h1 class="Header">
+                    <a href="/"><img src="https://beldex.io/img/logo.svg"></a>
+                </h1>
+        <form action="/search" method="get" class="top-search">
+            <input type="text" name="value" size="64" placeholder="Block height, Block hash, Transaction ID, or Master Node pubkey">
+            <input type="submit" class="PageButton" value="Search">
+        </form>
+    </div>
+    <div class="TitleUnderliner" style="margin-bottom: 1em"></div>
+    {% endblock %}
+</div>
+
+{% block content %}
+{% endblock %}
+
+<div id="footer" class="Wrapper">
+    {% block footer %}
+    <div class="TitleDivider" style="margin-top: 1em" ></div>
+    <p style="margin-top:10px" class="bel-footer">
+        <a href="https://github.com/Beldex-Coin/beldex-explorer">Source Code</a>
+        | Explorer Revision: {{server.revision}}
+        | Beldex Version: {{info.version}}
+    </p>
+    {% endblock %}
+</div>
+
+</body>
+</html>

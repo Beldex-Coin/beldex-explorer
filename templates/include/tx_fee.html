@@ -1,0 +1,12 @@
+{% macro display(tx, show_zero=false) -%}
+    {% set fee =
+        (tx.info.rct_signatures.txnFee if 'rct_signatures' in tx.info and 'txnFee' in tx.info.rct_signatures else 0)
+    -%}
+    {% if fee > 0 or show_zero -%}
+        {{ fee | beldex(tag=False, fixed=True, decimals=4) }}
+        {%- if 'burn_amount' in tx.extra %}
+        <span class="icon" title="= {{(fee - tx.extra.burn_amount) | beldex}} TX fee
++ {{tx.extra.burn_amount | beldex}} burned">⚡</span>
+        {%-endif-%}
+    {%endif-%}
+{% endmacro %}
