@@ -6,7 +6,7 @@
         {{ fee | beldex(tag=False, fixed=True, decimals=4) }}
         {%- if 'burn_amount' in tx.extra %}
         <span class="icon" title="= {{(fee - tx.extra.burn_amount) | beldex}} TX fee
-+ {{tx.extra.burn_amount | beldex}} burned">⚡</span>
++ {{tx.extra.burn_amount | beldex}} burned">🔥</span>
         {%-endif-%}
     {%endif-%}
 {% endmacro %}

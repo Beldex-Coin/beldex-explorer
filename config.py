@@ -25,9 +25,9 @@ autorefresh_option=True
 enable_mixins_details=True
 
 # URLs to networks other than the one we are on:
-mainnet_url='https://beldex.explorer'
-testnet_url='https://testnet.beldex.explorer'
-devnet_url='https://devnet.beldex.explorer'
+mainnet_url='https://explorer.beldex.io'
+testnet_url='https://testnet.beldex.io'
+devnet_url='https://devnet.beldex.io'
 
 # Same as above, but these apply if we are on a .beldex URL:
 beldexnet_mainnet_url='http://blocks.beldex'
