@@ -51,6 +51,7 @@ app.url_map.converters['hex64'] = Hex64Converter
 
 @app.template_filter('format_datetime')
 def format_datetime(value, format='long'):
+    print(value)
     return babel.dates.format_datetime(value, format, tzinfo=babel.dates.get_timezone('UTC'))
 
 @app.template_filter('from_timestamp')
@@ -216,7 +217,7 @@ def get_quorums_future(lmq, beldexd, height):
 
 
 def get_quorums(quorums_future):
-    qkey = ["obligation", "checkpoint", "blink", "pulse"]
+    qkey = ["obligation", "checkpoint", "flash", "POS"]
     quo = {x: [] for x in qkey}
 
     quorums = quorums_future.get()
