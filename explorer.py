@@ -397,6 +397,17 @@ def tx_req(lmq, beldexd, txids, cache_key='single', **kwargs):
                 },
             **kwargs)
 
+def tx_req_prune(lmq, beldexd, txids, cache_key='single', **kwargs):
+    return FutureJSON(lmq, beldexd, 'rpc.get_transactions', cache_seconds=10, cache_key=cache_key,
+            args={
+                "txs_hashes": txids,
+                "decode_as_json": True,
+                "tx_extra": True,
+                "prune": False,
+                "stake_info": True,
+                },
+            **kwargs)
+
 def mn_req(lmq, beldexd, pubkey, **kwargs):
     return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 5, cache_key='single',
             args={"master_node_pubkeys": [pubkey]}, **kwargs
@@ -806,6 +817,16 @@ def api_circulating_supply():
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
             args={"height":0, "count":2**31-1}).get()
     return flask.jsonify((coinbase["emission_amount"] - coinbase["burn_amount"]) // 1_000_000_000 if coinbase else None)
+
+@app.route('/api/get_transaction_data/<hex64:txid>')
+def api_get_transaction_data(txid):
+    lmq, beldexd = lmq_connection()
+    tx = tx_req_prune(lmq, beldexd, [txid]).get()
+    txs = parse_txs(tx)
+    return flask.jsonify({
+        "status": tx['status'],
+        "data": (txs[0] if txs else None)
+        })
 
 
 # FIXME: need better error handling here
