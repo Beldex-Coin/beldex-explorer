@@ -828,6 +828,15 @@ def api_get_transaction_data(txid):
         "data": (txs[0] if txs else None)
         })
 
+@app.route('/api/get_transaction_hash/<hex64:txid>')
+def api_get_transaction_hash(txid):
+    lmq, beldexd = lmq_connection()
+    tx = tx_req_hash(lmq, beldexd, [txid]).get()
+    txs = parse_txs(tx)
+    return flask.jsonify({
+        "status": tx['status'],
+        "data": (txs[0] if txs else None)
+        })
 
 # FIXME: need better error handling here
 @app.route('/api/transaction/<hex64:txid>')
