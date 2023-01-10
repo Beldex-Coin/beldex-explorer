@@ -742,6 +742,28 @@ def api_networkinfo():
     data['next_hf_height'] = hfinfo['earliest_height'] if 'earliest_height' in hfinfo else None
     return flask.jsonify({"data": data, "status": "OK"})
 
+@app.route('/api/get_stats')
+def api_get_stats():
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
+            args={"height":0, "count":2**31-1}).get()
+
+    info = info.get()
+    data = {**info}
+    height = data['height'] -1
+    block = block_with_txs_req(lmq, beldexd, height).get()
+    return flask.jsonify({
+        "data": {
+            "difficulty": data['difficulty'],
+            "height": block['block_header']['height'],
+            "burn": coinbase["burn_amount"],
+            "total_emission": coinbase["emission_amount"],
+            "last_timestamp": block['block_header']['timestamp'],
+            "last_reward": block['block_header']['reward'],
+        },
+        "status": "ok"
+    })
 
 @app.route('/api/emission')
 def api_emission():
