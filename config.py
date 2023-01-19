@@ -26,10 +26,10 @@ enable_mixins_details=True
 
 # URLs to networks other than the one we are on:
 mainnet_url='https://explorer.beldex.io'
-testnet_url='https://testnet.beldex.io'
-devnet_url='https://devnet.beldex.io'
+testnet_url='https://testnet.beldex.dev'
+devnet_url='https://testnet.beldex.dev'
 
 # Same as above, but these apply if we are on a .beldex URL:
-beldexnet_mainnet_url='http://blocks.beldex'
-beldexnet_testnet_url='http://testnet.beldex'
-beldexnet_devnet_url='http://devnet.kcpyawm9se7trdbzncimdi5t7st4p5mh9i1mg7gkpuubi4k4ku1y.beldex'
+belnet_mainnet_url='http://blocks.beldex'
+belnet_testnet_url='http://testnet.beldex'
+belnet_devnet_url='http://devnet.kcpyawm9se7trdbzncimdi5t7st4p5mh9i1mg7gkpuubi4k4ku1y.beldex'

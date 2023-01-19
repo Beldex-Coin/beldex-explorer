@@ -25,27 +25,27 @@
                 </span>
             {% endif %}
 
-            {% if info.mainnet and config.beldexnet_mainnet_url %}
-                <span class="beldex-border"><a href="{{config.beldexnet_mainnet_url}}">Connect via Beldexnet</a></span>
-            {% elif info.testnet and config.beldexnet_testnet_url %}
-                <span class="beldex-border"><a href="{{config.beldexnet_testnet_url}}">Connect via Beldexnet</a></span>
-            {% elif info.devnet and config.beldexnet_devnet_url %}
-                <span class="beldex-border"><a href="{{config.beldexnet_devnet_url}}">Connect via Beldexnet</a></span>
+            {% if info.mainnet and config.belnet_mainnet_url %}
+                <span class="beldex-border"><a href="{{config.belnet_mainnet_url}}">Connect via Belnet</a></span>
+            {% elif info.testnet and config.belnet_testnet_url %}
+                <span class="beldex-border"><a href="{{config.belnet_testnet_url}}">Connect via Belnet</a></span>
+            {% elif info.devnet and config.belnet_devnet_url %}
+                <span class="beldex-border"><a href="{{config.belnet_devnet_url}}">Connect via Belnet</a></span>
             {% endif %}
 
             {% if config.testnet_url and not info.testnet %}
                 <span class="beldex-border"><a href="{{config.testnet_url}}">Go to testnet explorer</a>
-                    {%if config.beldexnet_testnet_url%}(<a href="{{config.beldexnet_testnet_url}}">via Beldexnet</a>){%endif%}
+                    {%if config.belnet_testnet_url%}(<a href="{{config.belnet_testnet_url}}">via Belnet</a>){%endif%}
                 </span>
             {% endif %}
             {% if config.devnet_url and not info.devnet %}
                 <span class="beldex-border"><a href="{{config.devnet_url}}">Go to devnet explorer</a>
-                    {%if config.beldexnet_devnet_url%}(<a href="{{config.beldexnet_devnet_url}}">via Beldexnet</a>){%endif%}
+                    {%if config.belnet_devnet_url%}(<a href="{{config.belnet_devnet_url}}">via Belnet</a>){%endif%}
                 </span>
             {% endif %}
             {% if config.mainnet_url and not info.mainnet %}
                 <span class="beldex-border"><a href="{{config.mainnet_url}}">Go to mainnet explorer</a>
-                    {%if config.beldexnet_mainnet_url%}(<a href="{{config.beldexnet_mainnet_url}}">via Beldexnet</a>){%endif%}
+                    {%if config.belnet_mainnet_url%}(<a href="{{config.belnet_mainnet_url}}">via Belnet</a>){%endif%}
                 </span>
             {% endif %} 
             {% if info.testnet %}

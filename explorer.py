@@ -37,7 +37,7 @@ app = flask.Flask(__name__)
 
 # env = Environment(extensions=["jinja2.ext.i18n"])
 # jinja_env = Environment('])
-# app.jinja_options["extensions"].append('jinja2.ext.loopcontrols')
+app.jinja_options["extensions"].append('jinja2.ext.loopcontrols')
 
 
 
@@ -903,7 +903,7 @@ def show_tx_info(txid, more_details=False):
             "data":data,
             "status": "success"
             })
-            
+
 @app.route('/api/emission')
 def api_emission():
     lmq, beldexd = lmq_connection()
@@ -950,7 +950,7 @@ def api_master_node_stats():
         stats['staked'] += mn['total_contributed']
 
     stats['staked'] /= 1_000_000_000
-    stats['mn_reward'] = 16.5
+    stats['mn_reward'] = 6.25
     stats['mn_reward_interval'] = stats['active']
     stakinginfo = stakinginfo.get()
     stats['mn_staking_requirement_full'] = stakinginfo['staking_requirement'] / 1_000_000_000
@@ -967,6 +967,7 @@ def api_circulating_supply():
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
             args={"height":0, "count":2**31-1}).get()
     return flask.jsonify((coinbase["emission_amount"] - coinbase["burn_amount"]) // 1_000_000_000 if coinbase else None)
+
 
 @app.route('/api/get_transaction_data/<hex64:txid>')
 def api_get_transaction_data(txid):
@@ -1012,7 +1013,7 @@ ticker_cache, ticker_cache_expires = {}, None
 def api_price(fiat=None):
     global ticker_cache, ticker_cache_expires, ticker_vs, ticker_vs_expires
     # TODO: will need to change to 'beldex' when/if the ticker changes:
-    ticker = 'beldex-network'
+    ticker = 'beldex'
 
     if not ticker_cache or not ticker_cache_expires or ticker_cache_expires < time.time():
         if not ticker_vs_expires or ticker_vs_expires < time.time():
@@ -1044,3 +1045,4 @@ def api_price(fiat=None):
     else:
         fiat = fiat.lower()
         return flask.jsonify({ fiat: ticker_cache[fiat] } if fiat in ticker_cache else {})
+        
