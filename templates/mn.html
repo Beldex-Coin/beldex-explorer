@@ -16,7 +16,7 @@
         {%if mn.pubkey_ed25519 != mn.master_node_pubkey%}
           <h4 style="margin:5px"><label>Master Node Auxiliary Pubkey:</label> {{mn.pubkey_ed25519}}</h4>
         {%endif%}
-        <h4 style="margin:5px"><label>Beldexnet Address:</label> {{mn.pubkey_ed25519 | base32z}}.mnode</h4>
+        <h4 style="margin:5px"><label>Belnet Address:</label> {{mn.pubkey_ed25519 | base32z}}.mnode</h4>
       {%endif%}
       <h4 style="margin:5px"><label>Operator Address:</label> {{mn.operator_address}}</h4>
     </div>
