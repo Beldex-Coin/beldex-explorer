@@ -63,17 +63,23 @@ that it can open the beldexd unix socket):
 
     chown www-data:www-data /etc/uwsgi-emperor/vassals/beldex-explorer.ini
 
-In the beldex-explorer/mainnet.py, set:
+In the beldex-explorer/mainnet.py, beldex-explorer/config.py, set:
 
     config.beldexd_rpc = 'ipc:///path/to/beldex-explorer/mainnet.sock'
 
-and finally, proxy requests from the webserver to the wsgi socket.  For Apache I do this with:
+## Setting up for HTTP Server with Apache:
+ 
+ Finally, proxy requests from the webserver to the wsgi socket.
+    
+    apt install apache2
+
+ For Apache  `/etc/apache2/apache2.conf` do this with:
 
     # Allow access to static files (e.g. .css and .js):
     <Directory /path/to/beldex-explorer/static>
         Require all granted
     </Directory>
-    DocumentRoot /home/sanada08/src/beldex-explorer/static
+    DocumentRoot /path/to/beldex-explorer/static
 
     # Proxy everything else via the uwsgi socket:
     ProxyPassMatch "^/[^/]*\.(?:css|js)(?:$|\?)" !
