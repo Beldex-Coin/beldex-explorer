@@ -100,7 +100,7 @@
             
         {% endif %}
 
-        <!-- <h4 class="info_list nowrap-spans">
+        <h4 class="info_list nowrap-spans">
             <span><label>Circulating Supply*:</label>:
                 {% if not emission or emission.status == 'BUSY' %}
                     (still calculating...)</span>
@@ -114,7 +114,8 @@
             * — Circulating supply may exclude any currently, publicised locked tokens, otherwise it is equal to the Coinbase minus burned coins.
             Fees includes paid transaction fees less any portion of the fee that was burned.
             </p>
-        </h4> -->
+            <span><label>Total BNS: </label>{{bns}}</span>
+        </h4>
 
         <div class="TitleDivider" style="display: none;"></div>
 
@@ -128,6 +129,7 @@
             <span>🔓 Stake Unlock</span>
             <span>📝 Beldex Name System Purchase</span>
             <span>💾 BNS Update</span>
+            <span>⏳ BNS Renew</span>
         </h4>
     </div>
 
