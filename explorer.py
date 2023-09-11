@@ -23,6 +23,13 @@ import config
 import local_config
 from lmq import FutureJSON, lmq_connection
 
+import base64
+import nacl.encoding
+import nacl.hash 
+import pysodium
+import sha3
+import base58
+
 # Make a dict of config.* to pass to templating
 conf = {x: getattr(config, x) for x in dir(config) if not x.startswith('__')}
 
@@ -294,7 +301,7 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     # potentially run in parallel.
     info = inforeq.get()
     height = info['height']
-
+    bns = info['bns_counts']
     # Permalinked block range:
     if first is not None and last is not None and 0 <= first <= last and last <= first + 99:
         start_height, end_height = first, last
@@ -343,6 +350,7 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     awaiting_mns, active_mns, inactive_mns = get_mns(mns, inforeq)
 
     return flask.render_template('index.html',
+            bns=bns,
             info=info,
             stake=stake.get(),
             fees=base_fee.get(),
@@ -432,6 +440,71 @@ def block_with_txs_req(lmq, beldexd, hash_or_height, **kwargs):
 
     return FutureJSON(lmq, beldexd, 'rpc.get_block', cache_key='single', args=args, **kwargs)
 
+
+def bns_decrypt(lmq, beldexd, name, type, encrypted_value, **kwargs):
+    return FutureJSON(lmq, beldexd, 'rpc.bns_value_decrypt', args={
+        "name" : name ,"type" : type ,"encrypted_value" : encrypted_value})
+
+def bns_info(lmq, beldexd, name, **kwargs):
+    name_hash = nacl.hash.blake2b(name.encode(), encoder = nacl.encoding.Base64Encoder)
+    return FutureJSON(lmq, beldexd, 'rpc.bns_names_to_owners', args={
+        "entries" : [name_hash.decode('ascii')]})
+
+@app.route('/bns/<string:name>')
+@app.route('/bns/<string:name>/<int:more_details>')
+def show_bns(name, more_details=False):
+    name = name.lower()
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    if len(name) > 64 or not all(c.isalnum() or c in '_-' for c in name):
+        return flask.render_template('not_found.html',
+            info=info.get(),
+            type='bad_search',
+            id=name,
+            )
+    bns_types = {'bchat':0,'wallet':1,'belnet':2}
+    bns_data = {'name':name}
+    name = name+'.bdx'
+    ENCRYPTED_BCHAT_LENGTH = 146  # If the encrypted value is not of expected character
+    ENCRYPTED_WALLET_LENGTH = 210   # length it is of HF15 and before.
+    ENCRYPTED_BELNET_LENGTH = 144  # The user must update their bchat mapping.
+    bnsinfo = bns_info(lmq, beldexd, name).get()
+    if 'entries' not in bnsinfo:
+     # If returned with no data from the RPC
+            bns_data['result'] = True
+    else:
+        bnsinfo = bnsinfo['entries'][0]
+        bns_data['result'] = bnsinfo
+        if (len(bnsinfo['encrypted_bchat_value']) != 0):
+            type = 'bchat'
+            encrypted_bchat_value = bnsinfo['encrypted_bchat_value']
+            bns_decrypt_bchat = bns_decrypt(lmq, beldexd, name, type, encrypted_bchat_value).get()
+            bns_data['result']['bchat_value'] = bns_decrypt_bchat['value']
+        if (len(bnsinfo['encrypted_belnet_value']) != 0):
+            type = 'belnet'
+            encrypted_belnet_value = bnsinfo['encrypted_belnet_value']
+            bns_decrypt_belnet = bns_decrypt(lmq, beldexd, name, type, encrypted_belnet_value).get()
+            bns_data['result']['belnet_value'] = bns_decrypt_belnet['value']
+        if (len(bnsinfo['encrypted_wallet_value']) != 0):
+            type = 'wallet'
+            encrypted_wallet_value = bnsinfo['encrypted_wallet_value']
+            bns_decrypt_wallet = bns_decrypt(lmq, beldexd, name, type, encrypted_wallet_value).get()
+            bns_data['result']['wallet_value'] = bns_decrypt_wallet['value']
+
+    if more_details:
+        formatter = HtmlFormatter(cssclass="syntax-highlight", style="paraiso-dark")
+        more_details = {
+                'details_css': formatter.get_style_defs('.syntax-highlight'),
+                'details_html': highlight(json.dumps(bns_data, indent="\t"), JsonLexer(), formatter),
+                }
+    else:
+        more_details = {}
+                
+    return flask.render_template('bns.html',
+            info=info.get(),
+            bns=bns_data,
+            **more_details,
+            )
 
 @app.route('/master_node/<hex64:pubkey>')  # For backwards compatibility with old explorer URLs
 @app.route('/mn/<hex64:pubkey>')
@@ -711,7 +784,13 @@ def search():
         # The above loads 260 bytes (5 bits per char * 52 chars), but we only want 256:
         v >>= 4
         val = "{:64x}".format(v)
+    if val and len(val) <= 68 and val.endswith(".bdx"):
+        val = val.rstrip('.bdx')
 
+    # BNS can be of length 64 however with txids, and sn pubkey's being of length 64 
+    # I have removed it from the possible searches.
+    if len(val) < 64 and all(c.isalnum() or c in '_-' for c in val):
+        return flask.redirect(flask.url_for('show_bns', name=val), code=301) 
     elif not val or len(val) != 64 or any(c not in string.hexdigits for c in val):
         return flask.render_template('not_found.html',
                 info=info.get(),
