@@ -164,11 +164,13 @@ This tx does not includes a vote from this testing master node (only 7 votes are
             <p class="unlock-pubkey"><label>Master Node Public Key:</label> <a href="/mn/{{tx.extra.mn_pubkey}}">{{tx.extra.mn_pubkey}}</a></p>
             <p><label>Unlock key image:</label> {{unlock_key_image}}</p> {# FIXME #}
             <p><label>Unlock signature:</label> {{unlock_signature}}</p> {# FIXME #}
-        {% elif tx.info.type == 4 and 'lns' in tx.extra %}
-            {% if 'buy' in tx.extra.lns %}
-                <h2> Beldex Name Service Registration</h2>
-            {% elif 'update' in tx.extra.lns %}
+        {% elif tx.info.type == 4 and 'bns' in tx.extra %}
+            {% if 'buy' in tx.extra.bns %}
+                <h2>📝 Beldex Name Service Registration</h2>
+            {% elif 'update' in tx.extra.bns %}
                 <h2>💾 Beldex Name Service Update</h2>
+            {% elif 'renew' in tx.extra.bns %}
+                <h2>⏳ Beldex Name Service Renew</h2>
             {% endif %}
             {#FIXME - show some metadata?#}
         {% elif 'mn_registration' in tx.extra %}
