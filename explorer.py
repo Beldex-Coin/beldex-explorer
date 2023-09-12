@@ -462,6 +462,12 @@ def show_bns(name, more_details=False):
             type='bad_search',
             id=name,
             )
+    if name in ["localhost", "bdx", "mnode", "beldex"]:
+        return flask.render_template('not_found.html',
+            info=info.get(),
+            type='bns_reserved',
+            id=name,
+            )
     bns_types = {'bchat':0,'wallet':1,'belnet':2}
     bns_data = {'name':name}
     name = name+'.bdx'
