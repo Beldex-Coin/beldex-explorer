@@ -14,7 +14,7 @@
             {% endif -%}
         {% elif tx.info.type == 2 -%}
             <span class="icon" title="Master Node stake unlock — {{tx.extra.mn_pubkey}}">🔓{%if text%} unlock{%endif%}</span>
-            {% elif tx.info.type == 4 and 'bns' in tx.extra -%}
+        {% elif tx.info.type == 4 and 'bns' in tx.extra -%}
             {% if 'buy' in tx.extra.bns -%}
                 <span class="icon" title="Beldex Name Service Buying">📝{%if text%} BNS purchase{%endif%}</span>
             {% elif 'update' in tx.extra.bns -%}
