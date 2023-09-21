@@ -66,9 +66,9 @@
     <span>
     <label>{%if decommed %}Remaining{%else%}Allowed{%endif%} downtime:</label>
     {%if mn.earned_downtime_blocks > 0%}
-      {{ (mn.earned_downtime_blocks * 120) | reltime(in_ago=false) }} ({{mn.earned_downtime_blocks}} blocks)
+      {{ (mn.earned_downtime_blocks * 30) | reltime(in_ago=false) }} ({{mn.earned_downtime_blocks}} blocks)
       {%if not decommed and mn.earned_downtime_blocks < 60%}
-        <span class="note">(Note: ≥ 60 blocks required)</span>
+        <span class="note">(Note: ≥ 240 blocks required)</span>
       {%endif%}
     {%else%}
       None
@@ -141,9 +141,9 @@
       <label>Next MN test:</label>
       {%if next_test.height%}
         Block {{next_test.height}}
-        ({%if next_test.height == info.height%}Now!{%else%}~{{((next_test.height - info.height) * 120) | reltime(in_ago=false)}}{%endif%})
+        ({%if next_test.height == info.height%}Now!{%else%}~{{((next_test.height - info.height) * 30) | reltime(in_ago=false)}}{%endif%})
       {%else%}
-        <span title="&gt;12 blocks (~24 minutes): future test quorums are only known 12 blocks in advance">Unknown</span>
+        <span title="&gt;12 blocks (~6 minutes): future test quorums are only known 12 blocks in advance">Unknown</span>
       {%endif%}
     </span>
 
@@ -159,7 +159,7 @@
     {{mn.state_height}}) for failing to meet master node requirements.
     {%if mn.earned_downtime_blocks > 0%}
       If it does not return to active duty within {{mn.earned_downtime_blocks}} blocks (about
-      {{(mn.earned_downtime_blocks * 120) | reltime(in_ago=false)}}) it will face <span class="omg">deregistration</span>.
+      {{(mn.earned_downtime_blocks * 30) | reltime(in_ago=false)}}) it will face <span class="omg">deregistration</span>.
     {%else%}
       The decommission time has expired; master node <span class="omg">deregistration</span> is imminent.
     {%endif%}
@@ -176,8 +176,8 @@
   <p class="mn-expiration{%if mn.requested_unlock_height > 0%} unlocking{%endif%}">
     {%if mn.requested_unlock_height > 0%}
       This master node is <span class="omg">scheduled to expire at block {{mn.requested_unlock_height}}</span>, in approximately
-      {{((mn.requested_unlock_height - info.height + 1) * 120) | reltime(in_ago=false) }}
-      ({{(server.timestamp + (mn.requested_unlock_height - info.height + 1) * 120) | from_timestamp | format_datetime('short')}} UTC, est.)
+      {{((mn.requested_unlock_height - info.height + 1) * 30) | reltime(in_ago=false) }}
+      ({{(server.timestamp + (mn.requested_unlock_height - info.height + 1) * 30) | from_timestamp | format_datetime('short')}} UTC, est.)
     {%else%}
       This master node is staking infinitely: no unlock has been initiated by any of its contributors.
     {%endif%}
