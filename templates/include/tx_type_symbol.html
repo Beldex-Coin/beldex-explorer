@@ -34,10 +34,12 @@
         {%- elif 'mn_contributor' in tx.extra -%}
             <span class="icon" title="Master Node contribution – {{tx.extra.mn_pubkey}} / {{tx.extra.mn_contributor}}">🤝
             {%-if text%} contribution{%endif%}</span>
+        {%- elif tx.coinbase%}
+            <span class="icon" title="Block reward">🎁{%if text%} blockreward{%endif%}</span>
         {%- elif text -%}
-            {%if tx.coinbase%}block reward{%else%}transfer{%endif%}
+            transfer
         {%- endif -%}
     {%- elif standard -%}
-        {%if tx.coinbase%}block reward{%else%}transfer{%endif%}
+        {%if tx.coinbase%}<span class="icon" title="Block reward">🎁{%if text%} block reward{%endif%}</span>{%else%}transfer{%endif%}
     {%- endif -%}
 {% endmacro -%}
