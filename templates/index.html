@@ -130,6 +130,7 @@
             <span>📝 Beldex Name System Purchase</span>
             <span>💾 BNS Update</span>
             <span>⏳ BNS Renew</span>
+            <span>🎁 Block Reward</span>
         </h4>
     </div>
 
@@ -180,7 +181,7 @@
                 <td><a href="/block/{{b.height}}">{{b.height}}</a></td>
                 <td title="{{b.timestamp | from_timestamp | format_datetime}}">{{b.timestamp | from_timestamp | ago}}</td>
                 <td>{{b.block_size | si}}</td>
-                <td>{{symbol.display(b.txs[0])}}</td>
+                <td title="Block reward" style="cursor: help">🎁</td>
                 <td><a href="/tx/{{b.miner_tx_hash}}">{{b.miner_tx_hash}}</a></td>
                 <td>{{fee.display(b.txs[0])}}</td>
                 <td>{{b.reward | beldex(tag=False, fixed=True, decimals=2)}}</td>
