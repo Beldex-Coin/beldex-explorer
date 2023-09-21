@@ -28,8 +28,8 @@
                 <td>
                     {%if mn.requested_unlock_height%}
                         <span title="Master Node unlock in progress (unlocks at block {{mn.requested_unlock_height}})">🔓</span>
-                        {{((mn.requested_unlock_height - info.height) * 120 + server.datetime.timestamp()) | from_timestamp | format_datetime('short')}}
-                        ({{((mn.requested_unlock_height - info.height) * 120) | reltime}})
+                        {{((mn.requested_unlock_height - info.height) * 30 + server.datetime.timestamp()) | from_timestamp | format_datetime('short')}}
+                        ({{((mn.requested_unlock_height - info.height) * 30) | reltime}})
                     {%else%}
                         Staking Infinitely
                     {%endif%}
