@@ -14,11 +14,13 @@
             {% endif -%}
         {% elif tx.info.type == 2 -%}
             <span class="icon" title="Master Node stake unlock — {{tx.extra.mn_pubkey}}">🔓{%if text%} unlock{%endif%}</span>
-        {% elif tx.info.type == 4 and 'lns' in tx.extra -%}
-            {% if 'buy' in tx.extra.lns -%}
-                <span class="icon" title="Beldex Name Service Buying">📝{%if text%} LNS purchase{%endif%}</span>
-            {% elif 'update' in tx.extra.lns -%}
-                <span class="icon" title="Beldex Name Service Updating">💾{%if text%} LNS update{%endif%}</span>
+        {% elif tx.info.type == 4 and 'bns' in tx.extra -%}
+            {% if 'buy' in tx.extra.bns -%}
+                <span class="icon" title="Beldex Name Service Buying">📝{%if text%} BNS purchase{%endif%}</span>
+            {% elif 'update' in tx.extra.bns -%}
+                <span class="icon" title="Beldex Name Service Updating">💾{%if text%} BNS update{%endif%}</span>
+            {% elif 'renew' in tx.extra.bns -%}
+                <span class="icon" title="Beldex Name Service Renewing">⏳{%if text%} BNS renew{%endif%}</span>
             {% endif -%}
         {% elif 'mn_registration' in tx.extra -%}
             <span class="icon" title="Master Node registration

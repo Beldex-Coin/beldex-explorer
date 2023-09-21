@@ -1,0 +1,71 @@
+{% extends "_basic.html" %}
+
+{% block content %}
+
+<div class="mn-details Wrapper">
+  <div class="mn-details-main">
+    <div class="details">
+      <div class="bns">
+        <div style="margin-bottom:35px">
+          <h2 >Beldex Name System Lookup <b>"{{bns.name}}"</b></h2>
+        </div>
+      </div>
+      {% if bns.result.owner %}
+        <h4 style="margin:5px"><label>Name Hash         :</label> {{bns.result.name_hash}}</h4>
+        <h4 style="margin:5px"><label>Owner             :</label> {{bns.result.owner}}</h4>
+        {% if bns.result.backup_owner %}
+          <h4 style="margin:5px"><label>Backup_Owner      :</label> {{bns.result.backup_owner}}</h4>
+        {% endif %}
+        <h4 style="margin:5px"><label>TX Hash           :</label> <a href="/tx/{{bns.result.txid}}">{{bns.result.txid}}</a></h4>
+        <h4 style="margin:5px"><label>Update Height     :</label> <a href="/block/{{bns.result.update_height}}">{{bns.result.update_height}}</a></h4>
+        <h4 style="margin:5px"><label>Expiration Height :</label> <a href="/block/{{bns.result.expiration_height}}">{{bns.result.expiration_height}}</a></h4>
+        <h2 style="margin-top:35px"><label>Bchat</label></h2>
+        <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+        {% if bns.result.encrypted_bchat_value %}
+          <h4 style="margin:5px"><label>Available:</label> No</h4>
+          <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.bchat_value}}</h4>
+        {%else%}
+          <h4 style="margin:5px"><label>Available:</label> Available Only for the above owner</h4>
+        {% endif %}
+        <h2 style="margin-top:35px"><label>Wallet</label></h2>  
+        <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+        {% if bns.result.encrypted_wallet_value %}
+          <h4 style="margin:5px"><label>Available:</label> No</h4>
+          <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.wallet_value}}</h4>
+        {%else%}
+          <h4 style="margin:5px"><label>Available:</label> Available Only for the above owner</h4>
+        {% endif %}
+        <h2 style="margin-top:35px"><label>Belnet</label></h2> 
+        <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+        {% if bns.result.encrypted_belnet_value %}
+          <h4 style="margin:5px"><label>Available:</label> No</h4>
+          <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.belnet_value}}</h4>
+        {%else%}
+          <h4 style="margin:5px"><label>Available:</label> Available Only for the above owner</h4>
+      {% endif %}
+      {%else%}
+        <h2 style="margin-top:35px"><label> Bchat</label></h2>
+        <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+        <h4 style="margin:5px"><label>Available:</label> Yes</h4>
+        <h2 style="margin-top:35px"><label> Wallet</label></h2>
+        <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+        <h4 style="margin:5px"><label>Available:</label> Yes</h4>
+        <h2 style="margin-top:35px"><label> Belnet</label></h2>
+        <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+        <h4 style="margin:5px"><label>Available:</label> Yes</h4>
+      {% endif %}
+    </div>
+  </div>
+  {%if details_html%}
+  <style type="text/css">
+    {{details_css | safe}}
+  </style>
+  <div class="TitleDivider" id="more_details"></div>
+    {{details_html | safe}}
+  {%else%}
+    <h5>
+      <a href="/bns/{{bns.name}}/1#more_details">Show raw details</a>
+    </h5>
+  {%endif%}
+</div>
+{% endblock %}
