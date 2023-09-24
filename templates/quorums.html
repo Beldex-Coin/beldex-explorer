@@ -18,11 +18,11 @@
                     because info.height is the top height + 1 #}
                     Block {{q.height + 13}}
                     {%if q.height + 13 > info.height%}
-                        (~{{(q.height + 13 - info.height) * 2}} minutes)
+                        (~{{(q.height + 13 - info.height) * 0.5}} minutes)
                     {%elif q.height + 13 == info.height%}
                         (testing now!)
                     {%else%}
-                        (~{{(info.height - (q.height + 13)) * 2}} minutes ago)
+                        (~{{(info.height - (q.height + 13)) * 0.5}} minutes ago)
                     {%endif%}
                 </h2>
 

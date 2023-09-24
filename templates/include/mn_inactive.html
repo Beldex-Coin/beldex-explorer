@@ -16,7 +16,7 @@
                 {%include 'include/mn_kcf.html'%}
                 <td>{{mn.state_height}}</td>
                 <td>{{mn.last_uptime_proof | from_timestamp | ago if mn.last_uptime_proof > 0 else "Not Received"}}</td>
-                <td>{%if mn.decomm_blocks_remaining > 0%}{{mn.decomm_blocks_remaining}} ({{(mn.decomm_blocks_remaining * 120) | reltime}})
+                <td>{%if mn.decomm_blocks_remaining > 0%}{{mn.decomm_blocks_remaining}} ({{(mn.decomm_blocks_remaining * 30) | reltime}})
                         {%-else%}None (deregistration imminent!)
                         {%-endif%}</td>
             </tr>
