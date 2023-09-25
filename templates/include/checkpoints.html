@@ -18,7 +18,7 @@
           <td><a href="/block/{{cp.height}}">{{cp.height}}</a></td>
           <td><a href="/block/{{cp.block_hash}}">{{cp.block_hash}}</a></td>
           <td>
-            <a href="/checkpoint_quorum/{{cp.height}}"></a>{{cp.signatures|length}}/20 signatures:
+            {{cp.signatures|length}}/20 signatures:
             {%for sig in cp.signatures%}
               {%set prev_ind = 0 if loop.index0 == 0 else cp.signatures[loop.index0 - 1].voter_index%}
               {%for missing in range(prev_ind + 1, sig.voter_index)%}
