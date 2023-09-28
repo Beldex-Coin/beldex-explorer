@@ -4,7 +4,7 @@ awesome, safe.
 
 ## Prerequisite packages 
 
-    sudo apt install build-essential pkg-config libsodium-dev libzmq3-dev python3-dev python3-flask python3-babel python3-pygments python3-qrcode
+    sudo apt install build-essential pkg-config libsodium-dev libzmq3-dev python3-dev python3-flask python3-babel python3-pygments python3-qrcode python3-pysodium python3-sha3 python3-base58
 
 ## Building and running
 
