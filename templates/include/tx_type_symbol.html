@@ -22,8 +22,8 @@
             {% elif 'renew' in tx.extra.bns -%}
                 <span class="icon" title="Beldex Name Service Renewing">⏳{%if text%} BNS renew{%endif%}</span>
             {% endif -%}
-        {% elif tx.info.type == 5-%}
-            <span class="icon" title="Coin Burn"> 🕯{%if text%}Coin Burn{%endif%}</span>       
+        {% elif tx.info.type == 5 -%}
+            <span class="icon" title="Coin Burn"> 🕯{%if text%}Coin Burn{%endif%}</span>
         {% elif 'mn_registration' in tx.extra -%}
             <span class="icon" title="Master Node registration
                          {%-if tx.extra.mn_registration.fee == 1000000%} (solo)

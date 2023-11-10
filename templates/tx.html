@@ -175,6 +175,8 @@ This tx does not includes a vote from this testing master node (only 7 votes are
         {% elif tx.info.type == 5 %}
             <h2>🕯︎ Coin Burn</h2>
             {#FIXME - show some metadata?#}
+        {% elif tx.info.type == 5 %}
+            <h2>🕯︎ Coin Burn</h2>
         {% elif 'mn_registration' in tx.extra %}
             <h2>👑 Master Node Register Metadata</h2>
             <div class="TitleDivider"></div>

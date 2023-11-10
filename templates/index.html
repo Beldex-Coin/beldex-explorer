@@ -106,7 +106,7 @@
                     (still calculating...)</span>
                 {% elif emission.status == 'OK' %}
                     {{(emission.emission_amount - emission.burn_amount) | beldex}}</span>
-                <span><label>(Coinbase:</label> {{emission.emission_amount | beldex}}</span>
+                <span><label>(Emission:</label> {{emission.emission_amount | beldex}}</span>
                 <span><label>Fees:</label> {{emission.fee_amount | beldex}}</span>
                 <span><label>Burned:</label> {{emission.burn_amount | beldex}}<label>).</label></span>
                 {%endif%}
