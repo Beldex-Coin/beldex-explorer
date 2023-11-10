@@ -172,6 +172,8 @@ This tx does not includes a vote from this testing master node (only 7 votes are
             {% elif 'renew' in tx.extra.bns %}
                 <h2>⏳ Beldex Name Service Renew</h2>
             {% endif %}
+        {% elif tx.info.type == 5 %}
+            <h2>🕯︎ Coin Burn</h2>
             {#FIXME - show some metadata?#}
         {% elif tx.info.type == 5 %}
             <h2>🕯︎ Coin Burn</h2>
