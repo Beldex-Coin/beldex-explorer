@@ -462,7 +462,7 @@ def show_bns(name, more_details=False):
             type='bad_search',
             id=name,
             )
-    if name in ["localhost", "bdx", "mnode", "beldex"]:
+    if name in ["localhost", "mnode", "beldex"]:
         return flask.render_template('not_found.html',
             info=info.get(),
             type='bns_reserved',
