@@ -4,7 +4,7 @@ awesome, safe.
 
 ## Prerequisite packages 
 
-sudo apt install build-essential pkg-config libsodium-dev libzmq3-dev python3-dev python3-flask python3-babel python3-pygments
+    sudo apt install build-essential pkg-config libsodium-dev libzmq3-dev python3-dev python3-flask python3-babel python3-pygments python3-qrcode python3-pysodium python3-sha3 python3-base58
 
 ## Building and running
 
@@ -58,22 +58,28 @@ Create a "vassal" config for beldex-explorer, `/etc/uwsgi-emperor/vassals/beldex
 
     logger = file:logfile=/path/to/beldex-explorer/mainnet.log
 
-Set ownership of this user to whatever use you want it to run as, and set the group to `_beldex` (so
+Set ownership of this user to whatever use you want it to run as, and set the group to `www-data` (so
 that it can open the beldexd unix socket):
 
-    chown MYUSERNAME:_beldex /etc/uwsgi-emperor/vassals/beldex-explorer.ini
+    chown www-data:www-data /etc/uwsgi-emperor/vassals/beldex-explorer.ini
 
-In the beldex-explorer/mainnet.py, set:
+In the beldex-explorer/mainnet.py, beldex-explorer/config.py, set:
 
-    config.beldexd_rpc = 'ipc:///var/lib/beldex/beldexd.sock'
+    config.beldexd_rpc = 'ipc:///path/to/beldex-explorer/mainnet.sock'
 
-and finally, proxy requests from the webserver to the wsgi socket.  For Apache I do this with:
+## Setting up for HTTP Server with Apache:
+ 
+ Finally, proxy requests from the webserver to the wsgi socket.
+    
+    apt install apache2
+
+ For Apache  `/etc/apache2/apache2.conf` do this with:
 
     # Allow access to static files (e.g. .css and .js):
     <Directory /path/to/beldex-explorer/static>
         Require all granted
     </Directory>
-    DocumentRoot /home/sanada08/src/beldex-explorer/static
+    DocumentRoot /path/to/beldex-explorer/static
 
     # Proxy everything else via the uwsgi socket:
     ProxyPassMatch "^/[^/]*\.(?:css|js)(?:$|\?)" !

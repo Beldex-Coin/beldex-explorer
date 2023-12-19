@@ -25,27 +25,27 @@
                 </span>
             {% endif %}
 
-            {% if info.mainnet and config.beldexnet_mainnet_url %}
-                <span class="beldex-border"><a href="{{config.beldexnet_mainnet_url}}">Connect via Beldexnet</a></span>
-            {% elif info.testnet and config.beldexnet_testnet_url %}
-                <span class="beldex-border"><a href="{{config.beldexnet_testnet_url}}">Connect via Beldexnet</a></span>
-            {% elif info.devnet and config.beldexnet_devnet_url %}
-                <span class="beldex-border"><a href="{{config.beldexnet_devnet_url}}">Connect via Beldexnet</a></span>
+            {% if info.mainnet and config.belnet_mainnet_url %}
+                <span class="beldex-border"><a href="{{config.belnet_mainnet_url}}">Connect via Belnet</a></span>
+            {% elif info.testnet and config.belnet_testnet_url %}
+                <span class="beldex-border"><a href="{{config.belnet_testnet_url}}">Connect via Belnet</a></span>
+            {% elif info.devnet and config.belnet_devnet_url %}
+                <span class="beldex-border"><a href="{{config.belnet_devnet_url}}">Connect via Belnet</a></span>
             {% endif %}
 
             {% if config.testnet_url and not info.testnet %}
                 <span class="beldex-border"><a href="{{config.testnet_url}}">Go to testnet explorer</a>
-                    {%if config.beldexnet_testnet_url%}(<a href="{{config.beldexnet_testnet_url}}">via Beldexnet</a>){%endif%}
+                    {%if config.belnet_testnet_url%}(<a href="{{config.belnet_testnet_url}}">via Belnet</a>){%endif%}
                 </span>
             {% endif %}
             {% if config.devnet_url and not info.devnet %}
                 <span class="beldex-border"><a href="{{config.devnet_url}}">Go to devnet explorer</a>
-                    {%if config.beldexnet_devnet_url%}(<a href="{{config.beldexnet_devnet_url}}">via Beldexnet</a>){%endif%}
+                    {%if config.belnet_devnet_url%}(<a href="{{config.belnet_devnet_url}}">via Belnet</a>){%endif%}
                 </span>
             {% endif %}
             {% if config.mainnet_url and not info.mainnet %}
                 <span class="beldex-border"><a href="{{config.mainnet_url}}">Go to mainnet explorer</a>
-                    {%if config.beldexnet_mainnet_url%}(<a href="{{config.beldexnet_mainnet_url}}">via Beldexnet</a>){%endif%}
+                    {%if config.belnet_mainnet_url%}(<a href="{{config.belnet_mainnet_url}}">via Belnet</a>){%endif%}
                 </span>
             {% endif %} 
             {% if info.testnet %}
@@ -100,13 +100,13 @@
             
         {% endif %}
 
-        <!-- <h4 class="info_list nowrap-spans">
+        <h4 class="info_list nowrap-spans">
             <span><label>Circulating Supply*:</label>:
                 {% if not emission or emission.status == 'BUSY' %}
                     (still calculating...)</span>
                 {% elif emission.status == 'OK' %}
                     {{(emission.emission_amount - emission.burn_amount) | beldex}}</span>
-                <span><label>(Coinbase:</label> {{emission.emission_amount | beldex}}</span>
+                <span><label>(Emission:</label> {{emission.emission_amount | beldex}}</span>
                 <span><label>Fees:</label> {{emission.fee_amount | beldex}}</span>
                 <span><label>Burned:</label> {{emission.burn_amount | beldex}}<label>).</label></span>
                 {%endif%}
@@ -114,7 +114,24 @@
             * — Circulating supply may exclude any currently, publicised locked tokens, otherwise it is equal to the Coinbase minus burned coins.
             Fees includes paid transaction fees less any portion of the fee that was burned.
             </p>
-        </h4> -->
+            <span><label>Total BNS: </label>{{bns}}</span>
+        </h4>
+
+        <p id="bdxPrice"></p>
+        <script>
+            // JavaScript code to fetch BDX price from CoinGecko API and update the HTML
+            fetch('https://api.coingecko.com/api/v3/simple/price?ids=beldex&vs_currencies=usd')
+                .then(response => response.json())
+                .then(data => {
+                    const bdxPrice = data.beldex.usd;
+                    document.getElementById('bdxPriceLabel').textContent = bdxPrice;
+                })
+                .catch(error => {
+                    console.error('Error fetching BDX price:', error);
+                    document.getElementById('bdxPriceLabel').textContent = 'Error';
+                });
+        </script>
+        <span><label>BDX Price : $</label><span id="bdxPriceLabel">Loading...</span> USD</span> <br>
 
         <div class="TitleDivider" style="display: none;"></div>
 
@@ -128,6 +145,9 @@
             <span>🔓 Stake Unlock</span>
             <span>📝 Beldex Name System Purchase</span>
             <span>💾 BNS Update</span>
+            <span>⏳ BNS Renew</span>
+            <span>🎁 Block Reward</span>
+            <span>🕯︎ Coin Burn</span>
         </h4>
     </div>
 
@@ -178,7 +198,7 @@
                 <td><a href="/block/{{b.height}}">{{b.height}}</a></td>
                 <td title="{{b.timestamp | from_timestamp | format_datetime}}">{{b.timestamp | from_timestamp | ago}}</td>
                 <td>{{b.block_size | si}}</td>
-                <td>{{symbol.display(b.txs[0])}}</td>
+                <td title="Block reward" style="cursor: help">🎁</td>
                 <td><a href="/tx/{{b.miner_tx_hash}}">{{b.miner_tx_hash}}</a></td>
                 <td>{{fee.display(b.txs[0])}}</td>
                 <td>{{b.reward | beldex(tag=False, fixed=True, decimals=2)}}</td>

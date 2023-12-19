@@ -13,6 +13,16 @@
     --header-fg-color: #ffffff;
 }
 
+div.bns {
+    margin-top: 10px;
+    margin-bottom: 20px;
+    background: #262634;
+    height: 50px;
+    display: inline-flex;
+    width: 100%;
+    justify-content: center;
+    border-radius: 10px;
+}
 
 body {
     margin: 0;

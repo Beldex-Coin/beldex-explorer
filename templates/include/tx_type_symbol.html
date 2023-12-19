@@ -14,12 +14,16 @@
             {% endif -%}
         {% elif tx.info.type == 2 -%}
             <span class="icon" title="Master Node stake unlock — {{tx.extra.mn_pubkey}}">🔓{%if text%} unlock{%endif%}</span>
-        {% elif tx.info.type == 4 and 'lns' in tx.extra -%}
-            {% if 'buy' in tx.extra.lns -%}
-                <span class="icon" title="Beldex Name Service Buying">📝{%if text%} LNS purchase{%endif%}</span>
-            {% elif 'update' in tx.extra.lns -%}
-                <span class="icon" title="Beldex Name Service Updating">💾{%if text%} LNS update{%endif%}</span>
+        {% elif tx.info.type == 4 and 'bns' in tx.extra -%}
+            {% if 'buy' in tx.extra.bns -%}
+                <span class="icon" title="Beldex Name Service Buying">📝{%if text%} BNS purchase{%endif%}</span>
+            {% elif 'update' in tx.extra.bns -%}
+                <span class="icon" title="Beldex Name Service Updating">💾{%if text%} BNS update{%endif%}</span>
+            {% elif 'renew' in tx.extra.bns -%}
+                <span class="icon" title="Beldex Name Service Renewing">⏳{%if text%} BNS renew{%endif%}</span>
             {% endif -%}
+        {% elif tx.info.type == 5 -%}
+            <span class="icon" title="Coin Burn"> 🕯{%if text%}Coin Burn{%endif%}</span>
         {% elif 'mn_registration' in tx.extra -%}
             <span class="icon" title="Master Node registration
                          {%-if tx.extra.mn_registration.fee == 1000000%} (solo)
@@ -32,10 +36,12 @@
         {%- elif 'mn_contributor' in tx.extra -%}
             <span class="icon" title="Master Node contribution – {{tx.extra.mn_pubkey}} / {{tx.extra.mn_contributor}}">🤝
             {%-if text%} contribution{%endif%}</span>
+        {%- elif tx.coinbase%}
+            <span class="icon" title="Block reward">🎁{%if text%} block reward{%endif%}</span>
         {%- elif text -%}
-            {%if tx.coinbase%}block reward{%else%}transfer{%endif%}
+            transfer
         {%- endif -%}
     {%- elif standard -%}
-        {%if tx.coinbase%}block reward{%else%}transfer{%endif%}
+        {%if tx.coinbase%}<span class="icon" title="Block reward">🎁{%if text%} block reward{%endif%}</span>{%else%}transfer{%endif%}
     {%- endif -%}
 {% endmacro -%}
