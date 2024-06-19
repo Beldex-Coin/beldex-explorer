@@ -42,6 +42,14 @@
           <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.belnet_value}}</h4>
         {%else%}
           <h4 style="margin:5px"><label>Available:</label> Available Only for the above owner</h4>
+          <h2 style="margin-top:35px"><label>Eth</label></h2>
+          <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+          {% if bns.result.encrypted_eth_addr_value %}
+            <h4 style="margin:5px"><label>Available:</label> No</h4>
+            <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.eth_addr_value}}</h4>
+          {%else%}
+            <h4 style="margin:5px"><label>Available:</label> Available Only for the above owner</h4>
+          {% endif %}
       {% endif %}
       {%else%}
         <h2 style="margin-top:35px"><label> Bchat</label></h2>
@@ -51,6 +59,9 @@
         <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
         <h4 style="margin:5px"><label>Available:</label> Yes</h4>
         <h2 style="margin-top:35px"><label> Belnet</label></h2>
+        <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
+        <h4 style="margin:5px"><label>Available:</label> Yes</h4>
+        <h2 style="margin-top:35px"><label> Eth</label></h2>
         <hr style="width: 100%; height: 3px; background-color: #39d540; border: none; display: inline-block;">
         <h4 style="margin:5px"><label>Available:</label> Yes</h4>
       {% endif %}
