@@ -450,6 +450,11 @@ def bns_info(lmq, beldexd, name, **kwargs):
     return FutureJSON(lmq, beldexd, 'rpc.bns_names_to_owners', args={
         "entries" : [name_hash.decode('ascii')]})
 
+def bns_lookup(lmq, beldexd, bnsname, **kwargs):
+    return FutureJSON(lmq, beldexd, 'rpc.bns_lookup', cache_key='single',
+            args={"name": bnsname}, **kwargs
+        )
+    
 @app.route('/bns/<string:name>')
 @app.route('/bns/<string:name>/<int:more_details>')
 def show_bns(name, more_details=False):
@@ -468,12 +473,13 @@ def show_bns(name, more_details=False):
             type='bns_reserved',
             id=name,
             )
-    bns_types = {'bchat':0,'wallet':1,'belnet':2}
+    # bns_types = {'bchat':0,'wallet':1,'belnet':2, 'eth_addr':3}
     bns_data = {'name':name}
     name = name+'.bdx'
     ENCRYPTED_BCHAT_LENGTH = 146  # If the encrypted value is not of expected character
     ENCRYPTED_WALLET_LENGTH = 210   # length it is of HF15 and before.
     ENCRYPTED_BELNET_LENGTH = 144  # The user must update their bchat mapping.
+    ENCRYPTED_ETH_LENGTH = 120 # Enable Eth address Display in HF-19
     bnsinfo = bns_info(lmq, beldexd, name).get()
     if 'entries' not in bnsinfo:
      # If returned with no data from the RPC
@@ -496,7 +502,11 @@ def show_bns(name, more_details=False):
             encrypted_wallet_value = bnsinfo['encrypted_wallet_value']
             bns_decrypt_wallet = bns_decrypt(lmq, beldexd, name, type, encrypted_wallet_value).get()
             bns_data['result']['wallet_value'] = bns_decrypt_wallet['value']
-
+        if (len(bnsinfo['encrypted_eth_addr_value']) != 0):
+            type = 'eth_addr'
+            encrypted_eth_addr_value = bnsinfo['encrypted_eth_addr_value']
+            bns_decrypt_eth_addr = bns_decrypt(lmq, beldexd, name, type, encrypted_eth_addr_value).get()
+            bns_data['result']['eth_addr_value'] = bns_decrypt_eth_addr['value']
     if more_details:
         formatter = HtmlFormatter(cssclass="syntax-highlight", style="paraiso-dark")
         more_details = {
@@ -837,6 +847,17 @@ def api_networkinfo():
     data['current_hf_version'] = hfinfo['version']
     data['next_hf_height'] = hfinfo['earliest_height'] if 'earliest_height' in hfinfo else None
     return flask.jsonify({"data": data, "status": "OK"})
+
+@app.route('/api/bnslookup')
+def api_bnslookup():
+    lmq, beldexd = lmq_connection()
+    bnsName = flask.request.args.get('name')
+    bnsinfo = bns_lookup(lmq,beldexd,bnsName).get()
+    if bnsinfo is None:
+        return jsonify({"name": "", "status": "false"})
+
+    eth_addr = bnsinfo.get('eth_addr_value', None)
+    return flask.jsonify({"ethAddress": eth_addr, "number":150, "status": "ok"})
 
 @app.route('/api/get_stats')
 def api_get_stats():
