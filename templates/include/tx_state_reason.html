@@ -11,6 +11,8 @@
         MN is not responding to time checks
     {% elif reason == 'timesync' -%}
         MN's system clock is too far off
+    {% elif reason == 'multi_mn_range' -%}
+        MN IP exceeded the range.
     {% else -%}
         Unknown reason ("{{reason}}")
     {% endif -%}

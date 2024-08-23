@@ -95,6 +95,10 @@
                         </span> &nbsp;
                         <span><label>Blockchain size:</label> {{info.database_size | si}}B</span>
                     </div>
+
+                    <div class="bel-width" style="border-left: 1px solid #a3a3a3">
+                        <span style="font-size: 13px !important"><label id="lblPrice" >BDX Price : $</label><span id="bdxPriceLabel">Loading...</span> </span>
+                    </div>
                 </div>
             </h3>
             
@@ -124,18 +128,16 @@
                 .then(response => response.json())
                 .then(data => {
                     const bdxPrice = data.beldex.usd;
-                    document.getElementById('bdxPriceLabel').textContent = bdxPrice;
+                    document.getElementById('bdxPriceLabel').textContent = bdxPrice + " USD";
                 })
                 .catch(error => {
                     console.error('Error fetching BDX price:', error);
-                    document.getElementById('bdxPriceLabel').textContent = 'Error';
+                    document.getElementById('lblPrice').remove();
+                    document.getElementById('bdxPriceLabel').remove();
                 });
         </script>
-        <span><label>BDX Price : $</label><span id="bdxPriceLabel">Loading...</span> USD</span> <br>
 
-        <div class="TitleDivider" style="display: none;"></div>
-
-        <h4 class="tx-type-legend info_list nowrap-spans bel-line" style="margin-top: 0; margin-bottom: 20px;">
+        <h4 class="tx-type-legend info_list nowrap-spans bel-line" style="margin-top: 10px; margin-bottom: 20px;">
             <span><label>TX Type Legend:</label> 👑 Master Node Registration</span>
             <span>🤝 Contribution</span>
             <span>👍 Recommission</span>
