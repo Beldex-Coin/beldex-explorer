@@ -450,10 +450,6 @@ def bns_info(lmq, beldexd, name, **kwargs):
     return FutureJSON(lmq, beldexd, 'rpc.bns_names_to_owners', args={
         "entries" : [name_hash.decode('ascii')]})
 
-def bns_lookup(lmq, beldexd, bnsname, **kwargs):
-    return FutureJSON(lmq, beldexd, 'rpc.bns_lookup', cache_key='single',
-            args={"name": bnsname}, **kwargs
-        )
     
 @app.route('/bns/<string:name>')
 @app.route('/bns/<string:name>/<int:more_details>')
@@ -851,13 +847,27 @@ def api_networkinfo():
 @app.route('/api/bnslookup')
 def api_bnslookup():
     lmq, beldexd = lmq_connection()
-    bnsName = flask.request.args.get('name')
-    bnsinfo = bns_lookup(lmq,beldexd,bnsName).get()
-    if bnsinfo is None:
-        return jsonify({"name": "", "status": "false"})
+    name = flask.request.args.get('name')
+    bnsinfo = bns_info(lmq, beldexd, name).get()
+    bns_data = {'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
 
-    eth_addr = bnsinfo.get('eth_addr_value', None)
-    return flask.jsonify({"ethAddress": eth_addr, "number":150, "status": "ok"})
+    if 'entries' in bnsinfo:
+        bnsinfo = bnsinfo['entries'][0]
+        types = {
+        'bchat': 'encrypted_bchat_value',
+        'belnet': 'encrypted_belnet_value',
+        'wallet': 'encrypted_wallet_value',
+        'eth_addr': 'encrypted_eth_addr_value'
+        }
+        for key, value in types.items():
+            if len(bnsinfo[value]) != 0:
+                decrypted_value = bns_decrypt(lmq, beldexd, name, key, bnsinfo[value]).get()
+                if key == 'eth_addr':
+                    bns_data['ethAddress'] = decrypted_value['value']
+                else:
+                    bns_data[key] = decrypted_value['value']
+
+    return flask.jsonify({"bnsData": bns_data, "status": "ok"})
 
 @app.route('/api/get_stats')
 def api_get_stats():

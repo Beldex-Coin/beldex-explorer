@@ -13,7 +13,7 @@
     </thead>
 
     <tbody>
-        {%for mn in (awaiting_mns | sort(attribute='portions_for_operator,contribution_open,contribution_required,master_node_pubkey'))[:limit_awaiting]%}
+        {%for mn in (awaiting_mns | sort(attribute='portions_for_operator'))[:limit_awaiting]%}
             <tr>
                 {%include 'include/mn_kcf.html'%}
                 <td>{{mn.total_contributed | beldex(tag=false, fixed=true)}}</td>
