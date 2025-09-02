@@ -165,13 +165,13 @@
             <a class="linked-icon" href="/range/{{blocks[0].height}}/{{blocks[-1].height}}" title="Permanent link to this block range">🔗</a>
         </h2>
 
-        {% set block_sizes = blocks | map(attribute='block_size') | sort %}
-        {%if block_sizes|count > 0%}
-          <h4 class="Subtitle">(Min. / Median / Average / Max. size of these blocks:
-            {{block_sizes[0] | si}}B /
-            {{(block_sizes[(block_sizes|count-1)//2]/2 + block_sizes[(block_sizes|count)//2]/2) | si}}B /
-            {{(block_sizes|sum / block_sizes|count) | si}}B /
-            {{block_sizes[-1] | si}}B)
+        {% set block_weights = blocks | map(attribute='block_weight') | sort %}
+        {%if block_weights|count > 0%}
+          <h4 class="Subtitle">(Min. / Median / Average / Max. weights of these blocks:
+            {{block_weights[0] | si}}B /
+            {{(block_weights[(block_weights|count-1)//2]/2 + block_weights[(block_weights|count)//2]/2) | si}}B /
+            {{(block_weights|sum / block_weights|count) | si}}B /
+            {{block_weights[-1] | si}}B)
           </h4>
         {%endif%}
         <div class="TitleUnderliner"></div>
@@ -202,10 +202,22 @@
                 <td>{{b.block_size | si}}</td>
                 <td title="Block reward" style="cursor: help">🎁</td>
                 <td><a href="/tx/{{b.miner_tx_hash}}">{{b.miner_tx_hash}}</a></td>
-                <td>{{fee.display(b.txs[0])}}</td>
+                <td>{% if b.txs and b.txs[0] is defined %}{{fee.display(b.txs[0])}}{% else %}-{% endif %}</td>
                 <td>{{b.reward | beldex(tag=False, fixed=True, decimals=2)}}</td>
-                <td>0/{{b.txs[0].info.vout | length}}</td>
-                <td>{{b.txs[0].size | si}}</td>
+                <td>
+                    {% if b.txs and b.txs[0].vout is defined %}
+                        0/{{b.txs[0].vout | length}}
+                      {% else %}
+                        0/0
+                      {% endif %}
+                    </td>
+                    <td>
+                      {% if b.txs and b.txs[0].size is defined %}
+                        {{b.txs[0].size | si}}
+                      {% else %}
+                        -
+                      {% endif %}
+                    </td>
               </tr>
               {% for tx in b.txs[1:] %}
                 <tr class="tx">
@@ -216,8 +228,13 @@
                   <td><a href="/tx/{{tx.tx_hash}}">{{tx.tx_hash}}</a></td>
                   <td>{{fee.display(tx)}}</td>
                   <td></td>
-                  <td>{{tx.info.vin | length}}/{{tx.info.vout | length}}</td>
-                  <td>{{tx.size | si}}</td>
+        <td>{% if tx is defined and tx.vin is defined and tx.vout is defined %}
+            {{tx.vin | length}}/{{tx.vout | length}}
+          {% else %}
+            -
+          {% endif %}
+        </td>
+        <td>{% if tx.size is defined %}{{tx.size | si}}{% else %}-{% endif %}</td>
                 </tr>
               {% endfor %}
             {% endfor %}
