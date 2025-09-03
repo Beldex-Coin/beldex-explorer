@@ -59,9 +59,9 @@
       {%endif%}
     </span>
 
-    {%if mn.total_reserved != mn.total_contributed%}
-      <span><label>Total reserved:</label> {{mn.total_reserved | beldex}}</span>
-    {%endif%}
+    {% if mn.total_reserved is defined and mn.total_reserved != mn.total_contributed %}
+      <span><label>Total reserved:</label> {{ (mn.total_reserved - mn.total_contributed) | beldex }}</span>
+    {% endif %}
 
     <span>
     <label>{%if decommed %}Remaining{%else%}Allowed{%endif%} downtime:</label>
@@ -168,7 +168,8 @@
     <p class="mn-awaiting">Awaiting registration.  This master node has <span class="beldex required">{{(mn.staking_requirement - mn.total_contributed) | beldex}}</span>
     remaining to be contributed.
     {%if mn.num_open_spots > 0%}
-      The minimum required stake contribution is <span class="beldex required">{{((mn.staking_requirement - mn.total_reserved) / mn.num_open_spots) | beldex}}</span>.
+      {%set total_staked = mn.total_reserved if 'total_reserved' in mn else mn.total_contributed%}
+      The minimum required stake contribution is <span class="beldex required">{{((mn.staking_requirement - mn.total_reserved | default(0)) / mn.num_open_spots) | beldex}}</span>.
     {%endif%}
     </p>
   {%endif%}
@@ -204,13 +205,12 @@
                 ({{c.locked_contributions|length}} contributions)
               {%endif-%}
             </td>
-            <td>{{c.reserved | beldex}}</td>
+            <td>{{(c.reserved if 'reserved' in c else c.amount)| default(0) | beldex}}</td>
           </tr>
         {%endfor%}
       </tbody>
     </table>
 
-    {#FIXME:#}
     {%if pending_stakes and pending_stakes|length > 0%}
       <h2>{{pending_stakes|length}} pending mempool contribution(s)</h2>
       <div class="TitleDivider"></div>
@@ -230,6 +230,18 @@
           </tr>
         {%endfor%}
       </table>
+    {%endif%}
+
+    {%if details_html%}
+      <style type="text/css">
+        {{details_css | safe}}
+      </style>
+      <div class="TitleDivider" id="more_details"></div>
+        {{details_html | safe}}
+      {%else%}
+      <h5>
+        <a href="/mn/{{mn.master_node_pubkey}}/1#more_details">Show raw details</a>
+      </h5>
     {%endif%}
 </div>
 {%endblock%}

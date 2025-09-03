@@ -46,7 +46,7 @@
           <span title="Unix timestamp: {{tx.received_timestamp}}"><label>In mempool since:</label> {{tx.received_timestamp | from_timestamp | format_datetime('short')}} UTC
           ({{tx.received_timestamp | from_timestamp | ago}} ago)</span>
         {%endif%}
-        <span><label>TX Version/Type:</label> {{tx.info.version}}/{{sym.display(tx, text=true)}}</span>
+        <span><label>TX Version/Type:</label> {{tx.version}}/{{sym.display(tx, text=true)}}</span>
         {%if not have_raw_tx%}
           {%if 'block_timestamp' in tx%}
             <span title="Unix timestamp: {{tx.block_timestamp}}"><label>Timestamp:</label> {{tx.block_timestamp | from_timestamp | format_datetime('short')}} UTC
@@ -56,17 +56,17 @@
 
         {# FIXME - if in mempool then link to mempool page instead #}
         <span><label>Fee (Per kB):</label>
-            {%if tx.coinbase or 'rct_signatures' not in tx.info%}
+            {%if tx.coinbase or 'rct_signatures' not in tx%}
                 N/A
             {%else%}
                 {{fee.display(tx)}}
-                ({{(tx.info.rct_signatures.txnFee * 1000 / tx.size) | beldex(tag=false, decimals=6)}})
+                ({{(tx.rct_signatures.txnFee * 1000 / tx.size) | beldex(tag=false, decimals=6)}})
             {%endif%}
         </span>
         <span title="{{tx.size}} bytes"><label>TX Size:</label> {{tx.size|si}}B</span>
 
         <span><label>No. Confirmations:</label> {%if 'block_height' in tx%}{{info.height - tx.block_height}}{%else%}None (in mempool){%endif%}</span>
-        <span><label>RingCT/RingCT Type:</label> {%if tx.info.version >= 2 and 'rct_signatures' in tx.info and not tx.coinbase%}Yes/{{tx.info.rct_signatures.type}}{%else%}No{%endif%}</span>
+        <span><label>RingCT/RingCT Type:</label> {%if tx.version >= 2 and 'rct_signatures' in tx and not tx.coinbase%}Yes/{{tx.rct_signatures.type}}{%else%}No{%endif%}</span>
 
         {%if tx.coinbase and tx.extra.mn_winner%}
           <span><label>Master Node Winner:</label>
@@ -78,10 +78,10 @@
           </span>
         {%endif%}
     </h4>
-    <div class="info-item"><label>Extra: </label>{{tx.info.extra}}</div>
+    <div class="info-item"><label>Extra: </label>{{tx.tx_extra_raw}}</div>
 
-    {% if tx.info.version >= 4 -%}
-        {% if tx.info.type == 1 and 'mn_state_change' in tx.extra %}
+    {% if tx.version >= 4 -%}
+        {% if tx.type == 1 and 'mn_state_change' in tx.extra %}
             <h2>
             {%- set show_reasons = false -%}
             {% if tx.extra.mn_state_change.type == 'decom' -%}
@@ -159,12 +159,12 @@ This tx does not includes a vote from this testing master node (only 7 votes are
                 </div>
             {%endif%}
 
-        {% elif tx.info.type == 2 %}
+        {% elif tx.type == 2 %}
             <h2>🔓 Master Node Unlock</h2>
             <p class="unlock-pubkey"><label>Master Node Public Key:</label> <a href="/mn/{{tx.extra.mn_pubkey}}">{{tx.extra.mn_pubkey}}</a></p>
             <p><label>Unlock key image:</label> {{unlock_key_image}}</p> {# FIXME #}
             <p><label>Unlock signature:</label> {{unlock_signature}}</p> {# FIXME #}
-        {% elif tx.info.type == 4 and 'bns' in tx.extra %}
+        {% elif tx.type == 4 and 'bns' in tx.extra %}
             {% if 'buy' in tx.extra.bns %}
                 <h2>📝 Beldex Name Service Registration</h2>
             {% elif 'update' in tx.extra.bns %}
@@ -172,7 +172,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
             {% elif 'renew' in tx.extra.bns %}
                 <h2>⏳ Beldex Name Service Renew</h2>
             {% endif %}
-        {% elif tx.info.type == 5 %}
+        {% elif tx.type == 5 %}
             <h2>🕯︎ Coin Burn</h2>
             {#FIXME - show some metadata?#}
         {% elif 'mn_registration' in tx.extra %}
@@ -180,9 +180,18 @@ This tx does not includes a vote from this testing master node (only 7 votes are
             <div class="TitleDivider"></div>
             <p><label>Master Node Public Key:</label> <a href="/mn/{{tx.extra.mn_pubkey}}">{{tx.extra.mn_pubkey}}</a></p>
             <p><label>Operator fee:</label>
-            {%if tx.extra.mn_registration.contributors[0].portion == 1000000%}N/A (solo registration)
-            {%else%}{{(tx.extra.mn_registration.fee / 10000) | chop0}}%
-            {%endif%}</p>
+              {% if tx.extra.mn_registration is defined and tx.extra.mn_registration.contributors is defined and tx.extra.mn_registration.contributors %}
+                {% if tx.extra.mn_registration.contributors[0].portion == 1000000 %}
+                  N/A (solo registration)
+                {% else %}
+                  {{ tx.extra.mn_registration.contributors[0].portion / 10000.0 | chop0 }}%
+                {% endif %}
+              {% elif tx.extra.mn_registration.fee is defined %}
+                {{ (tx.extra.mn_registration.fee / 10000.0) | chop0 }}%
+              {% else %}
+                Unknown
+              {% endif %}
+            </p>
             <p><label>Contribution Amount:</label> {%if 'stake_amount' in tx%}{{tx.stake_amount | beldex}}{%else%}???{%endif%}</p>
             <p><label>Expiration:</label> {{tx.extra.mn_registration.expiry | from_timestamp | format_datetime}} ({{tx.extra.mn_registration.expiry}}),
             or {{(tx.extra.mn_registration.expiry|from_timestamp - server.datetime) | reltime}}</p>
@@ -198,12 +207,12 @@ This tx does not includes a vote from this testing master node (only 7 votes are
                 </thead>
 
                 <tbody>
-                    {%for c in tx.extra.mn_registration.contributors%}
-                        <tr>
-                            <td>{{c.wallet}}</td>
-                            <td>{{(c.portion / 10000) | chop0}}%</td>
-                        </tr>
-                    {%endfor%}
+                  {% for wallet, portion in tx.extra.mn_registration.reservations.items() %}
+                    <tr>
+                      <td>{{ wallet }}</td>
+                      <td>{{ (portion / 10000) | chop0 }}%</td>
+                    </tr>
+                  {% endfor %}
                 </tbody>
             </table>
         {% elif 'mn_contributor' in tx.extra %}
@@ -216,10 +225,10 @@ This tx does not includes a vote from this testing master node (only 7 votes are
     {% endif %}
 
 
-    {%if tx.info.vout%}
+    {%if tx.vout%}
         <h2>Outputs</h2>
-        <h4 class="Subtitle">{{tx.info.vout|length}} output(s) for total of
-            {{tx.info.vout | sum(attribute='amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}</h4>
+        <h4 class="Subtitle">{{tx.vout|length}} output(s) for total of
+            {{tx.vout | sum(attribute='amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}</h4>
         <div class="TitleDivider"></div>
         <div class="tx-outputs">
             <table class="Table">
@@ -232,7 +241,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
                 </thead>
 
                 <tbody>
-                    {%for out in tx.info.vout%}
+                    {%for out in tx.vout%}
                         <tr>
                             <td><label>{{loop.index0}}:</label> {{out.target.key}}</td>
                             <td>{{out.amount | beldex(zero='?')}}</td>
@@ -549,12 +558,12 @@ This tx does not includes a vote from this testing master node (only 7 votes are
     {%endif%}
     #}
 
-    {%if not tx.coinbase and tx.info.vin|length > 0 %}
+    {%if not tx.coinbase and tx.vin|length > 0 %}
       <div style="height: 1em"></div>
 
       <h2>Inputs</h2>
-      <h4 class="Subtitle">{{tx.info.vin|length}} input(s) for total of
-        {{tx.info.vin | sum(attribute='key.amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}</h4>
+      <h4 class="Subtitle">{{tx.vin|length}} input(s) for total of
+        {{tx.vin | sum(attribute='key.amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}</h4>
       <div class="TitleDivider"></div>
 
       {#FIXME#}
@@ -574,7 +583,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
 
       <div class="tx-inputs">
         <table class="Table">
-          {%for inp in tx.info.vin if 'key' in inp%}
+          {%for inp in tx.vin if 'key' in inp%}
             <tr class="tx-input-key-image">
               <td style="text-align: left;" colspan="2">
                 <label>Key Image {{loop.index0}}:</label> {{inp.key.k_image}}
