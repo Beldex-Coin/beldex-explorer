@@ -1,6 +1,6 @@
 {%- macro display(tx, text=false) -%}
-    {% if tx.info.version >= 4 -%}
-        {% if tx.info.type == 1 and 'mn_state_change' in tx.extra -%}
+    {% if tx.version >= 4 -%}
+        {% if tx.type == 1 and 'mn_state_change' in tx.extra -%}
             {% if tx.extra.mn_state_change.type == 'decom' -%}
                 <span class="icon" title="Master Node decommission">👎{%if text%} decommission{%endif%}</span>
             {% elif tx.extra.mn_state_change.type == 'recom' -%}
@@ -12,9 +12,9 @@
             {% else -%}
                 <span class="icon" title="Unknown state change transaction">❓{%if text%} unknown state change{%endif%}</span><!-- Either a bug or a malformed transaction -->
             {% endif -%}
-        {% elif tx.info.type == 2 -%}
+        {% elif tx.type == 2 -%}
             <span class="icon" title="Master Node stake unlock — {{tx.extra.mn_pubkey}}">🔓{%if text%} unlock{%endif%}</span>
-        {% elif tx.info.type == 4 and 'bns' in tx.extra -%}
+        {% elif tx.type == 4 and 'bns' in tx.extra -%}
             {% if 'buy' in tx.extra.bns -%}
                 <span class="icon" title="Beldex Name Service Buying">📝{%if text%} BNS purchase{%endif%}</span>
             {% elif 'update' in tx.extra.bns -%}
@@ -22,7 +22,7 @@
             {% elif 'renew' in tx.extra.bns -%}
                 <span class="icon" title="Beldex Name Service Renewing">⏳{%if text%} BNS renew{%endif%}</span>
             {% endif -%}
-        {% elif tx.info.type == 5 -%}
+        {% elif tx.type == 5 -%}
             <span class="icon" title="Coin Burn"> 🕯{%if text%}Coin Burn{%endif%}</span>
         {% elif 'mn_registration' in tx.extra -%}
             <span class="icon" title="Master Node registration
