@@ -44,8 +44,7 @@ app = flask.Flask(__name__)
 
 # env = Environment(extensions=["jinja2.ext.i18n"])
 # jinja_env = Environment('])
-app.jinja_options["extensions"].append('jinja2.ext.loopcontrols')
-
+app.jinja_options['extensions'] = ['jinja2.ext.loopcontrols']
 
 
 class Hex64Converter(BaseConverter):
@@ -203,6 +202,9 @@ def get_mns(mns_future, info_future):
     mn_states = mns_future.get()
     mn_states = mn_states['master_node_states'] if 'master_node_states' in mn_states else []
     for mn in mn_states:
+        mn['staking_requirement'] = int(mn['staking_requirement'])
+        mn['total_reserved'] = int(mn.get('total_reserved', 0))
+        mn['total_contributed'] = int(mn.get('total_contributed', 0))
         mn['contribution_open'] = mn['staking_requirement'] - mn['total_reserved']
         mn['contribution_required'] = mn['staking_requirement'] - mn['total_contributed']
         mn['num_contributions'] = sum(len(x['locked_contributions']) for x in mn['contributors'] if 'locked_contributions' in x)
@@ -237,7 +239,7 @@ def get_quorums(quorums_future):
     return quo
 
 def get_mempool_future(lmq, beldexd):
-    return FutureJSON(lmq, beldexd, 'rpc.get_transaction_pool', 5, args={"tx_extra":True, "stake_info":True})
+    return FutureJSON(lmq, beldexd, 'rpc.get_transaction_pool', 5, args={"tx_extra":True," tx_extra_raw": True, "stake_info":True})
 
 def parse_mempool(mempool_future):
     # mempool RPC return values are about as nasty as can be.  For each mempool tx, we get back
@@ -245,25 +247,44 @@ def parse_mempool(mempool_future):
     # have to invoke an *extra* JSON parser for each tx.  This is terrible.
     mp = mempool_future.get()
     if 'transactions' in mp:
+        rename = {
+                'id_hash': 'tx_hash',
+                'blob_size': 'size',
+                'max_used_block_id_hash': 'max_used_block',
+                'max_used_block_height': 'max_used_height',
+                'last_failed_id_hash': 'last_failed_hash',
+                'receive_time': 'received_timestamp',
+                'tx_blob': 'data',
+        }
+        for tx in mp['transactions']:
+            info = json.loads(tx["tx_json"])
+            info['tx_extra_raw'] = bytes_to_hex(info['extra'])
+            del info['extra']
+            tx.update(info)
+
+            for from_k, to_k in rename.items():
+                tx[to_k] = tx.pop(from_k)
+
+        mp['txs'] = mp.pop('transactions')
+
+    if 'txs' in mp:
         # If we have a cached value we have already sorted it
         if '_sorted' not in mp:
-            mp['transactions'].sort(key=lambda tx: (tx['receive_time'], tx['id_hash']))
+            mp['txs'].sort(key=lambda tx: (tx['received_timestamp'], tx['tx_hash']))
             mp['_sorted'] = True
-
-        for tx in mp['transactions']:
-            tx['info'] = json.loads(tx["tx_json"])
-    else:
-        mp['transactions'] = []
-    return mp
+        else:
+            mp['txs'] = []
+        return mp
 
 
 @app.context_processor
 def template_globals():
+    now = datetime.now(timezone.utc)
     return {
         'config': conf,
         'server': {
-            'datetime': datetime.now(timezone.utc),
-            'timestamp': datetime.utcnow().timestamp(),
+            'datetime': now,
+            'timestamp': now.timestamp(),
             'revision': git_rev,
         },
     }
@@ -301,6 +322,8 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     # potentially run in parallel.
     info = inforeq.get()
     height = info['height']
+    info['testnet']  = info['nettype'] == 'testnet'
+    info['devnet']   = info['nettype'] == 'devnet'
     bns = info['bns_counts']
     # Permalinked block range:
     if first is not None and last is not None and 0 <= first <= last and last <= first + 99:
@@ -308,6 +331,8 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
         if end_height - start_height + 1 != per_page:
             per_page = end_height - start_height + 1;
             custom_per_page = '/{}'.format(per_page)
+        if start_height > height:
+            flask.abort(404)
         # We generally can't get a perfect page number because our range (e.g. 5-14) won't line up
         # with pages (e.g. 10-19, 0-19), so just get as close as we can.  Next/Prev page won't be
         # quite right, but they'll be within half a page.
@@ -328,23 +353,28 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
         txids = []
         for b in blocks:
             b['txs'] = []
-            txids.append(b['miner_tx_hash'])
+            if 'miner_tx_hash' in b and b['miner_tx_hash']:
+                txids.append(b['miner_tx_hash'])
             if 'tx_hashes' in b:
                 txids += b['tx_hashes']
-        txs = parse_txs(tx_req(lmq, beldexd, txids, cache_key='mempool').get())
-        i = 0
-        for tx in txs:
-            # TXs should come back in the same order so we can just skip ahead one when the block
-            # height changes rather than needing to search for the block
-            if blocks[i]['height'] != tx['block_height']:
-                i += 1
-                while i < len(blocks) and blocks[i]['height'] != tx['block_height']:
-                    print("Something getting wrong: missing txes?", file=sys.stderr)
+        if txids:
+            txs = parse_txs(tx_req(lmq, beldexd, txids, cache_key='recent').get())
+            i = 0
+            for tx in txs:
+                # TXs should come back in the same order so we can just skip ahead one when the block
+                # height changes rather than needing to search for the block
+                if 'vin' in tx and len(tx['vin']) == 1 and 'gen' in tx['vin'][0]:
+
+                    tx['coinbase'] = True
+                if blocks[i]['height'] != tx['block_height']:
                     i += 1
-                if i >= len(blocks):
-                    print("Something getting wrong: have leftover txes")
-                    break
-            blocks[i]['txs'].append(tx)
+                    while i < len(blocks) and blocks[i]['height'] != tx['block_height']:
+                        print("Something getting wrong: missing txes?", file=sys.stderr)
+                        i += 1
+                    if i >= len(blocks):
+                        print("Something getting wrong: have leftover txes")
+                        break
+                blocks[i]['txs'].append(tx)
 
     # Clean up the MN data a bit to make things easier for the templates
     awaiting_mns, active_mns, inactive_mns = get_mns(mns, inforeq)
@@ -400,6 +430,7 @@ def tx_req(lmq, beldexd, txids, cache_key='single', **kwargs):
                 "txs_hashes": txids,
                 "decode_as_json": True,
                 "tx_extra": True,
+                "tx_extra_raw": True,
                 "prune": True,
                 "stake_info": True,
                 },
@@ -411,6 +442,7 @@ def tx_req_prune(lmq, beldexd, txids, cache_key='single', **kwargs):
                 "txs_hashes": txids,
                 "decode_as_json": True,
                 "tx_extra": True,
+                "tx_extra_raw": True,
                 "prune": False,
                 "stake_info": True,
                 },
@@ -441,22 +473,43 @@ def block_with_txs_req(lmq, beldexd, hash_or_height, **kwargs):
     return FutureJSON(lmq, beldexd, 'rpc.get_block', cache_key='single', args=args, **kwargs)
 
 
-def bns_decrypt(lmq, beldexd, name, type, encrypted_value, **kwargs):
+def bns_decrypt(lmq, beldexd, name, bns_type, encrypted_value, **kwargs):
     return FutureJSON(lmq, beldexd, 'rpc.bns_value_decrypt', args={
-        "name" : name ,"type" : type ,"encrypted_value" : encrypted_value})
+        "name": name,
+        "type": bns_type,
+        "encrypted_value": encrypted_value,
+    })
+
 
 def bns_info(lmq, beldexd, name, **kwargs):
-    name_hash = nacl.hash.blake2b(name.encode(), encoder = nacl.encoding.Base64Encoder)
-    return FutureJSON(lmq, beldexd, 'rpc.bns_names_to_owners', args={
-        "entries" : [name_hash.decode('ascii')]})
-
+    # Generate the hash using blake2b
+    name_hash = nacl.hash.blake2b(name.encode(), encoder=nacl.encoding.RawEncoder)
+    # Convert to Base64
+    name_hash_b64 = base64.b64encode(name_hash).decode('ascii')
     
+    print(f"Name: {name}, Name Hash (Base64): {name_hash_b64}")
+    
+    # Send name_hash as an array
+    fut = FutureJSON(lmq, beldexd, 'rpc.bns_names_to_owners', args={
+        "name_hash": [name_hash_b64]  # Send as an array
+    })
+    
+    # Wait for result
+    result = fut.get()
+    if result is None:
+        print("Error: No result returned from FutureJSON.")
+        return None
+        
+    return result
+
 @app.route('/bns/<string:name>')
 @app.route('/bns/<string:name>/<int:more_details>')
 def show_bns(name, more_details=False):
     name = name.lower()
     lmq, beldexd = lmq_connection()
     info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+
+    # Validation
     if len(name) > 64 or not all(c.isalnum() or c in '_-' for c in name):
         return flask.render_template('not_found.html',
             info=info.get(),
@@ -468,47 +521,39 @@ def show_bns(name, more_details=False):
             info=info.get(),
             type='bns_reserved',
             id=name,
-            )
-    # bns_types = {'bchat':0,'wallet':1,'belnet':2, 'eth_addr':3}
-    bns_data = {'name':name}
-    name = name+'.bdx'
-    ENCRYPTED_BCHAT_LENGTH = 146  # If the encrypted value is not of expected character
-    ENCRYPTED_WALLET_LENGTH = 210   # length it is of HF15 and before.
-    ENCRYPTED_BELNET_LENGTH = 144  # The user must update their bchat mapping.
-    ENCRYPTED_ETH_LENGTH = 120 # Enable Eth address Display in HF-19
-    bnsinfo = bns_info(lmq, beldexd, name).get()
-    if 'entries' not in bnsinfo:
-     # If returned with no data from the RPC
-            bns_data['result'] = True
+        )
+
+    # Lookup
+    bns_data = {'name': name}
+    query_name = name + '.bdx'
+
+    bnsinfo = bns_info(lmq, beldexd, query_name)
+    if not bnsinfo or 'result' not in bnsinfo:
+        bns_data['result'] = True  # no result
     else:
-        bnsinfo = bnsinfo['entries'][0]
-        bns_data['result'] = bnsinfo
-        if (len(bnsinfo['encrypted_bchat_value']) != 0):
-            type = 'bchat'
-            encrypted_bchat_value = bnsinfo['encrypted_bchat_value']
-            bns_decrypt_bchat = bns_decrypt(lmq, beldexd, name, type, encrypted_bchat_value).get()
-            bns_data['result']['bchat_value'] = bns_decrypt_bchat['value']
-        if (len(bnsinfo['encrypted_belnet_value']) != 0):
-            type = 'belnet'
-            encrypted_belnet_value = bnsinfo['encrypted_belnet_value']
-            bns_decrypt_belnet = bns_decrypt(lmq, beldexd, name, type, encrypted_belnet_value).get()
-            bns_data['result']['belnet_value'] = bns_decrypt_belnet['value']
-        if (len(bnsinfo['encrypted_wallet_value']) != 0):
-            type = 'wallet'
-            encrypted_wallet_value = bnsinfo['encrypted_wallet_value']
-            bns_decrypt_wallet = bns_decrypt(lmq, beldexd, name, type, encrypted_wallet_value).get()
-            bns_data['result']['wallet_value'] = bns_decrypt_wallet['value']
-        if (len(bnsinfo['encrypted_eth_addr_value']) != 0):
-            type = 'eth_addr'
-            encrypted_eth_addr_value = bnsinfo['encrypted_eth_addr_value']
-            bns_decrypt_eth_addr = bns_decrypt(lmq, beldexd, name, type, encrypted_eth_addr_value).get()
-            bns_data['result']['eth_addr_value'] = bns_decrypt_eth_addr['value']
+        bns_entry = bnsinfo['result'][0]
+        bns_data['result'] = bns_entry
+
+        # Decrypt values if present
+        for bns_type, field in [
+            ('bchat', 'encrypted_bchat_value'),
+            ('belnet', 'encrypted_belnet_value'),
+            ('wallet', 'encrypted_wallet_value'),
+            ('eth_addr', 'encrypted_eth_addr_value'),
+        ]:
+            enc_val = bns_entry.get(field, "")
+            if enc_val:
+                dec = bns_decrypt(lmq, beldexd, query_name, bns_type, enc_val).get()
+                if 'value' in dec:
+                    bns_data['result'][f"{bns_type}_value"] = dec['value']
+
+    # More details (syntax highlighting)
     if more_details:
         formatter = HtmlFormatter(cssclass="syntax-highlight", style="paraiso-dark")
         more_details = {
-                'details_css': formatter.get_style_defs('.syntax-highlight'),
-                'details_html': highlight(json.dumps(bns_data, indent="\t"), JsonLexer(), formatter),
-                }
+            'details_css': formatter.get_style_defs('.syntax-highlight'),
+            'details_html': highlight(json.dumps(bns_data, indent=2), JsonLexer(), formatter),
+        }
     else:
         more_details = {}
                 
@@ -520,7 +565,8 @@ def show_bns(name, more_details=False):
 
 @app.route('/master_node/<hex64:pubkey>')  # For backwards compatibility with old explorer URLs
 @app.route('/mn/<hex64:pubkey>')
-def show_mn(pubkey):
+@app.route('/mn/<hex64:pubkey>/<int:more_details>')
+def show_mn(pubkey, more_details=False):
     lmq, beldexd = lmq_connection()
     info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
     hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
@@ -536,20 +582,33 @@ def show_mn(pubkey):
                 )
 
     mn = mn['master_node_states'][0]
-    # These are a bit non-trivial to properly calculate:
 
     # Number of staked contributions
     mn['num_contributions'] = sum(len(x["locked_contributions"]) for x in mn["contributors"] if "locked_contributions" in x)
-    # Number of unfilled, reserved contribution spots:
-    mn['num_reserved_spots'] = sum(x["amount"] < x["reserved"] for x in mn["contributors"])
-    # Available open contribution spots:
-    mn['num_open_spots'] = 0 if mn['total_reserved'] >= mn['staking_requirement'] else max(0, 4 - mn['num_contributions'] - mn['num_reserved_spots'])
+    # Number of unfilled, reserved contribution spots
+    mn['num_reserved_spots'] = sum('reserved' in x and x["amount"] < x["reserved"] for x in mn["contributors"])
+    # Available open contribution spots
+    mn['num_open_spots'] = 0 if mn.get('total_reserved', mn['total_contributed']) >= mn['staking_requirement'] else max(0, 4 - mn['num_contributions'] - mn['num_reserved_spots'])
+    if more_details:
+
+        formatter = HtmlFormatter(cssclass="syntax-highlight", style="paraiso-dark")
+
+        more_details = {
+
+                'details_css': formatter.get_style_defs('.syntax-highlight'),
+                'details_html': highlight(json.dumps(mn, indent="\t", sort_keys=True), JsonLexer(), formatter),
+                }
+
+    else:
+
+        more_details = {}
 
     return flask.render_template('mn.html',
             info=info.get(),
             hf=hfinfo.get(),
             mn=mn,
-            quorums=get_quorums(quos)
+            quorums=get_quorums(quos),
+            **more_details,
             )
 
 
@@ -580,14 +639,16 @@ def parse_txs(txs_rpc):
         return []
 
     for tx in txs_rpc['txs']:
-        if 'info' not in tx:
+        if 'type' not in tx and 'as_json' in tx:
             # We have serialized JSON data inside a field in the JSON, because of beldexd's
             # multiple incompatible JSON generators 🤮:
-            tx['info'] = json.loads(tx["as_json"])
+            tx = json.loads(tx["as_json"])
             del tx['as_json']
             # The "extra" field inside as_json is retardedly in per-byte integer values,
             # convert it to a hex string 🤮:
-            tx['info']['extra'] = bytes_to_hex(tx['info']['extra'])
+            tx['tx_extra_raw'] = bytes_to_hex(info['extra'])
+            del info['extra']
+            tx.update(info)
     return txs_rpc['txs']
 
 
@@ -595,11 +656,14 @@ def get_block_txs_future(lmq, beldexd, block):
     hashes = []
     if 'tx_hashes' in block:
         hashes += block['tx_hashes']
-    hashes.append(block['block_header']['miner_tx_hash'])
+    miner_tx = block['block_header'].get('miner_tx_hash')
+    if miner_tx:
+        hashes.append(miner_tx)
     if 'info' not in block:
         try:
             block['info'] = json.loads(block["json"])
-            del block['info']['miner_tx']  # Doemn't include enough for us, we fetch it separately with extra interpretation instead
+            if 'miner_tx' in block['info']:
+                del block['info']['miner_tx']  # Doemn't include enough for us, we fetch it separately with extra interpretation instead
             del block["json"]
         except Exception as e:
             print("Something getting wrong: cannot parse block json for block {}: {}".format(block_height, e), file=sys.stderr)
@@ -647,8 +711,7 @@ def show_block(height=None, hash=None, more_details=False):
         more_details = {}
 
     transactions = [] if txs is None else parse_txs(txs.get()).copy()
-    miner_tx = transactions.pop() if transactions else []
-
+    miner_tx = transactions.pop() if block['block_header'].get('miner_tx_hash') else None  
     return flask.render_template("block.html",
             info=info.get(),
             hfinfo=hfinfo.get(),
@@ -685,19 +748,19 @@ def show_tx(txid, more_details=False):
 
     # If this is a state change, see if we have the quorum stored to provide context
     testing_quorum = None
-    if tx['info']['version'] >= 4 and 'mn_state_change' in tx['extra']:
+    if tx['version'] >= 4 and 'mn_state_change' in tx['extra']:
         testing_quorum = FutureJSON(lmq, beldexd, 'rpc.get_quorum_state', 60, cache_key='tx_state_change',
                 args={ 'quorum_type': 0, 'start_height': tx['extra']['mn_state_change']['height'] })
 
     kindex_info = {} # { amount => { keyindex => {output-info} } }
     block_info_req = None
-    if 'vin' in tx['info']:
-        if len(tx['info']['vin']) == 1 and 'gen' in tx['info']['vin'][0]:
+    if 'vin' in tx:
+        if len(tx['vin']) == 1 and 'gen' in tx['vin'][0]:
             tx['coinbase'] = True
-        elif tx['info']['vin'] and config.enable_mixins_details:
+        elif tx['vin'] and config.enable_mixins_details:
             # Load output details for all outputs contained in the inputs
             outs_req = []
-            for inp in tx['info']['vin']:
+            for inp in tx['vin']:
                 # Key positions are stored as offsets from the previous index rather than indices,
                 # so de-delta them back into indices:
                 if 'key_offsets' in inp['key'] and 'key_indices' not in inp['key']:
@@ -709,7 +772,7 @@ def show_tx(txid, more_details=False):
                         kis.append(kbase)
                     del inp['key']['key_offsets']
 
-            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['info']['vin'] for ki in inp['key']['key_indices']]
+            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['vin'] for ki in inp['key']['key_indices']]
             outputs = FutureJSON(lmq, beldexd, 'rpc.get_outs', args={
                 'get_txid': True,
                 'outputs': outs_req,
@@ -721,7 +784,7 @@ def show_tx(txid, more_details=False):
                     'heights': [o["height"] for o in outputs]
                 })
                 i = 0
-                for inp in tx['info']['vin']:
+                for inp in tx['vin']:
                     amount = inp['key']['amount']
                     if amount not in kindex_info:
                         kindex_info[amount] = {}
@@ -851,8 +914,8 @@ def api_bnslookup():
     bnsinfo = bns_info(lmq, beldexd, name).get()
     bns_data = {'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
 
-    if 'entries' in bnsinfo:
-        bnsinfo = bnsinfo['entries'][0]
+    if 'result' in bnsinfo:
+        bnsinfo = bnsinfo['result'][0]
         types = {
         'bchat': 'encrypted_bchat_value',
         'belnet': 'encrypted_belnet_value',
@@ -907,20 +970,20 @@ def show_tx_info(txid, more_details=False):
 
     # If this is a state change, see if we have the quorum stored to provide context
     testing_quorum = None
-    if tx['info']['version'] >= 4 and 'mn_state_change' in tx['extra']:
+    if tx['version'] >= 4 and 'mn_state_change' in tx['extra']:
         testing_quorum = FutureJSON(lmq, beldexd, 'rpc.get_quorum_state', 60, cache_key='tx_state_change',
                 args={ 'quorum_type': 0, 'start_height': tx['extra']['mn_state_change']['height'] })
 
     kindex_info = {} # { amount => { keyindex => {output-info} } }
     block_info_req = None
-    if 'vin' in tx['info']:
-        if len(tx['info']['vin']) == 1 and 'gen' in tx['info']['vin'][0]:
+    if 'vin' in tx:
+        if len(tx['vin']) == 1 and 'gen' in tx['vin'][0]:
             tx['coinbase'] = True
-        elif tx['info']['vin'] and config.enable_mixins_details:
+        elif tx['vin'] and config.enable_mixins_details:
             tx['coinbase'] = False
             # Load output details for all outputs contained in the inputs
             outs_req = []
-            for inp in tx['info']['vin']:
+            for inp in tx['vin']:
                 # Key positions are stored as offsets from the previous index rather than indices,
                 # so de-delta them back into indices:
                 if 'key_offsets' in inp['key'] and 'key_indices' not in inp['key']:
@@ -932,7 +995,7 @@ def show_tx_info(txid, more_details=False):
                         kis.append(kbase)
                     del inp['key']['key_offsets']
 
-            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['info']['vin'] for ki in inp['key']['key_indices']]
+            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['vin'] for ki in inp['key']['key_indices']]
             outputs = FutureJSON(lmq, beldexd, 'rpc.get_outs', args={
                 'get_txid': True,
                 'outputs': outs_req,
@@ -944,7 +1007,7 @@ def show_tx_info(txid, more_details=False):
                     'heights': [o["height"] for o in outputs]
                 })
                 i = 0
-                for inp in tx['info']['vin']:
+                for inp in tx['vin']:
                     amount = inp['key']['amount']
                     if amount not in kindex_info:
                         kindex_info[amount] = {}

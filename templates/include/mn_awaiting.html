@@ -17,7 +17,8 @@
             <tr>
                 {%include 'include/mn_kcf.html'%}
                 <td>{{mn.total_contributed | beldex(tag=false, fixed=true)}}</td>
-                {%if mn.total_reserved >= mn.staking_requirement%}
+                {% set total_stakes = mn.total_reserved if 'total_reserved' in mn else mn.total_contributed %}
+                {%if total_stakes >= mn.staking_requirement%}
                     <td title="All remaining contribution room is reserved for specific contributors">
                         ⛔ {{mn.contribution_open | beldex(tag=false, fixed=true)}}
                     </td>
