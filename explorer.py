@@ -911,11 +911,14 @@ def api_networkinfo():
 def api_bnslookup():
     lmq, beldexd = lmq_connection()
     name = flask.request.args.get('name')
-    bnsinfo = bns_info(lmq, beldexd, name).get()
-    bns_data = {'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
+    bnsinfo = bns_info(lmq, beldexd, name)
+    bns_data = {'available':True, 'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
 
     if 'result' in bnsinfo:
         bnsinfo = bnsinfo['result'][0]
+        bns_data['owner'] = bnsinfo['owner']
+        bns_data['exp_height'] = bnsinfo['expiration_height']
+        bns_data['available']= False;
         types = {
         'bchat': 'encrypted_bchat_value',
         'belnet': 'encrypted_belnet_value',
@@ -945,7 +948,7 @@ def api_get_stats():
     block = block_with_txs_req(lmq, beldexd, height).get()
     return flask.jsonify({
         "data": {
-            "difficulty": data['difficulty'],
+            "difficulty": data.get('difficulty', 0),
             "height": block['block_header']['height'],
             "burn": coinbase["burn_amount"],
             "total_emission": coinbase["emission_amount"],
