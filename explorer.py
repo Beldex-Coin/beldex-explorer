@@ -859,8 +859,8 @@ def search():
         # The above loads 260 bytes (5 bits per char * 52 chars), but we only want 256:
         v >>= 4
         val = "{:64x}".format(v)
-    if val and len(val) <= 68 and val.endswith(".bdx"):
-        val = val.rstrip('.bdx')
+    if val.endswith(".bdx"):
+        val = val[:-4]
 
     # BNS can be of length 64 however with txids, and sn pubkey's being of length 64 
     # I have removed it from the possible searches.
