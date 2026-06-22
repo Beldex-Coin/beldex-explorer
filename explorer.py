@@ -911,27 +911,45 @@ def api_networkinfo():
 def api_bnslookup():
     lmq, beldexd = lmq_connection()
     name = flask.request.args.get('name')
-    bnsinfo = bns_info(lmq, beldexd, name)
-    bns_data = {'available':True, 'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
 
-    if 'result' in bnsinfo:
-        bnsinfo = bnsinfo['result'][0]
-        bns_data['owner'] = bnsinfo['owner']
-        bns_data['exp_height'] = bnsinfo['expiration_height']
-        bns_data['available']= False;
-        types = {
-        'bchat': 'encrypted_bchat_value',
-        'belnet': 'encrypted_belnet_value',
-        'wallet': 'encrypted_wallet_value',
-        'eth_addr': 'encrypted_eth_addr_value'
+    blocked_names = {"beldex.bdx", "localhost.bdx", "mnode.bdx"}
+    bns_data = {
+        'available': True,
+        'name': name,
+        'bchat': "",
+        'belnet': "",
+        'wallet': "",
+        'ethAddress': "",
+    }
+
+    if name in blocked_names:
+        bns_data['available'] = False
+        return flask.jsonify({"bnsData": bns_data, "status": "ok"})
+
+    bnsinfo = bns_info(lmq, beldexd, name)
+    result = bnsinfo.get('result')
+
+    if result:
+        info = result[0]
+        bns_data.update({
+            'owner': info.get('owner'),
+            'exp_height': info.get('expiration_height'),
+            'available': False,
+        })
+
+        field_map = {
+            'bchat': 'encrypted_bchat_value',
+            'belnet': 'encrypted_belnet_value',
+            'wallet': 'encrypted_wallet_value',
+            'eth_addr': 'encrypted_eth_addr_value',
         }
-        for key, value in types.items():
-            if len(bnsinfo[value]) != 0:
-                decrypted_value = bns_decrypt(lmq, beldexd, name, key, bnsinfo[value]).get()
-                if key == 'eth_addr':
-                    bns_data['ethAddress'] = decrypted_value['value']
-                else:
-                    bns_data[key] = decrypted_value['value']
+
+        for key, encrypted_field in field_map.items():
+            encrypted_value = info.get(encrypted_field)
+            if encrypted_value:
+                decrypted = bns_decrypt(lmq, beldexd, name, key, encrypted_value).get()
+                output_key = 'ethAddress' if key == 'eth_addr' else key
+                bns_data[output_key] = decrypted.get('value', "")
 
     return flask.jsonify({"bnsData": bns_data, "status": "ok"})
 
@@ -949,6 +967,7 @@ def api_get_stats():
     return flask.jsonify({
         "data": {
             "difficulty": data.get('difficulty', 0),
+            "bns_count": data.get('bns_counts',0),
             "height": block['block_header']['height'],
             "burn": coinbase["burn_amount"],
             "total_emission": coinbase["emission_amount"],
