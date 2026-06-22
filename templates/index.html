@@ -105,19 +105,19 @@
         {% endif %}
 
         <h4 class="info_list nowrap-spans">
-            <span><label>Circulating Supply*:</label>:
+            <span><label>Burned:</label>:
                 {% if not emission or emission.status == 'BUSY' %}
-                    (still calculating...)</span>
+                    (still calculating...)
                 {% elif emission.status == 'OK' %}
-                    {{(emission.emission_amount - emission.burn_amount) | beldex}}</span>
-                <span><label>(Emission:</label> {{emission.emission_amount | beldex}}</span>
-                <span><label>Fees:</label> {{emission.fee_amount | beldex}}</span>
-                <span><label>Burned:</label> {{emission.burn_amount | beldex}}<label>).</label></span>
-                {%endif%}
-            <p style="padding: 0px; margin-top: 2px; font-size: 0.9em">
+                    {{emission.burn_amount | beldex}}
+                <!--<span><label>(Emission:</label> {{emission.emission_amount | beldex}}</span>
+                    <span><label>Fees:</label> {{emission.fee_amount | beldex}}</span>
+                    <span><label>Burned:</label> {{emission.burn_amount | beldex}}<label>).</label></span> -->
+                {%endif%}</span> &nbsp;&nbsp;&nbsp;
+            <!-- <p style="padding: 0px; margin-top: 2px; font-size: 0.9em">
             * — Circulating supply may exclude any currently, publicised locked tokens, otherwise it is equal to the Coinbase minus burned coins.
             Fees includes paid transaction fees less any portion of the fee that was burned.
-            </p>
+            </p> -->
             <span><label>Total BNS: </label>{{bns}}</span>
         </h4>
 
