@@ -1,0 +1,302 @@
+{% extends "_basic.html" %}
+
+{% block content %}
+    <div class="Wrapper">
+
+        {% if info and info.nettype in ('testnet', 'devnet') %}
+        <div class="info_list nowrap-spans" style="float: none;">
+            {% if info.nettype == 'testnet' %}
+                <span>This is <span style="font-weight: bold">TESTNET</span> blockchain</span>
+            {% elif info.nettype == 'devnet' %}
+                <span>This is <span style="font-weight: bold">DEVNET</span> blockchain</span>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="TitleDivider"></div>
+
+        <h2>Assets</h2>
+        <div class="TitleUnderliner"></div>
+
+        <div class="assets-block">
+            <div class="assets-toolbar">
+                <div class="assets-tabs">
+                    <button type="button" class="assets-tab" data-target="whitelisted">Whitelisted</button>
+                    <button type="button" class="assets-tab active" data-target="all">All Assets</button>
+                </div>
+                <div class="assets-search">
+                    <input type="text" id="assets-search-input" placeholder="Search by name, ticker or asset ID">
+                </div>
+            </div>
+
+            <div class="assets-stats">
+                <div class="assets-stat">
+                    <label>Total Assets</label>
+                    <span class="assets-stat-value">{{ assets_total if assets_total is defined else assets | length }}</span>
+                </div>
+                <div class="assets-stat">
+                    <label>Whitelisted</label>
+                    <span class="assets-stat-value">{{ whitelisted | length }}</span>
+                </div>
+            </div>
+
+            {% macro assets_table(rows, table_id) %}
+                <table class="Table assets-table" id="{{table_id}}">
+                  <thead>
+                    <tr>
+                        <td>NAME</td>
+                        <td>TICKER</td>
+                        <td>ASSET ID</td>
+                        <td>PRICE</td>
+                        <td>SOURCE</td>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% if rows %}
+                      {% for a in rows %}
+                        <tr class="asset-row" data-name="{{ (a.name or '') | lower }}" data-ticker="{{ (a.ticker or '') | lower }}" data-asset-id="{{ (a.asset_id or '') | lower }}">
+                            <td>{{a.name}}</td>
+                            <td>{{a.ticker}}</td>
+                            <td>
+                                <span class="asset-id-cell">
+                                    <button type="button" class="asset-copy" data-copy="{{a.asset_id}}" title="Copy asset ID" aria-label="Copy asset ID">⧉</button>
+                                    <a href="#" class="asset-id-text asset-expand" title="Show asset details">{{a.asset_id}}</a>
+                                </span>
+                            </td>
+                            <td>{% if a.price %}{{a.price}}{% else %}No data{% endif %}</td>
+                            <td>{% if a.source %}{{a.source}}{% else %}No data{% endif %}</td>
+                        </tr>
+                        <tr class="asset-detail-row" style="display: none">
+                            <td colspan="5">
+                                <dl class="asset-detail">
+                                    <dt>asset_id</dt><dd>{{a.asset_id}}</dd>
+                                    <dt>price_url</dt><dd>{{a.price_url}}</dd>
+                                    <dt>ticker</dt><dd>{{a.ticker}}</dd>
+                                    <dt>full_name</dt><dd>{{a.full_name}}</dd>
+                                    <dt>total_max_supply</dt><dd>{{a.total_max_supply}}</dd>
+                                    <dt>current_supply</dt><dd>{{a.current_supply}}</dd>
+                                    <dt>decimal_point</dt><dd>{{a.decimal_point}}</dd>
+                                    <dt>meta_info</dt><dd>{{a.meta_info}}</dd>
+                                    <dt>owner</dt><dd>{{a.owner}}</dd>
+                                    <dt>price</dt><dd>{% if a.price %}{{a.price}}{% else %}No data{% endif %}</dd>
+                                </dl>
+                            </td>
+                        </tr>
+                      {% endfor %}
+                    {% else %}
+                        <tr class="asset-empty"><td colspan="5" style="text-align: center">No assets to display.</td></tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+            {% endmacro %}
+
+            <div class="assets-pane" data-pane="whitelisted" style="display: none">
+                {{ assets_table(whitelisted, 'assets-table-whitelisted') }}
+            </div>
+            <div class="assets-pane" data-pane="all">
+                {{ assets_table(assets, 'assets-table-all') }}
+
+                <div class="pages" style="text-align: center;">
+                    {% if offset > 0 %}
+                        <a href="/assets/{{ offset - count }}/{{ count }}"><div class="blue_btn"> &lt;&lt; Previous</div></a>
+                    {% else %}
+                        <div class="disabled blue_btn"> &lt;&lt; Previous</div>
+                    {% endif %}
+
+                    <div>Page <span class="page-number">{{ page + 1 }}</span> / {{ total_pages }}</div>
+
+                    {% if offset + count < assets_total %}
+                        <a href="/assets/{{ offset + count }}/{{ count }}"><div class="blue_btn">Next &gt;&gt; </div></a>
+                    {% else %}
+                        <div class="disabled blue_btn">Next &gt;&gt; </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .assets-toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        .assets-tabs { display: flex; gap: 2px; }
+        .assets-tab {
+            background: #262634;
+            color: inherit;
+            border: 1px solid #3ad540;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .assets-tab.active {
+            background: rgba(58, 213, 64, 0.25);
+            font-weight: bold;
+        }
+        .assets-search input {
+            padding: 8px 12px;
+            border: 0;
+            border-radius: 8px;
+            min-width: 260px;
+            background-color: #262634;
+            color: white;
+            font-size: 1em;
+        }
+        .assets-search input:focus {
+            outline: none;
+            border: solid 1px var(--control-highlight-link-color);
+        }
+        .asset-row.hidden { display: none; }
+        .asset-id-cell { display: inline-flex; align-items: center; gap: 6px; }
+        .asset-copy {
+            background: transparent;
+            border: none;
+            color: #3ad540;
+            cursor: pointer;
+            font-size: 15px;
+            line-height: 1;
+            padding: 0;
+        }
+        .asset-copy:hover { color: #2fb034; }
+        .asset-copy.copied { color: #9aa0a6; }
+        .asset-expand { cursor: pointer; text-decoration: none; }
+        .asset-expand:hover { text-decoration: underline; }
+        .asset-detail-row td { text-align: center; padding: 10px 0 16px; }
+        .asset-detail {
+            display: inline-grid;
+            grid-template-columns: max-content 1fr;
+            gap: 6px 16px;
+            margin: 0 auto;
+            padding: 12px 16px;
+            background: #1c1c26;
+            border-radius: 8px;
+            font-size: 13px;
+            word-break: break-all;
+            text-align: left;
+        }
+        .asset-detail dt { color: var(--text-highlight-color); font-weight: bold; text-align: left; }
+        .asset-detail dd { margin: 0; text-align: left; }
+        .assets-stats {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin: 0 0 15px;
+        }
+        .assets-stat {
+            flex: 1 1 0;
+            background: #262634;
+            border-radius: 8px;
+            padding: 12px 20px;
+            min-width: 140px;
+            text-align: center;
+        }
+        .assets-stat label {
+            display: block;
+            color: var(--text-highlight-color);
+            font-size: 13px;
+            margin-bottom: 4px;
+        }
+        .assets-stat-value {
+            font-size: 22px;
+            font-weight: bold;
+        }
+    </style>
+
+    <script>
+        (function () {
+            var tabs = document.querySelectorAll('.assets-tab');
+            var panes = document.querySelectorAll('.assets-pane');
+            var search = document.getElementById('assets-search-input');
+
+            function activePane() {
+                for (var i = 0; i < panes.length; i++) {
+                    if (panes[i].style.display !== 'none') return panes[i];
+                }
+                return null;
+            }
+
+            function applyFilter() {
+                var q = (search.value || '').trim().toLowerCase();
+                var pane = activePane();
+                if (!pane) return;
+                var rows = pane.querySelectorAll('.asset-row');
+                for (var i = 0; i < rows.length; i++) {
+                    var name = rows[i].getAttribute('data-name') || '';
+                    var ticker = rows[i].getAttribute('data-ticker') || '';
+                    var assetId = rows[i].getAttribute('data-asset-id') || '';
+                    var match = !q || name.indexOf(q) !== -1 || ticker.indexOf(q) !== -1 || assetId.indexOf(q) !== -1;
+                    rows[i].classList.toggle('hidden', !match);
+                    // Keep each row's detail panel in sync: hide it when the row is
+                    // filtered out, and collapse it so it doesn't reopen on re-show.
+                    var detail = rows[i].nextElementSibling;
+                    if (detail && detail.classList.contains('asset-detail-row')) {
+                        detail.style.display = 'none';
+                    }
+                }
+            }
+
+            tabs.forEach(function (tab) {
+                tab.addEventListener('click', function () {
+                    var target = tab.getAttribute('data-target');
+                    tabs.forEach(function (t) { t.classList.toggle('active', t === tab); });
+                    panes.forEach(function (p) {
+                        p.style.display = (p.getAttribute('data-pane') === target) ? '' : 'none';
+                    });
+                    applyFilter();
+                });
+            });
+
+            search.addEventListener('input', applyFilter);
+
+            function copyText(text) {
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    return navigator.clipboard.writeText(text);
+                }
+                var ta = document.createElement('textarea');
+                ta.value = text;
+                ta.style.position = 'fixed';
+                ta.style.opacity = '0';
+                document.body.appendChild(ta);
+                ta.select();
+                try { document.execCommand('copy'); } catch (e) {}
+                document.body.removeChild(ta);
+                return Promise.resolve();
+            }
+
+            document.querySelectorAll('.asset-expand').forEach(function (link) {
+                link.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    var row = link.closest('.asset-row');
+                    var detail = row && row.nextElementSibling;
+                    if (!detail || !detail.classList.contains('asset-detail-row')) return;
+                    var willOpen = (detail.style.display === 'none');
+                    // Accordion: close any other open detail panel first.
+                    document.querySelectorAll('.asset-detail-row').forEach(function (d) {
+                        if (d !== detail) d.style.display = 'none';
+                    });
+                    detail.style.display = willOpen ? '' : 'none';
+                });
+            });
+
+            document.querySelectorAll('.asset-copy').forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    copyText(btn.getAttribute('data-copy') || '').then(function () {
+                        var original = btn.textContent;
+                        btn.classList.add('copied');
+                        btn.textContent = '✓';
+                        setTimeout(function () {
+                            btn.classList.remove('copied');
+                            btn.textContent = original;
+                        }, 1200);
+                    });
+                });
+            });
+        })();
+    </script>
+
+{% endblock %}

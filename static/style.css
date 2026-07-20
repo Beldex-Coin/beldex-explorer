@@ -24,6 +24,12 @@ div.bns {
     border-radius: 10px;
 }
 
+html {
+    /* Always reserve the vertical scrollbar gutter so centered content (header
+       tabs, .Wrapper) doesn't shift horizontally between short and long pages. */
+    overflow-y: scroll;
+    scrollbar-gutter: stable;
+}
 body {
     margin: 0;
     padding: 0;
@@ -41,22 +47,52 @@ h1, h2, h3, h4, h5, h6 {
 
 #header>#header-content {
     display: flex;
-    flex-wrap: wrap;
+    flex-direction: column;
     padding-top: 12px;
     padding-bottom: 12px;
 }
+#header .header-top {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 12px;
+}
 #header h1 {
-    flex: 50%;
-    min-width: 500px;
+    flex: 0 0 auto;
+    min-width: auto;
+    margin: 0;
+    justify-self: start;
+}
+#header .header-tabs {
+    display: flex;
+    gap: 24px;
+    align-items: center;
+    justify-self: center;
+}
+#header .header-tab {
+    padding: 6px 4px;
+    text-decoration: none;
+    color: inherit;
+    font-size: 1.05em;
+    border-bottom: 2px solid transparent;
+}
+#header .header-tab:hover {
+    color: #3ad540;
+}
+#header .header-tab.active {
+    color: #3ad540;
+    font-weight: bold;
+    border-bottom: 2px solid #3ad540;
 }
 #header form.top-search {
-    flex: 50%;
-    min-width: 500px;
+    justify-self: end;
+    min-width: 0;
     display: flex;
 }
 #header form.top-search input[type="text"] {
-    flex-grow: 1;
-    flex-shrink: 1;
+    flex: 0 0 auto;
+    width: 60ch;
+    max-width: 100%;
     outline: transparent !important;
 }
 #header form.top-search input[type="submit"] {

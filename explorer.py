@@ -411,6 +411,67 @@ def mempool():
             mempool=parse_mempool(mempool),
             )
 
+@app.route('/assets')
+@app.route('/assets/<int:offset>')
+@app.route('/assets/<int:offset>/<int:count>')
+def assets(offset=0, count=20):
+    if count <= 0:
+        count = 20
+    if offset < 0:
+        offset = 0
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+
+    # All assets: the daemon's get_asset_list only returns IDs, so we fetch the
+    # full descriptor for each id via get_asset_info (fired in parallel).
+    asset_list = FutureJSON(lmq, beldexd, 'rpc.get_asset_list', 5,
+            args={'offset': offset, 'count': count}).get() or {}
+    asset_ids = asset_list.get('asset_ids', [])
+    total_count = asset_list.get('total_count', len(asset_ids))
+
+    info_futures = [
+        FutureJSON(lmq, beldexd, 'rpc.get_asset_info', 5, cache_key=aid,
+            args={'asset_id': aid})
+        for aid in asset_ids]
+
+    all_assets = []
+    for aid, fut in zip(asset_ids, info_futures):
+        a = fut.get() or {}
+        all_assets.append({
+            'name': a.get('full_name', ''),
+            'ticker': a.get('ticker', ''),
+            'asset_id': a.get('asset_id', aid),
+            # price/source require an external price feed / DEX, which Beldex does
+            # not have yet, so leave them empty for now (rendered as "No data").
+            'price': '',
+            'source': '',
+            # Full descriptor fields, shown in the expandable detail panel.
+            'full_name': a.get('full_name', ''),
+            'total_max_supply': a.get('total_max_supply', ''),
+            'current_supply': a.get('current_supply', ''),
+            'decimal_point': a.get('decimal_point', ''),
+            'meta_info': a.get('meta_info', ''),
+            'owner': a.get('owner', ''),
+            'price_url': '',
+            })
+
+    # TODO: Whitelisted tab still needs a curated source (a hosted whitelist JSON).
+    whitelisted = []
+
+    page = offset // count
+    total_pages = max(1, -(-total_count // count))  # ceil division
+
+    return flask.render_template('assets.html',
+            info=info.get(),
+            whitelisted=whitelisted,
+            assets=all_assets,
+            assets_total=total_count,
+            offset=offset,
+            count=count,
+            page=page,
+            total_pages=total_pages,
+            )
+
 @app.route('/master_nodes')
 def mns():
     lmq, beldexd = lmq_connection()

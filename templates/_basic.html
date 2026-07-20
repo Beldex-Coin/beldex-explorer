@@ -16,20 +16,19 @@
 <div id="header" class="Wrapper">
     {% block header %}
     <div id="header-content">
-        <!-- <h1 class="Header"><a href="/">Beldex
-                {%if info and info.testnet%}
-                    <span style="color:#ff6b62">Testnet</span>
-                {%elif info and info.devnet%}
-                    <span style="color:#af5bd2">Devnet</span>
-                {%endif%}
-                Blockchain Explorer1</a></h1> -->
-                <h1 class="Header">
-                   <a href="/"><img src="{{ url_for('static', filename='logo.svg') }}"></a>
-                </h1>
-        <form action="/search" method="get" class="top-search">
-            <input type="text" name="value" size="64" placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">
-            <input type="submit" class="PageButton" value="Search">
-        </form>
+        <div class="header-top">
+            <h1 class="Header">
+               <a href="/"><img src="{{ url_for('static', filename='logo.svg') }}"></a>
+            </h1>
+            <div class="header-tabs">
+                <a href="/" class="header-tab{% if not request.path.startswith('/assets') %} active{% endif %}">Blockchain</a>
+                <a href="/assets" class="header-tab{% if request.path.startswith('/assets') %} active{% endif %}">Assets</a>
+            </div>
+            <form action="/search" method="get" class="top-search">
+                <input type="text" name="value" size="64" placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">
+                <input type="submit" class="PageButton" value="Search">
+            </form>
+        </div>
     </div>
     <div class="TitleUnderliner" style="margin-bottom: 1em"></div>
     {% endblock %}
