@@ -15,7 +15,10 @@
 
         <div class="TitleDivider"></div>
 
-        <h2>Assets</h2>
+        <div class="assets-heading-row">
+            <h2>Assets</h2>
+            <a href="/assets/submit" class="add-asset-btn" target="_blank" rel="noopener">Verify Asset</a>
+        </div>
         <div class="TitleUnderliner"></div>
 
         <div class="assets-block">
@@ -55,7 +58,16 @@
                     {% if rows %}
                       {% for a in rows %}
                         <tr class="asset-row" data-name="{{ (a.name or '') | lower }}" data-ticker="{{ (a.ticker or '') | lower }}" data-asset-id="{{ (a.asset_id or '') | lower }}">
-                            <td>{{a.name}}</td>
+                            <td>
+                                <span class="asset-name-cell">
+                                    {% if a.logo %}
+                                        <img class="asset-logo" src="{{a.logo}}" alt="{{a.ticker}} logo">
+                                    {% else %}
+                                        <span class="asset-logo asset-logo-fallback">{{ (a.ticker or a.name or '?')[0] | upper }}</span>
+                                    {% endif %}
+                                    <span>{{a.name}}</span>
+                                </span>
+                            </td>
                             <td>{{a.ticker}}</td>
                             <td>
                                 <span class="asset-id-cell">
@@ -64,22 +76,68 @@
                                 </span>
                             </td>
                             <td>{% if a.price %}{{a.price}}{% else %}No data{% endif %}</td>
-                            <td>{% if a.source %}{{a.source}}{% else %}No data{% endif %}</td>
+                            <td>{% if a.source %}{% if a.source.startswith('http') %}<a href="{{a.source}}" class="asset-source-link" target="_blank" rel="noopener">{{a.source | source_name}}</a>{% else %}{{a.source}}{% endif %}{% else %}No data{% endif %}</td>
                         </tr>
                         <tr class="asset-detail-row" style="display: none">
                             <td colspan="5">
-                                <dl class="asset-detail">
-                                    <dt>asset_id</dt><dd>{{a.asset_id}}</dd>
-                                    <dt>price_url</dt><dd>{{a.price_url}}</dd>
-                                    <dt>ticker</dt><dd>{{a.ticker}}</dd>
-                                    <dt>full_name</dt><dd>{{a.full_name}}</dd>
-                                    <dt>total_max_supply</dt><dd>{{a.total_max_supply}}</dd>
-                                    <dt>current_supply</dt><dd>{{a.current_supply}}</dd>
-                                    <dt>decimal_point</dt><dd>{{a.decimal_point}}</dd>
-                                    <dt>meta_info</dt><dd>{{a.meta_info}}</dd>
-                                    <dt>owner</dt><dd>{{a.owner}}</dd>
-                                    <dt>price</dt><dd>{% if a.price %}{{a.price}}{% else %}No data{% endif %}</dd>
-                                </dl>
+                                <div class="asset-detail-cards">
+                                    <div class="asset-card">
+                                        <h4 class="asset-card-title">Overview</h4>
+                                        <div class="asset-card-item">
+                                            <label>MAX TOTAL SUPPLY</label>
+                                            <span>{{a.total_max_supply}} {{a.ticker}}</span>
+                                        </div>
+                                        <div class="asset-card-item">
+                                            <label>CURRENT SUPPLY</label>
+                                            <span>{{a.current_supply}} {{a.ticker}}</span>
+                                        </div>
+                                        <div class="asset-card-item">
+                                            <label>DECIMALS</label>
+                                            <span>{{a.decimal_point}}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="asset-card">
+                                        <h4 class="asset-card-title">Market</h4>
+                                        <div class="asset-card-item">
+                                            <label>PRICE</label>
+                                            <span>{% if a.price %}{{a.price}}{% else %}No data{% endif %}</span>
+                                        </div>
+                                        <div class="asset-card-item">
+                                            <label>SOURCE</label>
+                                            <span>{% if a.source %}{% if a.source.startswith('http') %}<a href="{{a.source}}" class="asset-source-link" target="_blank" rel="noopener">{{a.source | source_name}}</a>{% else %}{{a.source}}{% endif %}{% else %}No data{% endif %}</span>
+                                        </div>
+                                        <div class="asset-card-item">
+                                            <label>SOCIAL</label>
+                                            <span>{% if a.social %}{% if a.social.startswith('http') %}<a href="{{a.social}}" target="_blank" rel="noopener">{{a.social}}</a>{% else %}{{a.social}}{% endif %}{% else %}No data{% endif %}</span>
+                                        </div>
+                                    </div>
+
+                                    <div class="asset-card asset-card-wide">
+                                        <h4 class="asset-card-title">Other Info</h4>
+                                        <div class="asset-card-item">
+                                            <label>ASSET ID (WITH {{a.decimal_point}} DECIMALS)</label>
+                                            <span class="asset-card-id">
+                                                <button type="button" class="asset-copy" data-copy="{{a.asset_id}}" title="Copy asset ID" aria-label="Copy asset ID">⧉</button>
+                                                {{a.asset_id}}
+                                            </span>
+                                        </div>
+                                        <div class="asset-card-item">
+                                            <label>OWNER</label>
+                                            <span class="asset-card-id">{{a.owner}}</span>
+                                        </div>
+                                        <div class="asset-card-item">
+                                            <label>NAME / TICKER</label>
+                                            <span>{{a.full_name}} ({{a.ticker}})</span>
+                                        </div>
+                                        {% if a.meta_info %}
+                                        <div class="asset-card-item">
+                                            <label>META INFO</label>
+                                            <span>{{a.meta_info}}</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </td>
                         </tr>
                       {% endfor %}
@@ -116,6 +174,30 @@
     </div>
 
     <style>
+        .assets-heading-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        a.add-asset-btn,
+        a.add-asset-btn:hover,
+        a.add-asset-btn:link,
+        a.add-asset-btn:visited {
+            display: inline-block;
+            padding: 8px 18px;
+            border: 1px solid #3ad540;
+            border-radius: 5px;
+            background: rgba(58, 213, 64, 0.15);
+            color: #3ad540;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 0.95em;
+        }
+        a.add-asset-btn:hover {
+            background: rgba(58, 213, 64, 0.3);
+        }
         .assets-toolbar {
             display: flex;
             flex-wrap: wrap;
@@ -151,7 +233,27 @@
             outline: none;
             border: solid 1px var(--control-highlight-link-color);
         }
+        .assets-table { margin-bottom: 28px; }
         .asset-row.hidden { display: none; }
+        .assets-table td:first-child { text-align: left; padding-left: 16px; }
+        .assets-table td:nth-child(3) { text-align: left; }
+        .asset-name-cell { display: inline-flex; align-items: center; gap: 8px; }
+        .asset-logo {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            flex: 0 0 auto;
+        }
+        .asset-logo-fallback {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #3a3a4a;
+            color: #cfcfe0;
+            font-size: 11px;
+            font-weight: bold;
+        }
         .asset-id-cell { display: inline-flex; align-items: center; gap: 6px; }
         .asset-copy {
             background: transparent;
@@ -164,23 +266,59 @@
         }
         .asset-copy:hover { color: #2fb034; }
         .asset-copy.copied { color: #9aa0a6; }
-        .asset-expand { cursor: pointer; text-decoration: none; }
-        .asset-expand:hover { text-decoration: underline; }
-        .asset-detail-row td { text-align: center; padding: 10px 0 16px; }
-        .asset-detail {
-            display: inline-grid;
-            grid-template-columns: max-content 1fr;
-            gap: 6px 16px;
-            margin: 0 auto;
-            padding: 12px 16px;
+        a.asset-expand { cursor: pointer; }
+        a.asset-expand:link, a.asset-expand:visited,
+        a.asset-source-link:link, a.asset-source-link:visited,
+        a.asset-expand:hover, a.asset-source-link:hover {
+            text-decoration: none;
+            color: #3ad540;
+        }
+        .asset-detail-row td { text-align: left; padding: 16px; }
+        .asset-detail-cards {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: start;
+            gap: 16px;
+        }
+        .asset-card-wide { grid-column: 1 / -1; }
+        .asset-card-wide .asset-card-item {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            align-items: baseline;
+            gap: 10px;
+        }
+        .asset-card-wide .asset-card-item label { margin-bottom: 0; }
+        .asset-card {
             background: #1c1c26;
-            border-radius: 8px;
+            border: 1px solid #2c2c3a;
+            border-radius: 10px;
+            padding: 16px 18px;
+        }
+        .asset-card-title {
+            margin: 0 0 14px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #2c2c3a;
+            font-size: 15px;
+        }
+        .asset-card-item { margin-bottom: 14px; }
+        .asset-card-item:last-child { margin-bottom: 0; }
+        .asset-card-item label {
+            display: block;
+            font-size: 11px;
+            letter-spacing: 0.4px;
+            color: #8a8a9a;
+            margin-bottom: 4px;
+        }
+        .asset-card-item span {
             font-size: 13px;
             word-break: break-all;
-            text-align: left;
         }
-        .asset-detail dt { color: var(--text-highlight-color); font-weight: bold; text-align: left; }
-        .asset-detail dd { margin: 0; text-align: left; }
+        .asset-card-id { display: inline-flex; align-items: flex-start; gap: 6px; }
+        @media (max-width: 900px) {
+            .asset-detail-cards { grid-template-columns: 1fr; }
+            .asset-card-wide .asset-card-item { grid-template-columns: 1fr; gap: 4px; }
+            .asset-card-wide .asset-card-item label { margin-bottom: 4px; }
+        }
         .assets-stats {
             display: flex;
             flex-wrap: wrap;

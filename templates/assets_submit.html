@@ -1,0 +1,529 @@
+{% extends "_basic.html" %}
+
+{# Submission page: minimal header — no Blockchain/Assets tabs, no search box. #}
+{% block header %}
+    <div id="header-content">
+        <div class="header-top">
+            <h1 class="Header">
+               <a href="/"><img src="{{ url_for('static', filename='logo.svg') }}"></a>
+            </h1>
+        </div>
+    </div>
+    <div class="TitleUnderliner" style="margin-bottom: 1em"></div>
+{% endblock %}
+
+{% block content %}
+    <div class="Wrapper">
+
+        <div class="TitleDivider"></div>
+
+        <div class="submit-heading-row">
+            <h2>Token Submission</h2>
+        </div>
+        <div class="TitleUnderliner"></div>
+
+        {% if submit_result %}
+            <div class="submit-note {{ 'submit-note-success' if submit_result.ok else 'submit-note-error' }}">
+                {{ submit_result.message }}
+            </div>
+        {% endif %}
+
+        {% if asset_not_found %}
+            <div class="submit-note submit-note-error">
+                Asset <code>{{ asset_id }}</code> was not found on-chain. Enter a valid asset ID below.
+            </div>
+        {% endif %}
+
+        <form class="submit-form" action="/assets/submit" method="post" enctype="multipart/form-data">
+
+            <fieldset class="submit-section">
+                <legend>Requester Information</legend>
+                <div class="submit-grid">
+                    <label>Requester Name <span class="req">*</span>
+                        <input type="text" name="requester_name" required>
+                    </label>
+                    <label>Requester Email <span class="req">*</span>
+                        <input type="email" name="requester_email" required>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="submit-section">
+                <legend>Asset ID</legend>
+                <label for="onchain-asset_id">Asset ID <span class="req">*</span></label>
+                <div class="asset-id-row">
+                    <input type="text" id="onchain-asset_id" name="asset_id" value="{{ asset_id or '' }}"
+                           placeholder="Enter the 64-character asset ID" autocomplete="off" required>
+                    <button type="button" id="verify-asset-btn" class="verify-btn">Verify</button>
+                </div>
+                <span class="submit-hint">Enter an asset ID and click Verify to confirm it exists on-chain.</span>
+                <div id="asset-lookup-error" class="submit-note submit-note-error" style="display: none"></div>
+                <div id="asset-lookup-success" class="submit-note submit-note-success" style="display: none"></div>
+            </fieldset>
+
+            <fieldset class="submit-section">
+                <legend>Project Information</legend>
+                <div class="submit-grid">
+                    <label>Project Name <span class="req">*</span>
+                        <input type="text" name="project_name" required>
+                    </label>
+                    <label>Official Website <span class="req">*</span>
+                        <input type="url" name="website" placeholder="https://example.com" required>
+                    </label>
+                    <label>Official Email <span class="req">*</span>
+                        <input type="email" name="email" placeholder="team@example.com" required>
+                    </label>
+                    <label>Project Sector <span class="req">*</span>
+                        <select name="sector" id="sector-select" required>
+                            <option value="">— Select —</option>
+                            <option>DeFi</option>
+                            <option>Payments</option>
+                            <option>Gaming</option>
+                            <option>NFT</option>
+                            <option>Infrastructure</option>
+                            <option>Stablecoin</option>
+                            <option>Exchange</option>
+                            <option>Other</option>
+                        </select>
+                    </label>
+                    <label id="sector-other-wrap" style="display: none">Specify Sector <span class="req">*</span>
+                        <input type="text" name="sector_other" id="sector-other" placeholder="Enter the project sector">
+                    </label>
+                </div>
+                <label>Description <span class="req">*</span>
+                    <textarea name="description" rows="4" placeholder="A neutral description of the asset/project." required></textarea>
+                </label>
+                <label>Logo URL <span class="req">*</span>
+                    <input type="url" name="logo" id="logo-input" placeholder="https://example.com/logo.svg" required>
+                    <span class="submit-hint">Direct link to a hosted logo — SVG must be 32×32, PNG must be 64×64.</span>
+                    <span id="logo-error" class="submit-note submit-note-error" style="display: none"></span>
+                </label>
+            </fieldset>
+
+            <fieldset class="submit-section">
+                <legend>Social Links <span class="req">*</span></legend>
+                <span class="submit-hint">Provide at least 2 social links.</span>
+                <div id="socials-error" class="submit-note submit-note-error" style="display: none"></div>
+                <div class="submit-grid">
+                    <label>Whitepaper
+                        <input type="url" name="whitepaper" placeholder="https://...">
+                    </label>
+                    <label>GitHub
+                        <input type="url" name="github" placeholder="https://github.com/...">
+                    </label>
+                    <label>Telegram
+                        <input type="url" name="telegram" placeholder="https://t.me/...">
+                    </label>
+                    <label>Discord
+                        <input type="url" name="discord" placeholder="https://discord.gg/...">
+                    </label>
+                    <label>Twitter (X)
+                        <input type="url" name="twitter" placeholder="https://x.com/...">
+                    </label>
+                    <label>LinkedIn
+                        <input type="url" name="linkedin" placeholder="https://linkedin.com/...">
+                    </label>
+                    <label>Medium
+                        <input type="url" name="medium" placeholder="https://medium.com/...">
+                    </label>
+                    <label>Reddit
+                        <input type="url" name="reddit" placeholder="https://reddit.com/...">
+                    </label>
+                    <label>Facebook
+                        <input type="url" name="facebook" placeholder="https://facebook.com/...">
+                    </label>
+                    <label>Slack
+                        <input type="url" name="slack" placeholder="https://....slack.com/...">
+                    </label>
+                    <label>WeChat
+                        <input type="text" name="wechat" placeholder="WeChat ID">
+                    </label>
+                    <label>Bitcointalk
+                        <input type="url" name="bitcointalk" placeholder="https://bitcointalk.org/...">
+                    </label>
+                    <label>Ticketing
+                        <input type="url" name="ticketing" placeholder="https://...">
+                    </label>
+                    <label>OpenSea
+                        <input type="url" name="opensea" placeholder="https://opensea.io/...">
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="submit-section">
+                <legend>Price &amp; Source Information</legend>
+                <div class="submit-grid">
+                    <label>Price API URL <span class="req">*</span>
+                        <input type="url" name="price_url" placeholder="https://.../api/price?asset=..." required>
+                    </label>
+                    <label>Source URL <span class="req">*</span>
+                        <input type="url" name="source" placeholder="https://www.coingecko.com/..." required>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="submit-section">
+                <legend>Additional Information</legend>
+                <label>Explorer URL <span class="req">*</span>
+                    <input type="url" name="explorer_url" placeholder="https://..." required>
+                </label>
+                <label>Additional Notes
+                    <textarea name="notes" rows="3" placeholder="Anything else the reviewers should know."></textarea>
+                </label>
+            </fieldset>
+
+            {# Honeypot: real users leave this empty; bots tend to fill it. #}
+            <input type="text" name="company" class="submit-honeypot" tabindex="-1" autocomplete="off">
+
+            <div class="submit-actions">
+                <button type="submit" class="submit-btn">Submit for Review</button>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .submit-heading-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .submit-back {
+            color: #3ad540;
+            text-decoration: none;
+        }
+        .submit-back:hover { text-decoration: underline; }
+        .submit-note {
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin: 14px 0;
+        }
+        .submit-note-error {
+            background: rgba(213, 58, 58, 0.15);
+            border: 1px solid #d53a3a;
+        }
+        .submit-note-success {
+            background: rgba(58, 213, 64, 0.15);
+            border: 1px solid #3ad540;
+        }
+        .asset-id-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .asset-id-row input { margin-top: 0; }
+        .verify-btn {
+            flex: 0 0 auto;
+            padding: 10px 24px;
+            border: 1px solid #3ad540;
+            border-radius: 8px;
+            background: rgba(58, 213, 64, 0.15);
+            color: #3ad540;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .verify-btn:hover { background: rgba(58, 213, 64, 0.3); }
+        .verify-btn:disabled { opacity: 0.5; cursor: default; }
+        .submit-form {
+            width: 100%;
+            margin: 20px 0;
+        }
+        .submit-section {
+            border: 1px solid #33333f;
+            border-radius: 8px;
+            padding: 16px 18px;
+            margin-bottom: 20px;
+        }
+        .submit-section-muted { opacity: 0.75; }
+        .submit-section legend {
+            padding: 0 8px;
+            color: var(--text-highlight-color);
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .req { color: #d53a3a; }
+        .submit-hint {
+            margin: 6px 0 12px;
+            font-size: 13px;
+            opacity: 0.7;
+        }
+        .submit-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+        .submit-form label {
+            display: block;
+            font-size: 15px;
+            margin-bottom: 14px;
+        }
+        .submit-form input,
+        .submit-form textarea,
+        .submit-form select {
+            display: block;
+            width: 100%;
+            margin-top: 6px;
+            padding: 10px 12px;
+            border: 0;
+            border-radius: 8px;
+            background-color: #262634;
+            color: white;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        .submit-form input:focus,
+        .submit-form textarea:focus,
+        .submit-form select:focus {
+            outline: none;
+            border: solid 1px var(--control-highlight-link-color);
+        }
+        .submit-form input[readonly],
+        .submit-form input[disabled] {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+        .submit-form input[type="file"] {
+            padding: 8px 12px;
+        }
+        .submit-honeypot { display: none !important; }
+        .submit-actions { text-align: right; }
+        .submit-btn {
+            padding: 11px 30px;
+            border: 1px solid #3ad540;
+            border-radius: 5px;
+            background: rgba(58, 213, 64, 0.15);
+            color: #3ad540;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .submit-btn:hover { background: rgba(58, 213, 64, 0.3); }
+        @media (max-width: 640px) {
+            .submit-grid { grid-template-columns: 1fr; }
+        }
+        #onchain-asset_id.input-error,
+        #logo-input.input-error { border: 1px solid #d53a3a; }
+    </style>
+
+    <script>
+        (function () {
+            var idInput = document.getElementById('onchain-asset_id');
+            var verifyBtn = document.getElementById('verify-asset-btn');
+            var err = document.getElementById('asset-lookup-error');
+            var ok = document.getElementById('asset-lookup-success');
+
+            // Tracks whether the current asset ID has been confirmed on-chain.
+            var assetVerified = false;
+
+            function showError(msg) {
+                err.textContent = msg;
+                err.style.display = '';
+                ok.style.display = 'none';
+                idInput.classList.add('input-error');
+                assetVerified = false;
+            }
+            function showSuccess() {
+                ok.textContent = '✓ Valid asset ID.';
+                ok.style.display = '';
+                err.style.display = 'none';
+                idInput.classList.remove('input-error');
+                assetVerified = true;
+            }
+
+            // Verify the asset ID on-chain. Returns a Promise resolving to true/false.
+            function lookup() {
+                var id = (idInput.value || '').trim();
+                if (!id) { showError('Please enter an asset ID.'); return Promise.resolve(false); }
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = 'Verifying…';
+                return fetch('/api/asset_info/' + encodeURIComponent(id))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (d.found) { showSuccess(); prefillFromSubmission(id); return true; }
+                        showError('Asset not found. Please enter a valid asset ID.');
+                        return false;
+                    })
+                    .catch(function () {
+                        showError('Could not look up the asset. Please try again.');
+                        return false;
+                    })
+                    .finally(function () {
+                        verifyBtn.disabled = false;
+                        verifyBtn.textContent = 'Verify';
+                    });
+            }
+
+            // After a valid asset ID is confirmed, pull any previous submission
+            // from the admin portal and pre-fill the form with its verified data.
+            function prefillFromSubmission(id) {
+                fetch('/api/submission/' + encodeURIComponent(id))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (!d || !d.found || !d.verified_fields) { return; }
+                        var vf = d.verified_fields;
+                        Object.keys(vf).forEach(function (name) {
+                            var val = vf[name];
+                            if (val === null || val === undefined || val === '') { return; }
+                            // Sector may be a custom value -> route through "Other".
+                            if (name === 'sector' && sectorSelect) {
+                                var known = Array.prototype.some.call(sectorSelect.options,
+                                    function (o) { return o.value === val; });
+                                if (known) {
+                                    sectorSelect.value = val;
+                                } else {
+                                    sectorSelect.value = 'Other';
+                                    if (sectorOther) { sectorOther.value = val; }
+                                }
+                                syncSectorOther();
+                                return;
+                            }
+                            var el = form.elements[name];
+                            if (el && el.tagName) { el.value = val; }
+                        });
+                        // Re-run logo validation if a logo URL was pre-filled.
+                        if (vf.logo && logoInput) { validateLogo(); }
+                    })
+                    .catch(function () { /* prefill is best-effort; ignore errors */ });
+            }
+
+            if (verifyBtn) verifyBtn.addEventListener('click', lookup);
+            if (idInput) {
+                idInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); lookup(); }
+                });
+                // If the user edits the ID after verifying, clear the stale success state.
+                idInput.addEventListener('input', function () {
+                    ok.style.display = 'none';
+                    err.style.display = 'none';
+                    idInput.classList.remove('input-error');
+                    assetVerified = false;
+                });
+            }
+
+            // Show the "Specify Sector" text field only when "Other" is chosen.
+            var sectorSelect = document.getElementById('sector-select');
+            var sectorOtherWrap = document.getElementById('sector-other-wrap');
+            var sectorOther = document.getElementById('sector-other');
+            function syncSectorOther() {
+                var isOther = sectorSelect && sectorSelect.value === 'Other';
+                if (sectorOtherWrap) sectorOtherWrap.style.display = isOther ? '' : 'none';
+                if (sectorOther) {
+                    sectorOther.required = isOther;
+                    if (!isOther) sectorOther.value = '';
+                }
+            }
+            if (sectorSelect) {
+                sectorSelect.addEventListener('change', syncSectorOther);
+                syncSectorOther();
+            }
+
+            // Require at least 1 social link before allowing submission.
+            var SOCIAL_FIELDS = ['whitepaper', 'github', 'telegram', 'discord', 'twitter',
+                'linkedin', 'medium', 'reddit', 'facebook',
+                'slack', 'wechat', 'bitcointalk', 'ticketing', 'opensea'];
+            var form = document.querySelector('.submit-form');
+            var socialsErr = document.getElementById('socials-error');
+
+            function socialsOk() {
+                var filled = SOCIAL_FIELDS.filter(function (name) {
+                    var el = form.elements[name];
+                    return el && (el.value || '').trim();
+                }).length;
+                if (filled < 1) {
+                    socialsErr.textContent = 'Please provide at least 1 social link.';
+                    socialsErr.style.display = '';
+                    return false;
+                }
+                socialsErr.style.display = 'none';
+                return true;
+            }
+
+            // Validate the logo image dimensions: SVG must be 32×32, PNG 64×64.
+            // Loads the image from the URL and inspects its intrinsic size.
+            // Returns a Promise resolving to true (valid) or false (blocked).
+            var logoInput = document.getElementById('logo-input');
+            var logoErr = document.getElementById('logo-error');
+
+            function showLogoErr(msg) {
+                logoErr.textContent = msg;
+                logoErr.style.display = '';
+                logoInput.classList.add('input-error');
+            }
+
+            function validateLogo() {
+                logoErr.style.display = 'none';
+                logoInput.classList.remove('input-error');
+                var url = (logoInput.value || '').trim();
+                if (!url) { return Promise.resolve(true); }  // 'required' handles empty
+
+                // Detect type from the URL however it appears: a path extension
+                // (.png/.svg) or a query param (format=png, type=svg, f=png, ...).
+                // Falls back to a plain "svg"/"png" token anywhere in the URL, so
+                // hosts like Icons8 (…?format=png) are recognised too.
+                var lower = url.toLowerCase();
+                var isSvg = /\bsvg\b/.test(lower) || /svg(\?|#|&|$)/.test(lower);
+                var isPng = /\bpng\b/.test(lower) || /png(\?|#|&|$)/.test(lower);
+
+                return new Promise(function (resolve) {
+                    var img = new Image();
+                    img.onload = function () {
+                        var w = img.naturalWidth, h = img.naturalHeight;
+                        if (isSvg && !isPng) {
+                            if (w === 32 && h === 32) return resolve(true);
+                            showLogoErr('SVG logo must be exactly 32×32 px (got ' + w + '×' + h +
+                                '). Please re-upload a correctly sized logo.');
+                            return resolve(false);
+                        }
+                        if (isPng && !isSvg) {
+                            if (w === 64 && h === 64) return resolve(true);
+                            showLogoErr('PNG logo must be exactly 64×64 px (got ' + w + '×' + h +
+                                '). Please re-upload a correctly sized logo.');
+                            return resolve(false);
+                        }
+                        // Type unclear from the URL: accept either allowed size.
+                        if ((w === 32 && h === 32) || (w === 64 && h === 64)) return resolve(true);
+                        showLogoErr('Logo must be a 32×32 SVG or a 64×64 PNG (got ' + w + '×' + h +
+                            '). Please re-upload a correctly sized logo.');
+                        resolve(false);
+                    };
+                    img.onerror = function () {
+                        showLogoErr('Could not load the logo from that URL. Please check the link and re-upload.');
+                        resolve(false);
+                    };
+                    img.src = url;
+                });
+            }
+
+            // Re-validate when the user finishes editing the logo URL.
+            if (logoInput) {
+                logoInput.addEventListener('change', validateLogo);
+            }
+
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    // Native 'required'/URL validation has already passed at this point.
+                    // Run the async checks (asset on-chain + logo size) before submitting.
+                    e.preventDefault();
+                    if (!socialsOk()) {
+                        socialsErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                    }
+                    var assetCheck = assetVerified ? Promise.resolve(true) : lookup();
+                    Promise.all([assetCheck, validateLogo()]).then(function (r) {
+                        var assetOk = r[0], logoOk = r[1];
+                        if (!assetOk) {
+                            idInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else if (!logoOk) {
+                            logoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else if (socialsOk()) {
+                            form.submit();
+                        }
+                    });
+                });
+            }
+        })();
+    </script>
+
+{% endblock %}

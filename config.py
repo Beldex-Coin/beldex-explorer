@@ -24,6 +24,15 @@ output_key_checker=False
 autorefresh_option=True
 enable_mixins_details=True
 
+# Asset-listing submission: where the /assets/submit form is forwarded (the admin
+# portal's ingest endpoint) and the shared secret it expects (must match the
+# portal's INGEST_API_KEY). Set assets_submit_url=None to disable forwarding.
+assets_submit_url='http://127.0.0.1:5001/api/submissions'
+assets_submit_api_key=''
+
+# Whitelist JSON published by the admin portal, read for the "Whitelisted" tab.
+assets_whitelist_url='http://127.0.0.1:5001/whitelist.json'
+
 # URLs to networks other than the one we are on:
 mainnet_url='https://explorer.beldex.io'
 testnet_url='https://testnet.beldex.dev'
