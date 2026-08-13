@@ -687,6 +687,11 @@ def assets_submit(asset_id=None):
                 'ownership': {
                     'challenge': form.get('challenge', ''),
                     'signature': form.get('signature', ''),
+                    # Address returned by the requester's Beldex wallet extension via
+                    # "Connect Beldex Wallet"; wallet_verified is a client-side address
+                    # match against the on-chain owner, not a signature proof.
+                    'owner_wallet_address': form.get('owner_wallet_address', ''),
+                    'wallet_verified': form.get('owner_wallet_verified', '') == '1',
                     'verified': False,
                 },
             }

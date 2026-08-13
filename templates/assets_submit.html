@@ -62,6 +62,18 @@
             </fieldset>
 
             <fieldset class="submit-section">
+                <legend>Token Owner Verification</legend>
+                <span class="submit-hint">Verify an asset ID above, then connect your Beldex wallet to confirm you control the on-chain owner address.</span>
+                <div class="owner-verify-row">
+                    <button type="button" id="connect-wallet-btn" class="verify-btn" disabled>Connect Beldex Wallet</button>
+                    <span id="owner-verify-status" class="owner-verify-status"></span>
+                </div>
+                <div id="owner-verify-note" class="submit-note submit-note-error" style="display: none"></div>
+                <input type="hidden" name="owner_wallet_address" id="owner-wallet-address">
+                <input type="hidden" name="owner_wallet_verified" id="owner-wallet-verified" value="0">
+            </fieldset>
+
+            <fieldset class="submit-section">
                 <legend>Project Information</legend>
                 <div class="submit-grid">
                     <label>Project Name <span class="req">*</span>
@@ -305,6 +317,14 @@
         }
         #onchain-asset_id.input-error,
         #logo-input.input-error { border: 1px solid #d53a3a; }
+        .owner-verify-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 6px;
+        }
+        .owner-verify-status { font-size: 14px; }
+        .owner-verify-ok { color: #3ad540; font-weight: bold; }
     </style>
 
     <script>
@@ -316,6 +336,24 @@
 
             // Tracks whether the current asset ID has been confirmed on-chain.
             var assetVerified = false;
+            // On-chain owner address of the currently verified asset, used to check
+            // the connected wallet's address against once "Connect Beldex Wallet" runs.
+            var assetOwner = '';
+
+            var connectBtn = document.getElementById('connect-wallet-btn');
+            var ownerStatus = document.getElementById('owner-verify-status');
+            var ownerNote = document.getElementById('owner-verify-note');
+            var ownerAddrInput = document.getElementById('owner-wallet-address');
+            var ownerVerifiedInput = document.getElementById('owner-wallet-verified');
+
+            function resetOwnerVerification() {
+                assetOwner = '';
+                if (connectBtn) connectBtn.disabled = true;
+                if (ownerStatus) { ownerStatus.textContent = ''; ownerStatus.className = 'owner-verify-status'; }
+                if (ownerNote) ownerNote.style.display = 'none';
+                if (ownerAddrInput) ownerAddrInput.value = '';
+                if (ownerVerifiedInput) ownerVerifiedInput.value = '0';
+            }
 
             function showError(msg) {
                 err.textContent = msg;
@@ -323,6 +361,7 @@
                 ok.style.display = 'none';
                 idInput.classList.add('input-error');
                 assetVerified = false;
+                resetOwnerVerification();
             }
             function showSuccess() {
                 ok.textContent = '✓ Valid asset ID.';
@@ -330,6 +369,7 @@
                 err.style.display = 'none';
                 idInput.classList.remove('input-error');
                 assetVerified = true;
+                if (connectBtn) connectBtn.disabled = false;
             }
 
             // Verify the asset ID on-chain. Returns a Promise resolving to true/false.
@@ -341,7 +381,12 @@
                 return fetch('/api/asset_info/' + encodeURIComponent(id))
                     .then(function (r) { return r.json(); })
                     .then(function (d) {
-                        if (d.found) { showSuccess(); prefillFromSubmission(id); return true; }
+                        if (d.found) {
+                            assetOwner = (d.asset && d.asset.owner) || '';
+                            showSuccess();
+                            prefillFromSubmission(id);
+                            return true;
+                        }
                         showError('Asset not found. Please enter a valid asset ID.');
                         return false;
                     })
@@ -399,6 +444,7 @@
                     err.style.display = 'none';
                     idInput.classList.remove('input-error');
                     assetVerified = false;
+                    resetOwnerVerification();
                 });
             }
 
@@ -500,6 +546,80 @@
             if (logoInput) {
                 logoInput.addEventListener('change', validateLogo);
             }
+
+            // Locate the injected Beldex wallet provider. Extensions announce
+            // themselves via an EIP-6963-style event; fall back to a plain
+            // `window.beldex` global if no announcement arrives in time.
+            function getBeldexProvider() {
+                if (window.beldex) return Promise.resolve(window.beldex);
+                return new Promise(function (resolve) {
+                    var settled = false;
+                    function onAnnounce(e) {
+                        if (settled) return;
+                        settled = true;
+                        window.removeEventListener('beldex:announceProvider', onAnnounce);
+                        resolve((e.detail && e.detail.provider) || window.beldex || null);
+                    }
+                    window.addEventListener('beldex:announceProvider', onAnnounce);
+                    window.dispatchEvent(new CustomEvent('beldex:requestProvider'));
+                    setTimeout(function () {
+                        if (settled) return;
+                        settled = true;
+                        window.removeEventListener('beldex:announceProvider', onAnnounce);
+                        resolve(window.beldex || null);
+                    }, 400);
+                });
+            }
+
+            function showOwnerNote(msg) {
+                ownerNote.textContent = msg;
+                ownerNote.style.display = '';
+                ownerStatus.textContent = '';
+                ownerStatus.className = 'owner-verify-status';
+            }
+
+            // Connect the Beldex wallet extension and check whether the address it
+            // returns matches this asset's on-chain owner. This proves control of
+            // the connected wallet, not a signed message — the extension does not
+            // yet expose message signing.
+            function connectWallet() {
+                if (!assetVerified || !assetOwner) {
+                    showOwnerNote('Verify the asset ID above first.');
+                    return;
+                }
+                ownerNote.style.display = 'none';
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Connecting…';
+                getBeldexProvider().then(function (provider) {
+                    if (!provider) {
+                        showOwnerNote('Beldex wallet extension not detected. Install it to verify ownership.');
+                        return;
+                    }
+                    return provider.request({ method: 'bdx_connect' }).then(function (res) {
+                        var address = res && res.address;
+                        if (!address) {
+                            showOwnerNote('Could not retrieve an address from the connected wallet.');
+                            return;
+                        }
+                        ownerAddrInput.value = address;
+                        if (address === assetOwner) {
+                            ownerVerifiedInput.value = '1';
+                            ownerNote.style.display = 'none';
+                            ownerStatus.textContent = '✓ Verified: connected wallet matches the on-chain owner.';
+                            ownerStatus.className = 'owner-verify-status owner-verify-ok';
+                        } else {
+                            ownerVerifiedInput.value = '0';
+                            showOwnerNote('Connected wallet (' + address + ') does not match the on-chain owner of this asset.');
+                        }
+                    });
+                }).catch(function () {
+                    showOwnerNote('Wallet connection failed or was rejected.');
+                }).finally(function () {
+                    connectBtn.disabled = !assetVerified;
+                    connectBtn.textContent = 'Connect Beldex Wallet';
+                });
+            }
+            if (connectBtn) connectBtn.addEventListener('click', connectWallet);
 
             if (form) {
                 form.addEventListener('submit', function (e) {
