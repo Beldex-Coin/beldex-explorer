@@ -24,14 +24,25 @@ output_key_checker=False
 autorefresh_option=True
 enable_mixins_details=True
 
-# Asset-listing submission: where the /assets/submit form is forwarded (the admin
+# Token-listing submission: where the /tokens/submit form is forwarded (the admin
 # portal's ingest endpoint) and the shared secret it expects (must match the
-# portal's INGEST_API_KEY). Set assets_submit_url=None to disable forwarding.
-assets_submit_url='http://127.0.0.1:5001/api/submissions'
-assets_submit_api_key=''
+# portal's INGEST_API_KEY). Set token_submit_url=None to disable forwarding.
+token_submit_url='http://127.0.0.1:5001/api/submissions'
+token_submit_api_key=''
 
 # Whitelist JSON published by the admin portal, read for the "Whitelisted" tab.
-assets_whitelist_url='http://127.0.0.1:5001/whitelist.json'
+token_whitelist_url='http://127.0.0.1:5001/whitelist.json'
+
+# HMAC secret used to sign token-ownership challenges/grant tokens (see
+# token_ownership.py). Must be set to a fixed value (e.g. in local_config.py)
+# for any deployment running more than one worker process, or a challenge
+# issued by one worker will be rejected by another. Leave None only for a
+# single-process dev server.
+token_verify_secret=None
+# TTLs (seconds) for an issued ownership challenge and the grant token it
+# produces once signed.
+token_challenge_ttl=2400
+token_ownership_ttl=1800
 
 # URLs to networks other than the one we are on:
 mainnet_url='https://explorer.beldex.io'

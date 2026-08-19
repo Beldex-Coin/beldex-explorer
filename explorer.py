@@ -21,6 +21,7 @@ from jinja2 import Environment
 
 import config
 import local_config
+import token_ownership
 from lmq import FutureJSON, lmq_connection
 
 import base64
@@ -55,8 +56,8 @@ class Hex64Converter(BaseConverter):
 
 app.url_map.converters['hex64'] = Hex64Converter
 
-def format_asset_amount(raw, decimals):
-    """Convert an asset's atomic-unit amount to a human-readable string using its
+def format_token_amount(raw, decimals):
+    """Convert a token's atomic-unit amount to a human-readable string using its
     decimal_point, with thousands separators and trailing zeros trimmed."""
     try:
         raw = int(raw)
@@ -76,13 +77,13 @@ _price_cache = {}
 _PRICE_CACHE_TTL = 60  # seconds
 
 # Cache for the admin-portal whitelist JSON: {url: (whitelist_by_id, expiry)}.
-# Fetched on /assets page loads; caching keeps every visitor from blocking on
+# Fetched on /tokens page loads; caching keeps every visitor from blocking on
 # (and coupling our uptime to) the admin portal.
 _whitelist_cache = {}
 _WHITELIST_CACHE_TTL = 60  # seconds
 
 def load_whitelist_by_id(whitelist_url):
-    """Return {asset_id: entry} from the admin portal's whitelist JSON, cached for
+    """Return {token_id: entry} from the admin portal's whitelist JSON, cached for
     a short TTL. Returns {} (and logs) on any fetch/parse failure; on failure a
     still-valid cached copy is preferred over an empty result."""
     if not whitelist_url:
@@ -95,14 +96,14 @@ def load_whitelist_by_id(whitelist_url):
 
     try:
         whitelist_by_id = {}
-        for entry in requests.get(whitelist_url, timeout=5).json().get('assets', []):
-            aid = entry.get('asset_id', '')
-            if aid:
-                whitelist_by_id[aid] = entry
+        for entry in requests.get(whitelist_url, timeout=5).json().get('tokens', []):
+            tid = entry.get('token_id', '')
+            if tid:
+                whitelist_by_id[tid] = entry
         _whitelist_cache[whitelist_url] = (whitelist_by_id, now + _WHITELIST_CACHE_TTL)
         return whitelist_by_id
     except (requests.RequestException, ValueError) as e:
-        print("Failed to load assets whitelist from {}: {}".format(whitelist_url, e),
+        print("Failed to load token whitelist from {}: {}".format(whitelist_url, e),
                 file=sys.stderr)
         # Serve the last good copy if we have one, rather than dropping metadata.
         return cached[0] if cached else {}
@@ -120,7 +121,7 @@ def format_price_value(value):
     return '$' + s
 
 def fetch_coingecko_price(price_url):
-    """Fetch the current price for an asset from a CoinGecko API URL published in
+    """Fetch the current price for a token from a CoinGecko API URL published in
     the whitelist. Only CoinGecko URLs are supported today. Returns a formatted
     price string (e.g. '$0.0453') or '' on any failure. Results are cached briefly."""
     if not price_url:
@@ -151,26 +152,26 @@ def fetch_coingecko_price(price_url):
     _price_cache[price_url] = (price, now + _PRICE_CACHE_TTL)
     return price
 
-def asset_display_dict(a):
-    """Return a display-ready copy of a daemon asset dict (formatted supplies).
+def token_display_dict(a):
+    """Return a display-ready copy of a daemon token dict (formatted supplies).
     Returns None if given None. Does not mutate the cached daemon response."""
     if not a:
         return None
     d = dict(a)
-    d['asset_id'] = a.get('asset_id', '')
-    d['current_supply'] = format_asset_amount(a.get('current_supply'), a.get('decimal_point'))
-    d['total_max_supply'] = format_asset_amount(a.get('total_max_supply'), a.get('decimal_point'))
+    d['token_id'] = a.get('token_id', '')
+    d['current_supply'] = format_token_amount(a.get('current_supply'), a.get('decimal_point'))
+    d['total_max_supply'] = format_token_amount(a.get('total_max_supply'), a.get('decimal_point'))
     return d
 
-# Get asset info from beldexd
-def get_asset_info(asset_id):
-    """Fetch asset info from daemon."""
-    if not asset_id:
+# Get token info from beldexd
+def get_token_info(token_id):
+    """Fetch token info from daemon."""
+    if not token_id:
         return None
 
     lmq, beldexd = lmq_connection()
-    result = FutureJSON(lmq, beldexd, 'rpc.get_asset_info', 5, cache_key=asset_id,
-            args={'asset_id': asset_id}).get()
+    result = FutureJSON(lmq, beldexd, 'rpc.get_token_info', 5, cache_key=token_id,
+            args={'token_id': token_id}).get()
 
     if not result:
         return None
@@ -178,9 +179,9 @@ def get_asset_info(asset_id):
     if result.get('status') not in (None, 'OK'):
         return None
 
-    assets = result.get('assets')
-    if isinstance(assets, list):
-        return assets[0] if assets else None
+    tokens = result.get('tokens')
+    if isinstance(tokens, list):
+        return tokens[0] if tokens else None
 
     return result
 
@@ -555,10 +556,10 @@ def mempool():
             mempool=parse_mempool(mempool),
             )
 
-@app.route('/assets')
-@app.route('/assets/<int:offset>')
-@app.route('/assets/<int:offset>/<int:count>')
-def assets(offset=0, count=20):
+@app.route('/tokens')
+@app.route('/tokens/<int:offset>')
+@app.route('/tokens/<int:offset>/<int:count>')
+def list_tokens(offset=0, count=20):
     if count <= 0:
         count = 20
     if offset < 0:
@@ -566,49 +567,49 @@ def assets(offset=0, count=20):
     lmq, beldexd = lmq_connection()
     info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
 
-    # All assets: the daemon's get_asset_list only returns IDs, so we fetch the
-    # full descriptor for each id via get_asset_info (fired in parallel).
-    asset_list = FutureJSON(lmq, beldexd, 'rpc.get_asset_list', 5,
+    # All tokens: the daemon's get_token_list only returns IDs, so we fetch the
+    # full descriptor for each id via get_token_info (fired in parallel).
+    token_list = FutureJSON(lmq, beldexd, 'rpc.get_token_list', 5,
             args={'offset': offset, 'count': count}).get() or {}
-    asset_ids = asset_list.get('asset_ids', [])
-    total_count = asset_list.get('total_count', len(asset_ids))
+    token_ids = token_list.get('token_ids', [])
+    total_count = token_list.get('total_count', len(token_ids))
 
     info_futures = [
-        FutureJSON(lmq, beldexd, 'rpc.get_asset_info', 5, cache_key=aid,
-            args={'asset_id': aid})
-        for aid in asset_ids]
+        FutureJSON(lmq, beldexd, 'rpc.get_token_info', 5, cache_key=tid,
+            args={'token_id': tid})
+        for tid in token_ids]
 
-    all_assets = []
-    for aid, fut in zip(asset_ids, info_futures):
+    all_tokens = []
+    for tid, fut in zip(token_ids, info_futures):
         a = fut.get() or {}
-        all_assets.append({
+        all_tokens.append({
             'name': a.get('full_name', ''),
             'ticker': a.get('ticker', ''),
-            'asset_id': a.get('asset_id', aid),
+            'token_id': a.get('token_id', tid),
             # price/source require an external price feed / DEX, which Beldex does
             # not have yet, so leave them empty for now (rendered as "No data").
             'price': '',
             'source': '',
             # Full descriptor fields, shown in the expandable detail panel.
             'full_name': a.get('full_name', ''),
-            'total_max_supply': format_asset_amount(a.get('total_max_supply'), a.get('decimal_point')),
-            'current_supply': format_asset_amount(a.get('current_supply'), a.get('decimal_point')),
+            'total_max_supply': format_token_amount(a.get('total_max_supply'), a.get('decimal_point')),
+            'current_supply': format_token_amount(a.get('current_supply'), a.get('decimal_point')),
             'decimal_point': a.get('decimal_point', ''),
             'meta_info': a.get('meta_info', ''),
             'owner': a.get('owner', ''),
-            # off-chain metadata (from the whitelist later); empty for on-chain-only assets
+            # off-chain metadata (from the whitelist later); empty for on-chain-only tokens
             'social': '',
             'logo': '',
             })
 
     # Whitelist: curated off-chain metadata (logo, source, socials, ...) published
-    # by the admin portal, keyed by asset_id (cached for a short TTL).
-    whitelist_by_id = load_whitelist_by_id(getattr(config, 'assets_whitelist_url', None))
+    # by the admin portal, keyed by token_id (cached for a short TTL).
+    whitelist_by_id = load_whitelist_by_id(getattr(config, 'token_whitelist_url', None))
 
-    # When an on-chain asset is also whitelisted, overlay the curated off-chain
-    # fields (logo, price, source, social) onto its All Assets row.
-    for a in all_assets:
-        entry = whitelist_by_id.get(a['asset_id'])
+    # When an on-chain token is also whitelisted, overlay the curated off-chain
+    # fields (logo, price, source, social) onto its All Tokens row.
+    for a in all_tokens:
+        entry = whitelist_by_id.get(a['token_id'])
         if entry:
             socials = entry.get('socials') or {}
             a['logo'] = entry.get('logo', '') or a['logo']
@@ -618,55 +619,157 @@ def assets(offset=0, count=20):
             # macro renders a single social link; prefer the website
             a['social'] = entry.get('website') or socials.get('twitter', '') or a['social']
 
-    # Whitelisted tab shows only the assets that are both curated and on-chain.
-    whitelisted = [a for a in all_assets if a['asset_id'] in whitelist_by_id]
+    # Whitelisted tab shows only the tokens that are both curated and on-chain.
+    whitelisted = [a for a in all_tokens if a['token_id'] in whitelist_by_id]
 
     page = offset // count
     total_pages = max(1, -(-total_count // count))  # ceil division
 
-    return flask.render_template('assets.html',
+    return flask.render_template('tokens.html',
             info=info.get(),
             whitelisted=whitelisted,
-            assets=all_assets,
-            assets_total=total_count,
+            tokens=all_tokens,
+            tokens_total=total_count,
             offset=offset,
             count=count,
             page=page,
             total_pages=total_pages,
             )
 
-ASSET_SOCIAL_FIELDS = ['whitepaper', 'github', 'telegram', 'discord', 'twitter',
+TOKEN_SOCIAL_FIELDS = ['whitepaper', 'github', 'telegram', 'discord', 'twitter',
                        'linkedin', 'medium', 'reddit', 'facebook',
                        'slack', 'wechat', 'bitcointalk', 'ticketing', 'opensea']
 
 # Fields the requester must fill in (mirrors the `required` inputs in the form).
-ASSET_REQUIRED_FIELDS = ['requester_name', 'requester_email', 'project_name',
+TOKEN_REQUIRED_FIELDS = ['requester_name', 'requester_email', 'project_name',
                          'website', 'email', 'description']
 
 
-@app.route('/assets/submit', methods=['GET', 'POST'])
-@app.route('/assets/submit/<string:asset_id>', methods=['GET', 'POST'])
-def assets_submit(asset_id=None):
+# ---------------------------------------------------------------- ownership --
+# Only the wallet that deployed a token may list it. The token's on-chain
+# `owner` is that wallet's account spend public key, so we hand the submitter a
+# challenge, they sign it with `sign_value` in their wallet, and we check the
+# signature against `owner`. Both the challenge and the resulting grant are
+# HMAC-signed rather than stored, so any uwsgi worker can validate what another
+# one issued.
+
+_OWNERSHIP_SECRET = token_ownership.resolve_secret(
+        getattr(config, 'token_verify_secret', None))
+
+def _ownership_ttls():
+    """(challenge_ttl, grant_ttl) in seconds, from config."""
+    return (int(getattr(config, 'token_challenge_ttl', 2400)),
+            int(getattr(config, 'token_ownership_ttl', 1800)))
+
+
+def token_owner_key(token_id):
+    """The token's on-chain owner (spend public key hex), or '' if unavailable."""
+    token = get_token_info(token_id)
+    if not token:
+        return None
+    return (token.get('owner') or '').strip()
+
+
+@app.route('/api/ownership_challenge/<string:token_id>')
+def api_ownership_challenge(token_id):
+    """Issue the string the token owner must sign to prove they hold the key."""
+    owner = token_owner_key(token_id)
+    if owner is None:
+        return flask.jsonify({'ok': False, 'error': 'Token not found on-chain.'}), 404
+    if len(owner) != 64:
+        return flask.jsonify({'ok': False,
+            'error': 'This token has no owner key on-chain, so ownership cannot be verified.'}), 409
+
+    challenge_ttl, _ = _ownership_ttls()
+    return flask.jsonify({
+        'ok': True,
+        'token_id': token_id,
+        'owner': owner,
+        'challenge': token_ownership.make_challenge(token_id, owner, _OWNERSHIP_SECRET),
+        'expires_in': challenge_ttl,
+        })
+
+
+@app.route('/api/verify_owner', methods=['POST'])
+def api_verify_owner():
+    """Check a `sign_value` signature over a challenge we issued.
+
+    On success returns a short-lived grant token; /tokens/submit re-checks both
+    the token and the signature, so this endpoint grants nothing by itself.
+    """
+    data = flask.request.get_json(silent=True) or flask.request.form
+    token_id = (data.get('token_id') or '').strip()
+    challenge = (data.get('challenge') or '').strip()
+    signature = (data.get('signature') or '').strip()
+
+    owner = token_owner_key(token_id)
+    if owner is None:
+        return flask.jsonify({'ok': False, 'error': 'Token not found on-chain.'}), 404
+
+    ok, why = _check_ownership_proof(token_id, owner, challenge, signature)
+    if not ok:
+        return flask.jsonify({'ok': False, 'error': why}), 400
+
+    _, grant_ttl = _ownership_ttls()
+    return flask.jsonify({
+        'ok': True,
+        'owner': owner,
+        'token': token_ownership.issue_token(token_id, owner, _OWNERSHIP_SECRET, grant_ttl),
+        'expires_in': grant_ttl,
+        })
+
+
+def _check_ownership_proof(token_id, owner, challenge, signature):
+    """Validate challenge freshness/binding and then the signature itself."""
+    challenge_ttl, _ = _ownership_ttls()
+    ok, why = token_ownership.check_challenge(challenge, token_id, owner,
+            _OWNERSHIP_SECRET, challenge_ttl)
+    if not ok:
+        return False, why
+    return token_ownership.verify_signed_message(challenge, owner, signature)
+
+
+@app.route('/tokens/submit', methods=['GET', 'POST'])
+@app.route('/tokens/submit/<string:token_id>', methods=['GET', 'POST'])
+def submit_token(token_id=None):
     lmq, beldexd = lmq_connection()
     info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
     submit_result = None
 
     if flask.request.method == 'POST':
         form = flask.request.form
-        asset_id = (form.get('asset_id') or asset_id or '').strip()
+        token_id = (form.get('token_id') or token_id or '').strip()
+        owner = token_owner_key(token_id) if token_id else None
+
+        # Ownership is re-established here from scratch: the browser's "verified"
+        # state is a UI convenience, never the authority. A submission is only
+        # accepted if it carries a grant token we issued *and* a signature that
+        # still checks out against the token's current on-chain owner.
+        ownership_ok, ownership_why = False, 'Ownership has not been verified.'
+        challenge = (form.get('challenge') or '').strip()
+        signature = (form.get('signature') or '').strip()
+        if owner:
+            ownership_ok, ownership_why = token_ownership.check_token(
+                    (form.get('ownership_token') or '').strip(), token_id, owner,
+                    _OWNERSHIP_SECRET)
+            if ownership_ok:
+                ownership_ok, ownership_why = _check_ownership_proof(
+                        token_id, owner, challenge, signature)
 
         if form.get('company'):
             # Honeypot filled -> silently accept (drop the bot submission).
             submit_result = {'ok': True, 'message': 'Your submission was received and is pending review.'}
-        elif not asset_id or get_asset_info(asset_id) is None:
-            submit_result = {'ok': False, 'message': 'Please provide a valid asset ID (it must exist on-chain).'}
-        elif not all(form.get(f, '').strip() for f in ASSET_REQUIRED_FIELDS):
+        elif not token_id or get_token_info(token_id) is None:
+            submit_result = {'ok': False, 'message': 'Please provide a valid token ID (it must exist on-chain).'}
+        elif not ownership_ok:
+            submit_result = {'ok': False, 'message': ownership_why}
+        elif not all(form.get(f, '').strip() for f in TOKEN_REQUIRED_FIELDS):
             submit_result = {'ok': False, 'message': 'Please fill in all required fields.'}
-        elif sum(1 for k in ASSET_SOCIAL_FIELDS if form.get(k, '').strip()) < 1:
+        elif sum(1 for k in TOKEN_SOCIAL_FIELDS if form.get(k, '').strip()) < 1:
             submit_result = {'ok': False, 'message': 'Please provide at least 1 social link.'}
         else:
             payload = {
-                'asset_id': asset_id,
+                'token_id': token_id,
                 'requester_name': form.get('requester_name', ''),
                 'requester_email': form.get('requester_email', ''),
                 'metadata': {
@@ -682,21 +785,21 @@ def assets_submit(asset_id=None):
                     'source': form.get('source', ''),
                     'explorer_url': form.get('explorer_url', ''),
                     'notes': form.get('notes', ''),
-                    'socials': {k: form.get(k, '') for k in ASSET_SOCIAL_FIELDS},
+                    'socials': {k: form.get(k, '') for k in TOKEN_SOCIAL_FIELDS},
                 },
+                # Everything a reviewer needs to re-check the proof independently:
+                # keccak(challenge) verified against `owner` with check_signature.
                 'ownership': {
-                    'challenge': form.get('challenge', ''),
-                    'signature': form.get('signature', ''),
-                    # Address returned by the requester's Beldex wallet extension via
-                    # "Connect Beldex Wallet"; wallet_verified is a client-side address
-                    # match against the on-chain owner, not a signature proof.
-                    'owner_wallet_address': form.get('owner_wallet_address', ''),
-                    'wallet_verified': form.get('owner_wallet_verified', '') == '1',
-                    'verified': False,
+                    'challenge': challenge,
+                    'signature': signature,
+                    'owner': owner,
+                    'verified': True,
+                    'verified_at': int(time.time()),
+                    'method': 'sign_value',
                 },
             }
-            url = getattr(config, 'assets_submit_url', None)
-            key = getattr(config, 'assets_submit_api_key', '') or ''
+            url = getattr(config, 'token_submit_url', None)
+            key = getattr(config, 'token_submit_api_key', '') or ''
             if not url:
                 submit_result = {'ok': False, 'message': 'Submission endpoint is not configured.'}
             else:
@@ -705,61 +808,85 @@ def assets_submit(asset_id=None):
                     if resp.status_code in (200, 201, 202):
                         submit_result = {'ok': True, 'message': 'Your submission was received and is pending review.'}
                     else:
-                        submit_result = {'ok': False, 'message': 'The review service rejected the submission (HTTP {}).'.format(resp.status_code)}
+                        # The admin portal rejects an ownership proof it can't independently
+                        # verify (e.g. a stale/expired grant) with a specific reason in the
+                        # body; surface that instead of a bare HTTP status where we can.
+                        try:
+                            err_body = resp.json()
+                        except ValueError:
+                            err_body = {}
+                        submit_result = {'ok': False, 'message': err_body.get('message') or
+                                'The review service rejected the submission (HTTP {}).'.format(resp.status_code)}
                 except requests.RequestException:
                     submit_result = {'ok': False, 'message': 'Could not reach the review service. Please try again later.'}
 
-    asset = None
-    asset_not_found = False
+    token = None
+    token_not_found = False
 
-    if asset_id:
-        asset = asset_display_dict(get_asset_info(asset_id))
+    if token_id:
+        token = token_display_dict(get_token_info(token_id))
 
-        if asset is None:
-            asset_not_found = True
+        if token is None:
+            token_not_found = True
 
     return flask.render_template(
-        "assets_submit.html",
+        "token_submit.html",
         info=info.get(),
-        asset=asset,
-        asset_id=asset_id,
-        asset_not_found=asset_not_found,
+        token=token,
+        token_id=token_id,
+        token_not_found=token_not_found,
         submit_result=submit_result,
+        portal_enabled=bool(getattr(config, 'token_submit_url', None)),
     )
 
 
-@app.route('/api/asset_info/<string:asset_id>')
-def api_asset_info(asset_id):
+@app.route('/api/token_info/<string:token_id>')
+def api_token_info(token_id):
     """JSON lookup used by the submission form to auto-fill on-chain fields."""
-    asset = asset_display_dict(get_asset_info(asset_id))
-    if asset is None:
+    token = token_display_dict(get_token_info(token_id))
+    if token is None:
         return flask.jsonify({'found': False})
-    return flask.jsonify({'found': True, 'asset': asset})
+    return flask.jsonify({'found': True, 'token': token})
 
 
-@app.route('/api/submission/<string:asset_id>')
-def api_submission(asset_id):
-    """Proxy for the admin portal's GET /api/submissions/<asset_id>. Runs
+@app.route('/api/owner_check/<string:token_id>/<string:address>')
+def api_owner_check(token_id, address):
+    """Advisory only: does a connected wallet address hold this token's owner
+    key? Lets the form warn before a signature request the wallet would just
+    reject anyway. Never a source of truth — /api/verify_owner (checked again
+    at /tokens/submit) is what actually gates submission."""
+    owner = token_owner_key(token_id)
+    if owner is None:
+        return flask.jsonify({'ok': False, 'error': 'Token not found on-chain.'}), 404
+    spend = token_ownership.address_spend_key(address)
+    if spend is None:
+        return flask.jsonify({'ok': False, 'error': 'Could not parse that address.'}), 400
+    return flask.jsonify({'ok': True, 'matches': spend.lower() == owner.lower()})
+
+
+@app.route('/api/submission/<string:token_id>')
+def api_submission(token_id):
+    """Proxy for the admin portal's GET /api/submissions/<token_id>. Runs
     server-side so the X-Api-Key stays secret; used by the submission form to
-    pre-fill fields from the most recent previous submission for this asset."""
-    submit_url = getattr(config, 'assets_submit_url', None)
-    key = getattr(config, 'assets_submit_api_key', '') or ''
+    pre-fill fields from the most recent previous submission for this token."""
+    submit_url = getattr(config, 'token_submit_url', None)
+    key = getattr(config, 'token_submit_api_key', '') or ''
     if not submit_url:
         return flask.jsonify({'found': False}), 200
 
-    # assets_submit_url is the collection endpoint (…/api/submissions); the
-    # per-asset lookup lives at …/api/submissions/<asset_id>.
-    url = submit_url.rstrip('/') + '/' + asset_id
+    # token_submit_url is the collection endpoint (…/api/submissions); the
+    # per-token lookup lives at …/api/submissions/<token_id>.
+    url = submit_url.rstrip('/') + '/' + token_id
     try:
         resp = requests.get(url, headers={'X-Api-Key': key}, timeout=10)
     except requests.RequestException as e:
-        print("Failed to fetch submission for {}: {}".format(asset_id, e), file=sys.stderr)
+        print("Failed to fetch submission for {}: {}".format(token_id, e), file=sys.stderr)
         return flask.jsonify({'found': False, 'error': 'lookup_failed'}), 502
 
     if resp.status_code == 404:
         return flask.jsonify({'found': False}), 200
     if resp.status_code == 401:
-        print("Submission lookup unauthorized (check assets_submit_api_key)", file=sys.stderr)
+        print("Submission lookup unauthorized (check token_submit_api_key)", file=sys.stderr)
         return flask.jsonify({'found': False, 'error': 'unauthorized'}), 200
     try:
         return flask.jsonify(resp.json()), 200

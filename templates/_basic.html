@@ -21,8 +21,8 @@
                <a href="/"><img src="{{ url_for('static', filename='logo.svg') }}"></a>
             </h1>
             <div class="header-tabs">
-                <a href="/" class="header-tab{% if not request.path.startswith('/assets') %} active{% endif %}">Blockchain</a>
-                <a href="/assets" class="header-tab{% if request.path.startswith('/assets') %} active{% endif %}">Assets</a>
+                <a href="/" class="header-tab{% if not request.path.startswith('/tokens') %} active{% endif %}">Blockchain</a>
+                <a href="/tokens" class="header-tab{% if request.path.startswith('/tokens') %} active{% endif %}">Tokens</a>
             </div>
             <form action="/search" method="get" class="top-search">
                 <input type="text" name="value" size="64" placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">

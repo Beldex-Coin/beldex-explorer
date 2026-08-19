@@ -1,0 +1,998 @@
+{% extends "_basic.html" %}
+
+{# Submission page: minimal header — no Blockchain/Tokens tabs, no search box. #}
+{% block header %}
+    <div id="header-content">
+        <div class="header-top">
+            <h1 class="Header">
+               <a href="/"><img src="{{ url_for('static', filename='logo.svg') }}"></a>
+            </h1>
+        </div>
+    </div>
+    <div class="TitleUnderliner" style="margin-bottom: 1em"></div>
+{% endblock %}
+
+{% block content %}
+    <div class="Wrapper">
+
+        <div class="TitleDivider"></div>
+
+        <div class="submit-heading-row">
+            <h2>Token Submission</h2>
+        </div>
+        <div class="TitleUnderliner"></div>
+
+        {% if submit_result %}
+            <div class="submit-note {{ 'submit-note-success' if submit_result.ok else 'submit-note-error' }}">
+                {{ submit_result.message }}
+            </div>
+        {% endif %}
+
+        {% if token_not_found %}
+            <div class="submit-note submit-note-error">
+                Token <code>{{ token_id }}</code> was not found on-chain. Enter a valid token ID below.
+            </div>
+        {% endif %}
+
+        <form class="submit-form" action="/tokens/submit" method="post" enctype="multipart/form-data">
+
+            <fieldset class="submit-section">
+                <legend>Step 1 — Token ID</legend>
+                <label for="onchain-token_id">Token ID <span class="req">*</span></label>
+                <div class="token-id-row">
+                    <input type="text" id="onchain-token_id" name="token_id" value="{{ token_id or '' }}"
+                           placeholder="Enter the 64-character token ID" autocomplete="off" required>
+                    <button type="button" id="verify-token-btn" class="verify-btn">Verify</button>
+                </div>
+                <span class="submit-hint">Enter a token ID and click Verify to confirm it exists on-chain.</span>
+                <div id="token-lookup-error" class="submit-note submit-note-error" style="display: none"></div>
+                <div id="token-lookup-success" class="submit-note submit-note-success" style="display: none"></div>
+            </fieldset>
+
+            {# Step 2: prove control of the token's on-chain owner key. Everything
+               below stays disabled until this passes; the server re-verifies the
+               signature on POST, so this is a convenience, not the control. #}
+            <fieldset class="submit-section" id="ownership-section" disabled>
+                <legend>Step 2 — Ownership Verification <span class="req">*</span></legend>
+                <span class="submit-hint">
+                    Only the wallet that deployed this token can list it. Connect the Beldex
+                    Wallet extension and approve a signature request to prove you hold its key —
+                    no keys ever leave the extension, and nothing is spent.
+                </span>
+
+                <div id="owner-key-row" class="owner-key-row" style="display: none">
+                    <span class="owner-key-label">On-chain owner key</span>
+                    <code id="owner-key" class="owner-key"></code>
+                </div>
+
+                <div class="ownership-step">
+                    <span class="ownership-step-num">1</span>
+                    <div class="ownership-step-body">
+                        <div class="ownership-step-title">Connect your wallet</div>
+                        <button type="button" id="connect-wallet-btn" class="verify-btn">Connect Wallet</button>
+                        <span class="submit-hint" id="connect-hint" style="display: none">
+                            Open the Beldex Wallet extension and approve the connection request —
+                            it may be waiting in the side panel.
+                        </span>
+                        <div id="wallet-row" class="owner-key-row" style="display: none">
+                            <span class="owner-key-label">Connected</span>
+                            <code id="wallet-address" class="owner-key"></code>
+                        </div>
+                        <div id="wallet-missing" class="submit-note submit-note-error" style="display: none">
+                            No Beldex Wallet extension answered.
+                            <a href="https://beldex.io" target="_blank" rel="noreferrer">Install it</a>
+                            — or, if it is already installed: reload the extension at
+                            <code>chrome://extensions</code>, then reload this page. The
+                            extension does not inject into <code>file://</code> pages.
+                        </div>
+                        <div id="sdk-missing" class="submit-note submit-note-error" style="display: none">
+                            The wallet SDK failed to load, so this page cannot talk to the
+                            extension. Check that <code>/static/bdx-web3.global.js</code> is being
+                            served (rebuild it with <code>npm run build</code> in bdx-web3js and
+                            copy <code>dist/bdx-web3.global.js</code> into the explorer's
+                            <code>static/</code>).
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ownership-step">
+                    <span class="ownership-step-num">2</span>
+                    <div class="ownership-step-body">
+                        <div class="ownership-step-title">Approve the signature request</div>
+                        <span class="submit-hint">
+                            The extension will show you the exact text it is about to sign.
+                            Check it matches the challenge below, then approve.
+                        </span>
+                        <button type="button" id="sign-btn" class="verify-btn" disabled>Sign ownership challenge</button>
+                        <div id="challenge-wrap" style="display: none">
+                            <div class="challenge-box">
+                                <code id="challenge-text"></code>
+                            </div>
+                            <span class="submit-hint" id="challenge-expiry"></span>
+                        </div>
+                        <div id="ownership-error" class="submit-note submit-note-error" style="display: none"></div>
+                        <div id="ownership-success" class="submit-note submit-note-success" style="display: none"></div>
+                    </div>
+                </div>
+
+                {# Posted back so the server can re-run the whole check. #}
+                <input type="hidden" name="challenge" id="challenge-field">
+                <input type="hidden" name="signature" id="signature-field">
+                <input type="hidden" name="ownership_token" id="ownership-token-field">
+            </fieldset>
+
+            <div id="locked-note" class="submit-note submit-note-locked">
+                🔒 Verify ownership of the token to unlock the rest of the form.
+            </div>
+
+            <fieldset class="submit-section gated" disabled>
+                <legend>Requester Information</legend>
+                <div class="submit-grid">
+                    <label>Requester Name <span class="req">*</span>
+                        <input type="text" name="requester_name" required>
+                    </label>
+                    <label>Requester Email <span class="req">*</span>
+                        <input type="email" name="requester_email" required>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="submit-section gated" disabled>
+                <legend>Project Information</legend>
+                <div class="submit-grid">
+                    <label>Project Name <span class="req">*</span>
+                        <input type="text" name="project_name" required>
+                    </label>
+                    <label>Official Website <span class="req">*</span>
+                        <input type="url" name="website" placeholder="https://example.com" required>
+                    </label>
+                    <label>Official Email <span class="req">*</span>
+                        <input type="email" name="email" placeholder="team@example.com" required>
+                    </label>
+                    <label>Project Sector <span class="req">*</span>
+                        <select name="sector" id="sector-select" required>
+                            <option value="">— Select —</option>
+                            <option>DeFi</option>
+                            <option>Payments</option>
+                            <option>Gaming</option>
+                            <option>NFT</option>
+                            <option>Infrastructure</option>
+                            <option>Stablecoin</option>
+                            <option>Exchange</option>
+                            <option>Other</option>
+                        </select>
+                    </label>
+                    <label id="sector-other-wrap" style="display: none">Specify Sector <span class="req">*</span>
+                        <input type="text" name="sector_other" id="sector-other" placeholder="Enter the project sector">
+                    </label>
+                </div>
+                <label>Description <span class="req">*</span>
+                    <textarea name="description" rows="4" placeholder="A neutral description of the token/project." required></textarea>
+                </label>
+                <label>Logo URL <span class="req">*</span>
+                    <input type="url" name="logo" id="logo-input" placeholder="https://example.com/logo.svg" required>
+                    <span class="submit-hint">Direct link to a hosted logo — SVG must be 32×32, PNG must be 64×64.</span>
+                    <span id="logo-error" class="submit-note submit-note-error" style="display: none"></span>
+                </label>
+            </fieldset>
+
+            <fieldset class="submit-section gated" disabled>
+                <legend>Social Links <span class="req">*</span></legend>
+                <span class="submit-hint">Provide at least 2 social links.</span>
+                <div id="socials-error" class="submit-note submit-note-error" style="display: none"></div>
+                <div class="submit-grid">
+                    <label>Whitepaper
+                        <input type="url" name="whitepaper" placeholder="https://...">
+                    </label>
+                    <label>GitHub
+                        <input type="url" name="github" placeholder="https://github.com/...">
+                    </label>
+                    <label>Telegram
+                        <input type="url" name="telegram" placeholder="https://t.me/...">
+                    </label>
+                    <label>Discord
+                        <input type="url" name="discord" placeholder="https://discord.gg/...">
+                    </label>
+                    <label>Twitter (X)
+                        <input type="url" name="twitter" placeholder="https://x.com/...">
+                    </label>
+                    <label>LinkedIn
+                        <input type="url" name="linkedin" placeholder="https://linkedin.com/...">
+                    </label>
+                    <label>Medium
+                        <input type="url" name="medium" placeholder="https://medium.com/...">
+                    </label>
+                    <label>Reddit
+                        <input type="url" name="reddit" placeholder="https://reddit.com/...">
+                    </label>
+                    <label>Facebook
+                        <input type="url" name="facebook" placeholder="https://facebook.com/...">
+                    </label>
+                    <label>Slack
+                        <input type="url" name="slack" placeholder="https://....slack.com/...">
+                    </label>
+                    <label>WeChat
+                        <input type="text" name="wechat" placeholder="WeChat ID">
+                    </label>
+                    <label>Bitcointalk
+                        <input type="url" name="bitcointalk" placeholder="https://bitcointalk.org/...">
+                    </label>
+                    <label>Ticketing
+                        <input type="url" name="ticketing" placeholder="https://...">
+                    </label>
+                    <label>OpenSea
+                        <input type="url" name="opensea" placeholder="https://opensea.io/...">
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="submit-section gated" disabled>
+                <legend>Price &amp; Source Information</legend>
+                <div class="submit-grid">
+                    <label>Price API URL <span class="req">*</span>
+                        <input type="url" name="price_url" placeholder="https://.../api/price?token=..." required>
+                    </label>
+                    <label>Source URL <span class="req">*</span>
+                        <input type="url" name="source" placeholder="https://www.coingecko.com/..." required>
+                    </label>
+                </div>
+            </fieldset>
+
+            <fieldset class="submit-section gated" disabled>
+                <legend>Additional Information</legend>
+                <label>Explorer URL <span class="req">*</span>
+                    <input type="url" name="explorer_url" placeholder="https://..." required>
+                </label>
+                <label>Additional Notes
+                    <textarea name="notes" rows="3" placeholder="Anything else the reviewers should know."></textarea>
+                </label>
+            </fieldset>
+
+            {# Honeypot: real users leave this empty; bots tend to fill it. #}
+            <input type="text" name="company" class="submit-honeypot" tabindex="-1" autocomplete="off">
+
+            <div class="submit-actions">
+                <button type="submit" class="submit-btn" id="submit-btn" disabled>Submit for Review</button>
+            </div>
+        </form>
+    </div>
+
+    <style>
+        .submit-heading-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+        }
+        .submit-back {
+            color: #3ad540;
+            text-decoration: none;
+        }
+        .submit-back:hover { text-decoration: underline; }
+        .submit-note {
+            padding: 10px 14px;
+            border-radius: 6px;
+            margin: 14px 0;
+        }
+        .submit-note-error {
+            background: rgba(213, 58, 58, 0.15);
+            border: 1px solid #d53a3a;
+        }
+        .submit-note-success {
+            background: rgba(58, 213, 64, 0.15);
+            border: 1px solid #3ad540;
+        }
+        .token-id-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 6px;
+        }
+        .token-id-row input { margin-top: 0; }
+        .verify-btn {
+            flex: 0 0 auto;
+            padding: 10px 24px;
+            border: 1px solid #3ad540;
+            border-radius: 8px;
+            background: rgba(58, 213, 64, 0.15);
+            color: #3ad540;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .verify-btn:hover { background: rgba(58, 213, 64, 0.3); }
+        .verify-btn:disabled { opacity: 0.5; cursor: default; }
+        .submit-form {
+            width: 100%;
+            margin: 20px 0;
+        }
+        .submit-section {
+            border: 1px solid #33333f;
+            border-radius: 8px;
+            padding: 16px 18px;
+            margin-bottom: 20px;
+        }
+        .submit-section-muted { opacity: 0.75; }
+        .submit-section legend {
+            padding: 0 8px;
+            color: var(--text-highlight-color);
+            font-weight: bold;
+            font-size: 16px;
+        }
+        .req { color: #d53a3a; }
+        .submit-hint {
+            margin: 6px 0 12px;
+            font-size: 13px;
+            opacity: 0.7;
+        }
+        .submit-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 14px;
+        }
+        .submit-form label {
+            display: block;
+            font-size: 15px;
+            margin-bottom: 14px;
+        }
+        .submit-form input,
+        .submit-form textarea,
+        .submit-form select {
+            display: block;
+            width: 100%;
+            margin-top: 6px;
+            padding: 10px 12px;
+            border: 0;
+            border-radius: 8px;
+            background-color: #262634;
+            color: white;
+            font-size: 15px;
+            box-sizing: border-box;
+        }
+        .submit-form input:focus,
+        .submit-form textarea:focus,
+        .submit-form select:focus {
+            outline: none;
+            border: solid 1px var(--control-highlight-link-color);
+        }
+        .submit-form input[readonly],
+        .submit-form input[disabled] {
+            opacity: 0.65;
+            cursor: not-allowed;
+        }
+        .submit-form input[type="file"] {
+            padding: 8px 12px;
+        }
+        /* ---- ownership gate ---- */
+        .submit-note-locked {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px dashed #55556a;
+            opacity: 0.85;
+        }
+        fieldset.gated[disabled],
+        #ownership-section[disabled] {
+            opacity: 0.45;
+        }
+        fieldset.gated[disabled] legend::after {
+            content: ' 🔒';
+            font-size: 13px;
+        }
+        .owner-key-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: baseline;
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+        .owner-key-label { font-size: 13px; opacity: 0.7; }
+        .owner-key {
+            word-break: break-all;
+            font-size: 12px;
+            color: #3ad540;
+        }
+        .ownership-step {
+            display: flex;
+            gap: 12px;
+            padding: 12px 0;
+            border-top: 1px solid #2b2b38;
+        }
+        .ownership-step-num {
+            flex: 0 0 24px;
+            height: 24px;
+            border-radius: 50%;
+            border: 1px solid #3ad540;
+            color: #3ad540;
+            font-size: 13px;
+            line-height: 22px;
+            text-align: center;
+        }
+        .ownership-step-body { flex: 1 1 auto; min-width: 0; }
+        .ownership-step-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 15px;
+        }
+        .challenge-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin: 8px 0 4px;
+            padding: 10px 12px;
+            border-radius: 8px;
+            background-color: #262634;
+        }
+        .challenge-box code {
+            flex: 1 1 auto;
+            min-width: 0;
+            word-break: break-all;
+            font-size: 12.5px;
+            line-height: 1.5;
+        }
+        .copy-btn {
+            flex: 0 0 auto;
+            padding: 4px 12px;
+            border: 1px solid #55556a;
+            border-radius: 6px;
+            background: transparent;
+            color: inherit;
+            font-size: 13px;
+            cursor: pointer;
+        }
+        .copy-btn:hover { border-color: #3ad540; color: #3ad540; }
+        .submit-btn:disabled,
+        .submit-btn[disabled] {
+            opacity: 0.45;
+            cursor: not-allowed;
+        }
+        .submit-honeypot { display: none !important; }
+        .submit-actions { text-align: right; }
+        .submit-btn {
+            padding: 11px 30px;
+            border: 1px solid #3ad540;
+            border-radius: 5px;
+            background: rgba(58, 213, 64, 0.15);
+            color: #3ad540;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+        }
+        .submit-btn:hover { background: rgba(58, 213, 64, 0.3); }
+        @media (max-width: 640px) {
+            .submit-grid { grid-template-columns: 1fr; }
+        }
+        #onchain-token_id.input-error,
+        #logo-input.input-error { border: 1px solid #d53a3a; }
+    </style>
+
+    <script src="{{ url_for('static', filename='bdx-web3.global.js') }}"></script>
+    <script>
+        (function () {
+            var idInput = document.getElementById('onchain-token_id');
+            var verifyBtn = document.getElementById('verify-token-btn');
+            var err = document.getElementById('token-lookup-error');
+            var ok = document.getElementById('token-lookup-success');
+
+            // Tracks whether the current token ID has been confirmed on-chain.
+            var tokenVerified = false;
+
+            function showError(msg) {
+                err.textContent = msg;
+                err.style.display = '';
+                ok.style.display = 'none';
+                idInput.classList.add('input-error');
+                tokenVerified = false;
+                resetOwnership();
+            }
+            function showSuccess(token) {
+                ok.textContent = '✓ Valid token ID.';
+                ok.style.display = '';
+                err.style.display = 'none';
+                idInput.classList.remove('input-error');
+                tokenVerified = true;
+                onTokenConfirmed(token);
+            }
+
+            // Verify the token ID on-chain. Returns a Promise resolving to true/false.
+            function lookup() {
+                var id = (idInput.value || '').trim();
+                if (!id) { showError('Please enter a token ID.'); return Promise.resolve(false); }
+                verifyBtn.disabled = true;
+                verifyBtn.textContent = 'Verifying…';
+                return fetch('/api/token_info/' + encodeURIComponent(id))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (d.found) { showSuccess(d.token || {}); prefillFromSubmission(id); return true; }
+                        showError('Token not found. Please enter a valid token ID.');
+                        return false;
+                    })
+                    .catch(function () {
+                        showError('Could not look up the token. Please try again.');
+                        return false;
+                    })
+                    .finally(function () {
+                        verifyBtn.disabled = false;
+                        verifyBtn.textContent = 'Verify';
+                    });
+            }
+
+            // After a valid token ID is confirmed, pull any previous submission
+            // from the admin portal and pre-fill the form with its verified data.
+            // Skipped while no portal is configured — see portal_enabled.
+            var PORTAL_ENABLED = {{ 'true' if portal_enabled else 'false' }};
+
+            function prefillFromSubmission(id) {
+                if (!PORTAL_ENABLED) return;
+                fetch('/api/submission/' + encodeURIComponent(id))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (!d || !d.found || !d.verified_fields) { return; }
+                        var vf = d.verified_fields;
+                        Object.keys(vf).forEach(function (name) {
+                            var val = vf[name];
+                            if (val === null || val === undefined || val === '') { return; }
+                            // Sector may be a custom value -> route through "Other".
+                            if (name === 'sector' && sectorSelect) {
+                                var known = Array.prototype.some.call(sectorSelect.options,
+                                    function (o) { return o.value === val; });
+                                if (known) {
+                                    sectorSelect.value = val;
+                                } else {
+                                    sectorSelect.value = 'Other';
+                                    if (sectorOther) { sectorOther.value = val; }
+                                }
+                                syncSectorOther();
+                                return;
+                            }
+                            var el = form.elements[name];
+                            if (el && el.tagName) { el.value = val; }
+                        });
+                        // Re-run logo validation if a logo URL was pre-filled.
+                        if (vf.logo && logoInput) { validateLogo(); }
+                    })
+                    .catch(function () { /* prefill is best-effort; ignore errors */ });
+            }
+
+            if (verifyBtn) verifyBtn.addEventListener('click', lookup);
+            if (idInput) {
+                idInput.addEventListener('keydown', function (e) {
+                    if (e.key === 'Enter') { e.preventDefault(); lookup(); }
+                });
+                // If the user edits the ID after verifying, clear the stale success state.
+                idInput.addEventListener('input', function () {
+                    ok.style.display = 'none';
+                    err.style.display = 'none';
+                    idInput.classList.remove('input-error');
+                    tokenVerified = false;
+                    resetOwnership();
+                });
+            }
+
+            // ---------------------------------------------------------------
+            // Ownership gate. The submitter proves they hold the token's
+            // on-chain owner key by signing a server-issued challenge with the
+            // deploying wallet. The unlocking below is only ergonomics: the
+            // POST handler re-checks the token AND re-verifies the signature,
+            // so removing `disabled` in devtools buys nothing.
+            var ownSection = document.getElementById('ownership-section');
+            var ownerKeyRow = document.getElementById('owner-key-row');
+            var ownerKeyEl = document.getElementById('owner-key');
+            var connectBtn = document.getElementById('connect-wallet-btn');
+            var walletRow = document.getElementById('wallet-row');
+            var walletAddrEl = document.getElementById('wallet-address');
+            var walletMissing = document.getElementById('wallet-missing');
+            var connectHint = document.getElementById('connect-hint');
+            var signBtn = document.getElementById('sign-btn');
+            var challengeWrap = document.getElementById('challenge-wrap');
+            var challengeText = document.getElementById('challenge-text');
+            var challengeExpiry = document.getElementById('challenge-expiry');
+            var ownErr = document.getElementById('ownership-error');
+            var ownOk = document.getElementById('ownership-success');
+            var challengeField = document.getElementById('challenge-field');
+            var signatureField = document.getElementById('signature-field');
+            var tokenField = document.getElementById('ownership-token-field');
+            var lockedNote = document.getElementById('locked-note');
+            var submitBtn = document.getElementById('submit-btn');
+            var gated = document.querySelectorAll('fieldset.gated');
+
+            var ownershipVerified = false;
+            var bdx = null;            // BeldexWeb3 client, once a provider is found
+            var connectedAddress = null;
+
+            /** Traces the ownership handshake in the console. Everything logged
+             *  here is public — a challenge, a signature and an address. No key
+             *  material is ever available to this page. */
+            function dbg() {
+                var args = Array.prototype.slice.call(arguments);
+                args.unshift('%c[ownership]', 'color:#3ad540');
+                console.log.apply(console, args);
+            }
+
+            function setGated(locked) {
+                Array.prototype.forEach.call(gated, function (fs) { fs.disabled = locked; });
+                if (submitBtn) submitBtn.disabled = locked;
+                if (lockedNote) lockedNote.style.display = locked ? '' : 'none';
+            }
+
+            function showOwnErr(msg) {
+                ownErr.textContent = msg;
+                ownErr.style.display = '';
+                ownOk.style.display = 'none';
+            }
+
+            // Drop every trace of a previous verification: a proof is only ever
+            // valid for the exact token it was issued against.
+            function resetOwnership() {
+                ownershipVerified = false;
+                if (ownSection) ownSection.disabled = true;
+                if (ownerKeyRow) ownerKeyRow.style.display = 'none';
+                if (challengeWrap) challengeWrap.style.display = 'none';
+                if (challengeText) challengeText.textContent = '';
+                if (ownErr) ownErr.style.display = 'none';
+                if (ownOk) ownOk.style.display = 'none';
+                if (challengeField) challengeField.value = '';
+                if (signatureField) signatureField.value = '';
+                if (tokenField) tokenField.value = '';
+                if (signBtn) signBtn.disabled = !connectedAddress;
+                setGated(true);
+            }
+
+            function onTokenConfirmed(token) {
+                resetOwnership();
+                if (ownSection) ownSection.disabled = false;
+                var owner = (token && token.owner) || '';
+                if (owner && ownerKeyEl) {
+                    ownerKeyEl.textContent = owner;
+                    ownerKeyRow.style.display = '';
+                }
+            }
+
+            // -- wallet extension (bdx-web3js) ------------------------------
+            var SDK = window.BdxWeb3;
+            var sdkMissing = document.getElementById('sdk-missing');
+
+            function attach(provider) {
+                bdx = new SDK.BeldexWeb3(provider);
+                // A wallet switch or revoke invalidates any proof made with the
+                // old account — force the whole step to be redone.
+                bdx.on('accountsChanged', walletGone);
+                bdx.on('disconnect', walletGone);
+                // Second, independent completion path for connect. The MV3
+                // service worker can idle out while the approval card is on
+                // screen, which severs the port carrying the reply to our
+                // connect() call — the grant is still made, and the wallet
+                // pushes this event. Without it the button sits on
+                // "Waiting for approval…" forever despite being connected.
+                bdx.on('connect', function (d) {
+                    if (d && typeof d.address === 'string') markConnected(d.address);
+                });
+                if (walletMissing) walletMissing.style.display = 'none';
+                return bdx;
+            }
+
+            /** Idempotent: whichever of the two paths gets here first wins. */
+            function markConnected(address) {
+                if (connectedAddress === address) return;
+                connectedAddress = address;
+                walletAddrEl.textContent = address;
+                walletRow.style.display = '';
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Connected';
+                ownErr.style.display = 'none';
+                signBtn.disabled = false;
+                checkOwnerMatch(address);
+            }
+
+            /** Advisory: warn before an approval the user was going to fail. */
+            function checkOwnerMatch(address) {
+                var id = (idInput.value || '').trim();
+                if (!id) return;
+                fetch('/api/owner_check/' + encodeURIComponent(id) + '/' + encodeURIComponent(address))
+                    .then(function (x) { return x.json(); })
+                    .then(function (d) {
+                        dbg('owner match        :', d.matches ? 'yes' : 'NO — wrong wallet');
+                        if (d.ok && !d.matches) {
+                            showOwnErr('This wallet does not hold the token’s owner key. ' +
+                                'Switch to the wallet that deployed the token (its main account) and connect again.');
+                            signBtn.disabled = true;
+                        }
+                    })
+                    .catch(function () { /* advisory only */ });
+            }
+
+            /** Resolve the provider, retrying discovery if the first pass came
+             *  up empty. A page opened while the browser is still starting can
+             *  easily beat the extension's content script to the handshake, so
+             *  a single attempt at load time is not enough — every click gets a
+             *  fresh look before we blame the extension. */
+            function ensureProvider(timeoutMs) {
+                if (bdx) return Promise.resolve(bdx);
+                if (!SDK || !SDK.detectProvider) return Promise.resolve(null);
+                return SDK.detectProvider({ timeoutMs: timeoutMs || 1500 })
+                    .then(function (provider) { return provider ? attach(provider) : null; });
+            }
+
+            if (!SDK || !SDK.detectProvider) {
+                // Blaming the extension here would be wrong: the page never got
+                // the code needed to look for one.
+                if (sdkMissing) sdkMissing.style.display = '';
+                if (connectBtn) connectBtn.disabled = true;
+            } else {
+                // Optimistic first pass so the CTA is accurate before any click.
+                ensureProvider(2500).then(function (client) {
+                    if (!client && walletMissing) walletMissing.style.display = '';
+                });
+            }
+
+            function walletGone() {
+                connectedAddress = null;
+                if (walletRow) walletRow.style.display = 'none';
+                if (connectBtn) { connectBtn.disabled = false; connectBtn.textContent = 'Connect Wallet'; }
+                resetOwnership();
+                showOwnErr('The wallet disconnected or switched accounts — connect again.');
+            }
+
+            function connectWallet() {
+                connectBtn.disabled = true;
+                connectBtn.textContent = 'Waiting for approval\u2026';
+                if (connectHint) connectHint.style.display = '';
+                // Retry discovery here: the extension may have been installed,
+                // reloaded or unlocked since the page opened.
+                ensureProvider(2000).then(function (client) {
+                    dbg('provider detected  :', client ? 'yes' : 'no');
+                    if (!client) {
+                        resetConnectButton();
+                        if (walletMissing) walletMissing.style.display = '';
+                        return;
+                    }
+                    return doConnect();
+                });
+            }
+
+            function resetConnectButton() {
+                connectBtn.disabled = false;
+                connectBtn.textContent = 'Connect Wallet';
+                if (connectHint) connectHint.style.display = 'none';
+            }
+
+            function doConnect() {
+                dbg('connect() \u2014 waiting for in-wallet approval\u2026');
+                return bdx.connect()
+                    .then(function (r) {
+                        dbg('connected address  :', r.address, '(' + r.network + ')');
+                        markConnected(r.address);
+                    })
+                    .catch(function (e) {
+                        dbg('connect() failed   :', e);
+                        // The `connect` event may already have completed this;
+                        // a severed port must not undo a granted connection.
+                        if (connectedAddress) return;
+                        resetConnectButton();
+                        if (SDK.BeldexWeb3.isUserRejection(e)) return; // user said no; not an error
+                        showOwnErr(e && e.code === 4900
+                            ? 'Your wallet is locked \u2014 open the Beldex Wallet extension and unlock it.'
+                            : (e && e.message) || 'Could not connect to the wallet.');
+                    })
+                    .finally(function () {
+                        if (connectHint) connectHint.style.display = 'none';
+                    });
+            }
+
+            // Fetch a fresh challenge and have the extension sign it. The
+            // challenge is displayed so the user can compare it against what
+            // the extension shows in its approval card.
+            function signAndVerify() {
+                var id = (idInput.value || '').trim();
+                dbg('sign requested for token', id);
+                if (!bdx || !connectedAddress) { showOwnErr('Connect your wallet first.'); return; }
+                if (!id) { showOwnErr('Enter and verify a token ID first.'); return; }
+
+                signBtn.disabled = true;
+                signBtn.textContent = 'Waiting for the wallet\u2026';
+                ownErr.style.display = 'none';
+
+                var challenge = '';
+
+                fetch('/api/ownership_challenge/' + encodeURIComponent(id))
+                    .then(function (r) { return r.json(); })
+                    .then(function (d) {
+                        if (!d.ok) throw new Error(d.error || 'Could not generate a challenge.');
+                        challenge = d.challenge;
+                        challengeText.textContent = challenge;
+                        challengeField.value = challenge;
+                        challengeWrap.style.display = '';
+                        challengeExpiry.textContent = 'Approve within ' +
+                            Math.round((d.expires_in || 2400) / 60) + ' minutes.';
+                        if (d.owner && ownerKeyEl) {
+                            ownerKeyEl.textContent = d.owner;
+                            ownerKeyRow.style.display = '';
+                        }
+                        dbg('on-chain owner key :', d.owner);
+                        dbg('message to sign    :', challenge);
+                        dbg('(the wallet approval card must show exactly this string)');
+                        // Returns a PROMISE — logging it directly would print
+                        // "Promise { <pending> }", not the signature.
+                        return bdx.signMessage(challenge);
+                    })
+                    .then(function (sig) {
+                        dbg('signature          :', sig.signature);
+                        dbg('signed by address  :', sig.address);
+                        // Straight on to verification — no copy/paste step.
+                        return fetch('/api/verify_owner', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                token_id: id,
+                                challenge: challenge,
+                                signature: sig.signature
+                            })
+                        }).then(function (r) { return r.json(); })
+                          .then(function (d) {
+                              dbg('verify_owner       :', d);
+                              if (!d.ok) throw new Error(d.error || 'Verification failed.');
+                              ownershipVerified = true;
+                              signatureField.value = sig.signature;
+                              tokenField.value = d.token || '';
+                              ownOk.textContent = '\u2713 Ownership verified \u2014 you control this token\u2019s owner key.';
+                              ownOk.style.display = '';
+                              ownErr.style.display = 'none';
+                              setGated(false);
+                              dbg('verified against   :', d.owner);
+                              dbg('grant valid for    :', Math.round((d.expires_in || 0) / 60), 'minutes');
+                              dbg('form unlocked \u2014 the server re-checks all of this on submit');
+                          });
+                    })
+                    .catch(function (e) {
+                        dbg('failed:', e);
+                        if (SDK.BeldexWeb3.isUserRejection(e)) {
+                            showOwnErr('Signature request rejected in the wallet.');
+                        } else if (e && e.code === 4900) {
+                            showOwnErr('Your wallet is locked \u2014 unlock it and try again.');
+                        } else if (e && e.code === -32601) {
+                            showOwnErr('This wallet version cannot sign messages yet \u2014 update the Beldex Wallet extension.');
+                        } else {
+                            showOwnErr((e && e.message) || 'Signing failed. Please try again.');
+                        }
+                    })
+                    .finally(function () {
+                        signBtn.disabled = !connectedAddress || ownershipVerified;
+                        signBtn.textContent = ownershipVerified ? 'Ownership verified' : 'Sign ownership challenge';
+                    });
+            }
+
+            if (connectBtn) connectBtn.addEventListener('click', connectWallet);
+            if (signBtn) signBtn.addEventListener('click', signAndVerify);
+
+            // Token ID may be pre-filled (/tokens/submit/<token_id>): confirm it
+            // straight away so the owner can get on with step 2.
+            if (idInput && (idInput.value || '').trim()) { lookup(); }
+
+            // Show the "Specify Sector" text field only when "Other" is chosen.
+            var sectorSelect = document.getElementById('sector-select');
+            var sectorOtherWrap = document.getElementById('sector-other-wrap');
+            var sectorOther = document.getElementById('sector-other');
+            function syncSectorOther() {
+                var isOther = sectorSelect && sectorSelect.value === 'Other';
+                if (sectorOtherWrap) sectorOtherWrap.style.display = isOther ? '' : 'none';
+                if (sectorOther) {
+                    sectorOther.required = isOther;
+                    if (!isOther) sectorOther.value = '';
+                }
+            }
+            if (sectorSelect) {
+                sectorSelect.addEventListener('change', syncSectorOther);
+                syncSectorOther();
+            }
+
+            // Require at least 1 social link before allowing submission.
+            var SOCIAL_FIELDS = ['whitepaper', 'github', 'telegram', 'discord', 'twitter',
+                'linkedin', 'medium', 'reddit', 'facebook',
+                'slack', 'wechat', 'bitcointalk', 'ticketing', 'opensea'];
+            var form = document.querySelector('.submit-form');
+            var socialsErr = document.getElementById('socials-error');
+
+            function socialsOk() {
+                var filled = SOCIAL_FIELDS.filter(function (name) {
+                    var el = form.elements[name];
+                    return el && (el.value || '').trim();
+                }).length;
+                if (filled < 1) {
+                    socialsErr.textContent = 'Please provide at least 1 social link.';
+                    socialsErr.style.display = '';
+                    return false;
+                }
+                socialsErr.style.display = 'none';
+                return true;
+            }
+
+            // Validate the logo image dimensions: SVG must be 32×32, PNG 64×64.
+            // Loads the image from the URL and inspects its intrinsic size.
+            // Returns a Promise resolving to true (valid) or false (blocked).
+            var logoInput = document.getElementById('logo-input');
+            var logoErr = document.getElementById('logo-error');
+
+            function showLogoErr(msg) {
+                logoErr.textContent = msg;
+                logoErr.style.display = '';
+                logoInput.classList.add('input-error');
+            }
+
+            function validateLogo() {
+                logoErr.style.display = 'none';
+                logoInput.classList.remove('input-error');
+                var url = (logoInput.value || '').trim();
+                if (!url) { return Promise.resolve(true); }  // 'required' handles empty
+
+                // Detect type from the URL however it appears: a path extension
+                // (.png/.svg) or a query param (format=png, type=svg, f=png, ...).
+                // Falls back to a plain "svg"/"png" token anywhere in the URL, so
+                // hosts like Icons8 (…?format=png) are recognised too.
+                var lower = url.toLowerCase();
+                var isSvg = /\bsvg\b/.test(lower) || /svg(\?|#|&|$)/.test(lower);
+                var isPng = /\bpng\b/.test(lower) || /png(\?|#|&|$)/.test(lower);
+
+                return new Promise(function (resolve) {
+                    var img = new Image();
+                    img.onload = function () {
+                        var w = img.naturalWidth, h = img.naturalHeight;
+                        if (isSvg && !isPng) {
+                            if (w === 32 && h === 32) return resolve(true);
+                            showLogoErr('SVG logo must be exactly 32×32 px (got ' + w + '×' + h +
+                                '). Please re-upload a correctly sized logo.');
+                            return resolve(false);
+                        }
+                        if (isPng && !isSvg) {
+                            if (w === 64 && h === 64) return resolve(true);
+                            showLogoErr('PNG logo must be exactly 64×64 px (got ' + w + '×' + h +
+                                '). Please re-upload a correctly sized logo.');
+                            return resolve(false);
+                        }
+                        // Type unclear from the URL: accept either allowed size.
+                        if ((w === 32 && h === 32) || (w === 64 && h === 64)) return resolve(true);
+                        showLogoErr('Logo must be a 32×32 SVG or a 64×64 PNG (got ' + w + '×' + h +
+                            '). Please re-upload a correctly sized logo.');
+                        resolve(false);
+                    };
+                    img.onerror = function () {
+                        showLogoErr('Could not load the logo from that URL. Please check the link and re-upload.');
+                        resolve(false);
+                    };
+                    img.src = url;
+                });
+            }
+
+            // Re-validate when the user finishes editing the logo URL.
+            if (logoInput) {
+                logoInput.addEventListener('change', validateLogo);
+            }
+
+            if (form) {
+                form.addEventListener('submit', function (e) {
+                    // Native 'required'/URL validation has already passed at this point.
+                    // Run the async checks (token on-chain + logo size) before submitting.
+                    e.preventDefault();
+                    if (!ownershipVerified || !tokenField.value) {
+                        showOwnErr('Verify ownership of this token before submitting.');
+                        ownSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                    }
+                    if (!socialsOk()) {
+                        socialsErr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        return;
+                    }
+                    var tokenCheck = tokenVerified ? Promise.resolve(true) : lookup();
+                    Promise.all([tokenCheck, validateLogo()]).then(function (r) {
+                        var tokenOk = r[0], logoOk = r[1];
+                        if (!tokenOk) {
+                            idInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else if (!logoOk) {
+                            logoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        } else if (socialsOk()) {
+                            form.submit();
+                        }
+                    });
+                });
+            }
+        })();
+    </script>
+
+{% endblock %}
