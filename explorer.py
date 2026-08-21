@@ -21,6 +21,7 @@ from jinja2 import Environment
 
 import config
 import local_config
+import token_ownership
 from lmq import FutureJSON, lmq_connection
 
 import base64
@@ -29,6 +30,7 @@ import nacl.hash
 import pysodium
 import sha3
 import base58
+from urllib.parse import urlparse
 
 # Make a dict of config.* to pass to templating
 conf = {x: getattr(config, x) for x in dir(config) if not x.startswith('__')}
@@ -54,6 +56,134 @@ class Hex64Converter(BaseConverter):
 
 app.url_map.converters['hex64'] = Hex64Converter
 
+def format_token_amount(raw, decimals):
+    """Convert a token's atomic-unit amount to a human-readable string using its
+    decimal_point, with thousands separators and trailing zeros trimmed."""
+    try:
+        raw = int(raw)
+        decimals = int(decimals)
+    except (TypeError, ValueError):
+        return raw if raw not in (None, '') else ''
+    from decimal import Decimal
+    value = Decimal(raw) / (Decimal(10) ** decimals)
+    s = f"{value:,.{decimals}f}" if decimals > 0 else f"{value:,.0f}"
+    if '.' in s:
+        s = s.rstrip('0').rstrip('.')
+    return s
+
+# Simple in-memory cache for external price lookups: {price_url: (value, expiry)}.
+# CoinGecko rate-limits aggressively, so we reuse a fetched price for a short TTL.
+_price_cache = {}
+_PRICE_CACHE_TTL = 60  # seconds
+
+# Cache for the admin-portal whitelist JSON: {url: (whitelist_by_id, expiry)}.
+# Fetched on /tokens page loads; caching keeps every visitor from blocking on
+# (and coupling our uptime to) the admin portal.
+_whitelist_cache = {}
+_WHITELIST_CACHE_TTL = 60  # seconds
+
+def load_whitelist_by_id(whitelist_url):
+    """Return {token_id: entry} from the admin portal's whitelist JSON, cached for
+    a short TTL. Returns {} (and logs) on any fetch/parse failure; on failure a
+    still-valid cached copy is preferred over an empty result."""
+    if not whitelist_url:
+        return {}
+
+    now = time.time()
+    cached = _whitelist_cache.get(whitelist_url)
+    if cached and cached[1] > now:
+        return cached[0]
+
+    try:
+        whitelist_by_id = {}
+        for entry in requests.get(whitelist_url, timeout=5).json().get('tokens', []):
+            tid = entry.get('token_id', '')
+            if tid:
+                whitelist_by_id[tid] = entry
+        _whitelist_cache[whitelist_url] = (whitelist_by_id, now + _WHITELIST_CACHE_TTL)
+        return whitelist_by_id
+    except (requests.RequestException, ValueError) as e:
+        print("Failed to load token whitelist from {}: {}".format(whitelist_url, e),
+                file=sys.stderr)
+        # Serve the last good copy if we have one, rather than dropping metadata.
+        return cached[0] if cached else {}
+
+def format_price_value(value):
+    """Format a numeric price into a compact USD string (e.g. '$0.0453')."""
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return ''
+    # Use more decimals for sub-dollar values so tiny prices stay legible.
+    s = f"{value:,.8f}" if value < 1 else f"{value:,.4f}"
+    if '.' in s:
+        s = s.rstrip('0').rstrip('.')
+    return '$' + s
+
+def fetch_coingecko_price(price_url):
+    """Fetch the current price for a token from a CoinGecko API URL published in
+    the whitelist. Only CoinGecko URLs are supported today. Returns a formatted
+    price string (e.g. '$0.0453') or '' on any failure. Results are cached briefly."""
+    if not price_url:
+        return ''
+    host = (urlparse(price_url).hostname or '').lower()
+    if host != 'coingecko.com' and not host.endswith('.coingecko.com'):
+        return ''
+
+    now = time.time()
+    cached = _price_cache.get(price_url)
+    if cached and cached[1] > now:
+        return cached[0]
+
+    price = ''
+    try:
+        data = requests.get(price_url, timeout=5).json()
+        # /coins/markets returns a list of objects with 'current_price'.
+        if isinstance(data, list) and data:
+            price = format_price_value(data[0].get('current_price'))
+        # /simple/price returns {id: {vs_currency: value}}.
+        elif isinstance(data, dict) and data:
+            first = next(iter(data.values()))
+            if isinstance(first, dict) and first:
+                price = format_price_value(next(iter(first.values())))
+    except (requests.RequestException, ValueError, StopIteration, AttributeError) as e:
+        print("Failed to fetch price from {}: {}".format(price_url, e), file=sys.stderr)
+
+    _price_cache[price_url] = (price, now + _PRICE_CACHE_TTL)
+    return price
+
+def token_display_dict(a):
+    """Return a display-ready copy of a daemon token dict (formatted supplies).
+    Returns None if given None. Does not mutate the cached daemon response."""
+    if not a:
+        return None
+    d = dict(a)
+    d['token_id'] = a.get('token_id', '')
+    d['current_supply'] = format_token_amount(a.get('current_supply'), a.get('decimal_point'))
+    d['total_max_supply'] = format_token_amount(a.get('total_max_supply'), a.get('decimal_point'))
+    return d
+
+# Get token info from beldexd
+def get_token_info(token_id):
+    """Fetch token info from daemon."""
+    if not token_id:
+        return None
+
+    lmq, beldexd = lmq_connection()
+    result = FutureJSON(lmq, beldexd, 'rpc.get_token_info', 5, cache_key=token_id,
+            args={'token_id': token_id}).get()
+
+    if not result:
+        return None
+
+    if result.get('status') not in (None, 'OK'):
+        return None
+
+    tokens = result.get('tokens')
+    if isinstance(tokens, list):
+        return tokens[0] if tokens else None
+
+    return result
 
 @app.template_filter('format_datetime')
 def format_datetime(value, format='long'):
@@ -162,6 +292,21 @@ def base32z(hex):
             bytes.maketrans(
                 b'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567',
                 b'ybndrfg8ejkmcpqxot1uwisza345h769')).decode().rstrip('=')
+
+
+@app.template_filter('source_name')
+def source_name(url):
+    """Turn a source URL into a short, readable provider name for link text,
+    e.g. 'https://www.coingecko.com/...' -> 'Coingecko'. Non-URL values (a plain
+    name like 'CoinGecko') are returned unchanged."""
+    if not url or not str(url).startswith('http'):
+        return url
+    host = urlparse(url).hostname or url
+    host = host[4:] if host.startswith('www.') else host
+    labels = host.split('.')
+    # Registrable label: second-to-last for host.tld, else the first label.
+    name = labels[-2] if len(labels) >= 2 else labels[0]
+    return name.capitalize()
 
 
 @app.template_filter('ellipsize')
@@ -410,6 +555,344 @@ def mempool():
             info=info.get(),
             mempool=parse_mempool(mempool),
             )
+
+@app.route('/tokens')
+@app.route('/tokens/<int:offset>')
+@app.route('/tokens/<int:offset>/<int:count>')
+def list_tokens(offset=0, count=20):
+    if count <= 0:
+        count = 20
+    if offset < 0:
+        offset = 0
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+
+    # All tokens: the daemon's get_token_list only returns IDs, so we fetch the
+    # full descriptor for each id via get_token_info (fired in parallel).
+    token_list = FutureJSON(lmq, beldexd, 'rpc.get_token_list', 5,
+            args={'offset': offset, 'count': count}).get() or {}
+    token_ids = token_list.get('token_ids', [])
+    total_count = token_list.get('total_count', len(token_ids))
+
+    info_futures = [
+        FutureJSON(lmq, beldexd, 'rpc.get_token_info', 5, cache_key=tid,
+            args={'token_id': tid})
+        for tid in token_ids]
+
+    all_tokens = []
+    for tid, fut in zip(token_ids, info_futures):
+        a = fut.get() or {}
+        all_tokens.append({
+            'name': a.get('full_name', ''),
+            'ticker': a.get('ticker', ''),
+            'token_id': a.get('token_id', tid),
+            # price/source require an external price feed / DEX, which Beldex does
+            # not have yet, so leave them empty for now (rendered as "No data").
+            'price': '',
+            'source': '',
+            # Full descriptor fields, shown in the expandable detail panel.
+            'full_name': a.get('full_name', ''),
+            'total_max_supply': format_token_amount(a.get('total_max_supply'), a.get('decimal_point')),
+            'current_supply': format_token_amount(a.get('current_supply'), a.get('decimal_point')),
+            'decimal_point': a.get('decimal_point', ''),
+            'meta_info': a.get('meta_info', ''),
+            'owner': a.get('owner', ''),
+            # off-chain metadata (from the whitelist later); empty for on-chain-only tokens
+            'social': '',
+            'logo': '',
+            })
+
+    # Whitelist: curated off-chain metadata (logo, source, socials, ...) published
+    # by the admin portal, keyed by token_id (cached for a short TTL).
+    whitelist_by_id = load_whitelist_by_id(getattr(config, 'token_whitelist_url', None))
+
+    # When an on-chain token is also whitelisted, overlay the curated off-chain
+    # fields (logo, price, source, social) onto its All Tokens row.
+    for a in all_tokens:
+        entry = whitelist_by_id.get(a['token_id'])
+        if entry:
+            socials = entry.get('socials') or {}
+            a['logo'] = entry.get('logo', '') or a['logo']
+            a['source'] = entry.get('source', '') or a['source']
+            # Live price pulled from the whitelist's price_url (CoinGecko today).
+            a['price'] = fetch_coingecko_price(entry.get('price_url', '')) or a['price']
+            # macro renders a single social link; prefer the website
+            a['social'] = entry.get('website') or socials.get('twitter', '') or a['social']
+
+    # Whitelisted tab shows only the tokens that are both curated and on-chain.
+    whitelisted = [a for a in all_tokens if a['token_id'] in whitelist_by_id]
+
+    page = offset // count
+    total_pages = max(1, -(-total_count // count))  # ceil division
+
+    return flask.render_template('tokens.html',
+            info=info.get(),
+            whitelisted=whitelisted,
+            tokens=all_tokens,
+            tokens_total=total_count,
+            offset=offset,
+            count=count,
+            page=page,
+            total_pages=total_pages,
+            )
+
+TOKEN_SOCIAL_FIELDS = ['whitepaper', 'github', 'telegram', 'discord', 'twitter',
+                       'linkedin', 'medium', 'reddit', 'facebook',
+                       'slack', 'wechat', 'bitcointalk', 'ticketing', 'opensea']
+
+# Fields the requester must fill in (mirrors the `required` inputs in the form).
+TOKEN_REQUIRED_FIELDS = ['requester_name', 'requester_email', 'project_name',
+                         'website', 'email', 'description']
+
+
+# ---------------------------------------------------------------- ownership --
+# Only the wallet that deployed a token may list it. The token's on-chain
+# `owner` is that wallet's account spend public key, so we hand the submitter a
+# challenge, they sign it with `sign_value` in their wallet, and we check the
+# signature against `owner`. Both the challenge and the resulting grant are
+# HMAC-signed rather than stored, so any uwsgi worker can validate what another
+# one issued.
+
+_OWNERSHIP_SECRET = token_ownership.resolve_secret(
+        getattr(config, 'token_verify_secret', None))
+
+def _ownership_ttls():
+    """(challenge_ttl, grant_ttl) in seconds, from config."""
+    return (int(getattr(config, 'token_challenge_ttl', 2400)),
+            int(getattr(config, 'token_ownership_ttl', 1800)))
+
+
+def token_owner_key(token_id):
+    """The token's on-chain owner (spend public key hex), or '' if unavailable."""
+    token = get_token_info(token_id)
+    if not token:
+        return None
+    return (token.get('owner') or '').strip()
+
+
+@app.route('/api/ownership_challenge/<string:token_id>')
+def api_ownership_challenge(token_id):
+    """Issue the string the token owner must sign to prove they hold the key."""
+    owner = token_owner_key(token_id)
+    if owner is None:
+        return flask.jsonify({'ok': False, 'error': 'Token not found on-chain.'}), 404
+    if len(owner) != 64:
+        return flask.jsonify({'ok': False,
+            'error': 'This token has no owner key on-chain, so ownership cannot be verified.'}), 409
+
+    challenge_ttl, _ = _ownership_ttls()
+    return flask.jsonify({
+        'ok': True,
+        'token_id': token_id,
+        'owner': owner,
+        'challenge': token_ownership.make_challenge(token_id, owner, _OWNERSHIP_SECRET),
+        'expires_in': challenge_ttl,
+        })
+
+
+@app.route('/api/verify_owner', methods=['POST'])
+def api_verify_owner():
+    """Check a `sign_value` signature over a challenge we issued.
+
+    On success returns a short-lived grant token; /tokens/submit re-checks both
+    the token and the signature, so this endpoint grants nothing by itself.
+    """
+    data = flask.request.get_json(silent=True) or flask.request.form
+    token_id = (data.get('token_id') or '').strip()
+    challenge = (data.get('challenge') or '').strip()
+    signature = (data.get('signature') or '').strip()
+
+    owner = token_owner_key(token_id)
+    if owner is None:
+        return flask.jsonify({'ok': False, 'error': 'Token not found on-chain.'}), 404
+
+    ok, why = _check_ownership_proof(token_id, owner, challenge, signature)
+    if not ok:
+        return flask.jsonify({'ok': False, 'error': why}), 400
+
+    _, grant_ttl = _ownership_ttls()
+    return flask.jsonify({
+        'ok': True,
+        'owner': owner,
+        'token': token_ownership.issue_token(token_id, owner, _OWNERSHIP_SECRET, grant_ttl),
+        'expires_in': grant_ttl,
+        })
+
+
+def _check_ownership_proof(token_id, owner, challenge, signature):
+    """Validate challenge freshness/binding and then the signature itself."""
+    challenge_ttl, _ = _ownership_ttls()
+    ok, why = token_ownership.check_challenge(challenge, token_id, owner,
+            _OWNERSHIP_SECRET, challenge_ttl)
+    if not ok:
+        return False, why
+    return token_ownership.verify_signed_message(challenge, owner, signature)
+
+
+@app.route('/tokens/submit', methods=['GET', 'POST'])
+@app.route('/tokens/submit/<string:token_id>', methods=['GET', 'POST'])
+def submit_token(token_id=None):
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    submit_result = None
+
+    if flask.request.method == 'POST':
+        form = flask.request.form
+        token_id = (form.get('token_id') or token_id or '').strip()
+        owner = token_owner_key(token_id) if token_id else None
+
+        # Ownership is re-established here from scratch: the browser's "verified"
+        # state is a UI convenience, never the authority. A submission is only
+        # accepted if it carries a grant token we issued *and* a signature that
+        # still checks out against the token's current on-chain owner.
+        ownership_ok, ownership_why = False, 'Ownership has not been verified.'
+        challenge = (form.get('challenge') or '').strip()
+        signature = (form.get('signature') or '').strip()
+        if owner:
+            ownership_ok, ownership_why = token_ownership.check_token(
+                    (form.get('ownership_token') or '').strip(), token_id, owner,
+                    _OWNERSHIP_SECRET)
+            if ownership_ok:
+                ownership_ok, ownership_why = _check_ownership_proof(
+                        token_id, owner, challenge, signature)
+
+        if form.get('company'):
+            # Honeypot filled -> silently accept (drop the bot submission).
+            submit_result = {'ok': True, 'message': 'Your submission was received and is pending review.'}
+        elif not token_id or get_token_info(token_id) is None:
+            submit_result = {'ok': False, 'message': 'Please provide a valid token ID (it must exist on-chain).'}
+        elif not ownership_ok:
+            submit_result = {'ok': False, 'message': ownership_why}
+        elif not all(form.get(f, '').strip() for f in TOKEN_REQUIRED_FIELDS):
+            submit_result = {'ok': False, 'message': 'Please fill in all required fields.'}
+        elif sum(1 for k in TOKEN_SOCIAL_FIELDS if form.get(k, '').strip()) < 1:
+            submit_result = {'ok': False, 'message': 'Please provide at least 1 social link.'}
+        else:
+            payload = {
+                'token_id': token_id,
+                'requester_name': form.get('requester_name', ''),
+                'requester_email': form.get('requester_email', ''),
+                'metadata': {
+                    'project_name': form.get('project_name', ''),
+                    'website': form.get('website', ''),
+                    'email': form.get('email', ''),
+                    'sector': (form.get('sector_other', '').strip()
+                               if form.get('sector', '') == 'Other'
+                               else form.get('sector', '')),
+                    'description': form.get('description', ''),
+                    'logo': form.get('logo', '').strip(),
+                    'price_url': form.get('price_url', ''),
+                    'source': form.get('source', ''),
+                    'explorer_url': form.get('explorer_url', ''),
+                    'notes': form.get('notes', ''),
+                    'socials': {k: form.get(k, '') for k in TOKEN_SOCIAL_FIELDS},
+                },
+                # Everything a reviewer needs to re-check the proof independently:
+                # keccak(challenge) verified against `owner` with check_signature.
+                'ownership': {
+                    'challenge': challenge,
+                    'signature': signature,
+                    'owner': owner,
+                    'verified': True,
+                    'verified_at': int(time.time()),
+                    'method': 'sign_value',
+                },
+            }
+            url = getattr(config, 'token_submit_url', None)
+            key = getattr(config, 'token_submit_api_key', '') or ''
+            if not url:
+                submit_result = {'ok': False, 'message': 'Submission endpoint is not configured.'}
+            else:
+                try:
+                    resp = requests.post(url, json=payload, headers={'X-Api-Key': key}, timeout=10)
+                    if resp.status_code in (200, 201, 202):
+                        submit_result = {'ok': True, 'message': 'Your submission was received and is pending review.'}
+                    else:
+                        # The admin portal rejects an ownership proof it can't independently
+                        # verify (e.g. a stale/expired grant) with a specific reason in the
+                        # body; surface that instead of a bare HTTP status where we can.
+                        try:
+                            err_body = resp.json()
+                        except ValueError:
+                            err_body = {}
+                        submit_result = {'ok': False, 'message': err_body.get('message') or
+                                'The review service rejected the submission (HTTP {}).'.format(resp.status_code)}
+                except requests.RequestException:
+                    submit_result = {'ok': False, 'message': 'Could not reach the review service. Please try again later.'}
+
+    token = None
+    token_not_found = False
+
+    if token_id:
+        token = token_display_dict(get_token_info(token_id))
+
+        if token is None:
+            token_not_found = True
+
+    return flask.render_template(
+        "token_submit.html",
+        info=info.get(),
+        token=token,
+        token_id=token_id,
+        token_not_found=token_not_found,
+        submit_result=submit_result,
+        portal_enabled=bool(getattr(config, 'token_submit_url', None)),
+    )
+
+
+@app.route('/api/token_info/<string:token_id>')
+def api_token_info(token_id):
+    """JSON lookup used by the submission form to auto-fill on-chain fields."""
+    token = token_display_dict(get_token_info(token_id))
+    if token is None:
+        return flask.jsonify({'found': False})
+    return flask.jsonify({'found': True, 'token': token})
+
+
+@app.route('/api/owner_check/<string:token_id>/<string:address>')
+def api_owner_check(token_id, address):
+    """Advisory only: does a connected wallet address hold this token's owner
+    key? Lets the form warn before a signature request the wallet would just
+    reject anyway. Never a source of truth — /api/verify_owner (checked again
+    at /tokens/submit) is what actually gates submission."""
+    owner = token_owner_key(token_id)
+    if owner is None:
+        return flask.jsonify({'ok': False, 'error': 'Token not found on-chain.'}), 404
+    spend = token_ownership.address_spend_key(address)
+    if spend is None:
+        return flask.jsonify({'ok': False, 'error': 'Could not parse that address.'}), 400
+    return flask.jsonify({'ok': True, 'matches': spend.lower() == owner.lower()})
+
+
+@app.route('/api/submission/<string:token_id>')
+def api_submission(token_id):
+    """Proxy for the admin portal's GET /api/submissions/<token_id>. Runs
+    server-side so the X-Api-Key stays secret; used by the submission form to
+    pre-fill fields from the most recent previous submission for this token."""
+    submit_url = getattr(config, 'token_submit_url', None)
+    key = getattr(config, 'token_submit_api_key', '') or ''
+    if not submit_url:
+        return flask.jsonify({'found': False}), 200
+
+    # token_submit_url is the collection endpoint (…/api/submissions); the
+    # per-token lookup lives at …/api/submissions/<token_id>.
+    url = submit_url.rstrip('/') + '/' + token_id
+    try:
+        resp = requests.get(url, headers={'X-Api-Key': key}, timeout=10)
+    except requests.RequestException as e:
+        print("Failed to fetch submission for {}: {}".format(token_id, e), file=sys.stderr)
+        return flask.jsonify({'found': False, 'error': 'lookup_failed'}), 502
+
+    if resp.status_code == 404:
+        return flask.jsonify({'found': False}), 200
+    if resp.status_code == 401:
+        print("Submission lookup unauthorized (check token_submit_api_key)", file=sys.stderr)
+        return flask.jsonify({'found': False, 'error': 'unauthorized'}), 200
+    try:
+        return flask.jsonify(resp.json()), 200
+    except ValueError:
+        return flask.jsonify({'found': False, 'error': 'bad_response'}), 502
+
 
 @app.route('/master_nodes')
 def mns():
