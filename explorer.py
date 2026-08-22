@@ -1730,3 +1730,287 @@ def api_price(fiat=None):
         fiat = fiat.lower()
         return flask.jsonify({ fiat: ticker_cache[fiat] } if fiat in ticker_cache else {})
         
+
+
+# ---------------------------------------------------------------------------
+# JSON API v2 — consumed by the React frontend (frontend/).
+# These endpoints reuse the same RPC helpers as the HTML routes above but
+# return plain JSON so the SPA can render everything client-side.
+# ---------------------------------------------------------------------------
+
+def _json_ok(data):
+    return flask.jsonify({"status": "OK", "data": data})
+
+def _json_err(message, code=404):
+    return flask.jsonify({"status": "ERROR", "message": message}), code
+
+
+@app.route('/api/v2/summary')
+def api_v2_summary():
+    """Everything the home page needs in one request: network info, staking
+    requirement, fee estimate, hard fork info, mempool + master node counts."""
+    lmq, beldexd = lmq_connection()
+    inforeq = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
+    base_fee = FutureJSON(lmq, beldexd, 'rpc.get_fee_estimate', 10)
+    hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
+    mempool = get_mempool_future(lmq, beldexd)
+    mns = get_mns_future(lmq, beldexd)
+    coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
+            args={"height": 0, "count": 2**31-1})
+
+    info = inforeq.get()
+    awaiting_mns, active_mns, inactive_mns = get_mns(mns, inforeq)
+    mp = parse_mempool(mempool) or {}
+    mp_txs = mp.get('txs', [])
+
+    emission = coinbase.get()
+    return _json_ok({
+        'info': info,
+        'stake': stake.get(),
+        'fees': base_fee.get(),
+        'hf': hfinfo.get(),
+        'emission': emission if emission else None,
+        'mempool': {
+            'tx_count': len(mp_txs),
+            'bytes': sum(tx.get('size', 0) for tx in mp_txs),
+        },
+        'master_nodes': {
+            'active': len(active_mns),
+            'awaiting': len(awaiting_mns),
+            'decommissioned': len(inactive_mns),
+        },
+    })
+
+
+@app.route('/api/v2/blocks')
+def api_v2_blocks():
+    """Paginated recent blocks. Query params: page (default 0), per_page."""
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1).get()
+    height = info['height']
+
+    try:
+        page = max(0, int(flask.request.args.get('page', 0)))
+        per_page = int(flask.request.args.get('per_page', config.blocks_per_page))
+    except ValueError:
+        return _json_err('bad page/per_page', 400)
+    if per_page <= 0 or per_page > config.max_blocks_per_page:
+        per_page = config.blocks_per_page
+
+    end_height = max(0, height - per_page*page - 1)
+    start_height = max(0, end_height - per_page + 1)
+
+    headers = FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', cache_key='api_v2', args={
+        'start_height': start_height,
+        'end_height': end_height,
+        'get_tx_hashes': True,
+        }).get().get('headers', [])
+
+    blocks = []
+    for b in reversed(headers):
+        blocks.append({
+            'height': b.get('height'),
+            'hash': b.get('hash'),
+            'timestamp': b.get('timestamp'),
+            'block_size': b.get('block_size'),
+            'difficulty': b.get('difficulty'),
+            'reward': b.get('reward'),
+            'miner_tx_hash': b.get('miner_tx_hash'),
+            'tx_count': len(b.get('tx_hashes', [])),
+            'tx_hashes': b.get('tx_hashes', []),
+            'major_version': b.get('major_version'),
+        })
+
+    return _json_ok({
+        'height': height,
+        'page': page,
+        'per_page': per_page,
+        'blocks': blocks,
+    })
+
+
+def _clean_tx(tx):
+    """Drop bulky/binary fields from a parsed tx before JSON serialization."""
+    tx = dict(tx)
+    for k in ('data', 'pruned_as_hex', 'prunable_as_hex', 'blob'):
+        tx.pop(k, None)
+    return tx
+
+
+@app.route('/api/v2/block/<int:height>')
+@app.route('/api/v2/block/<hex64:hash>')
+def api_v2_block(height=None, hash=None):
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    val = height if height is not None else hash
+    block = block_with_txs_req(lmq, beldexd, val).get()
+    if block is None or 'block_header' not in block:
+        return _json_err('block not found')
+
+    block_height = block['block_header']['height']
+    txs_future = get_block_txs_future(lmq, beldexd, block)
+
+    next_height = block_height + 1 if info.get()['height'] > 1 + block_height else None
+
+    transactions = [] if txs_future is None else [_clean_tx(t) for t in parse_txs(txs_future.get())]
+    miner_tx = transactions.pop() if block['block_header'].get('miner_tx_hash') else None
+    for t in transactions:
+        if 'vin' in t and len(t['vin']) == 1 and 'gen' in t['vin'][0]:
+            t['coinbase'] = True
+
+    return _json_ok({
+        'block_header': block['block_header'],
+        'info': block.get('info', {}),
+        'miner_tx': miner_tx,
+        'transactions': transactions,
+        'next_height': next_height,
+        'chain_height': info.get()['height'],
+    })
+
+
+@app.route('/api/v2/tx/<hex64:txid>')
+def api_v2_tx(txid):
+    lmq, beldexd = lmq_connection()
+    txs = tx_req(lmq, beldexd, [txid]).get()
+    if 'txs' not in txs or not txs['txs']:
+        return _json_err('transaction not found')
+    tx = _clean_tx(parse_txs(txs)[0])
+    if 'vin' in tx and len(tx['vin']) == 1 and 'gen' in tx['vin'][0]:
+        tx['coinbase'] = True
+    return _json_ok({'tx': tx})
+
+
+@app.route('/api/v2/mempool')
+def api_v2_mempool():
+    lmq, beldexd = lmq_connection()
+    mp = parse_mempool(get_mempool_future(lmq, beldexd)) or {}
+    txs = [_clean_tx(tx) for tx in mp.get('txs', [])]
+    return _json_ok({'txs': txs})
+
+
+def _mn_summary(mn):
+    keep = ('master_node_pubkey', 'active', 'funded', 'operator_address',
+            'staking_requirement', 'total_contributed', 'total_reserved',
+            'contribution_open', 'contribution_required', 'num_contributions',
+            'last_reward_block_height', 'earned_downtime_blocks',
+            'requested_unlock_height', 'last_uptime_proof', 'state_height',
+            'swarm_id', 'decomm_blocks_remaining', 'decomm_blocks')
+    return {k: mn[k] for k in keep if k in mn}
+
+
+@app.route('/api/v2/master_nodes')
+def api_v2_master_nodes():
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    awaiting, active, inactive = get_mns(get_mns_future(lmq, beldexd), info)
+    return _json_ok({
+        'height': info.get()['height'],
+        'active': [_mn_summary(m) for m in active],
+        'awaiting': [_mn_summary(m) for m in awaiting],
+        'decommissioned': [_mn_summary(m) for m in inactive],
+    })
+
+
+@app.route('/api/v2/mn/<hex64:pubkey>')
+def api_v2_mn(pubkey):
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    mn = mn_req(lmq, beldexd, pubkey).get()
+    if 'master_node_states' not in mn or not mn['master_node_states']:
+        return _json_err('master node not found')
+    mn = mn['master_node_states'][0]
+    mn['num_contributions'] = sum(len(x['locked_contributions']) for x in mn['contributors'] if 'locked_contributions' in x)
+    mn['num_reserved_spots'] = sum('reserved' in x and x['amount'] < x['reserved'] for x in mn['contributors'])
+    total_reserved = mn.get('total_reserved', mn.get('total_contributed', 0))
+    mn['num_open_spots'] = 0 if total_reserved >= mn['staking_requirement'] else max(0, 4 - mn['num_contributions'] - mn['num_reserved_spots'])
+    return _json_ok({'mn': mn, 'height': info.get()['height']})
+
+
+@app.route('/api/v2/quorums')
+def api_v2_quorums():
+    lmq, beldexd = lmq_connection()
+    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    quos = get_quorums_future(lmq, beldexd, info.get()['height'])
+    return _json_ok({'height': info.get()['height'], 'quorums': get_quorums(quos)})
+
+
+@app.route('/api/v2/search')
+def api_v2_search():
+    """Resolve a search string to {type, id} without redirecting."""
+    lmq, beldexd = lmq_connection()
+    val = (flask.request.args.get('value') or '').strip()
+
+    if val and len(val) < 10 and val.isdigit():
+        return _json_ok({'type': 'block', 'id': int(val)})
+
+    if val and len(val) == 58 and val.endswith('.mnode') and val[51] in 'yoYO' \
+            and all(c in base32z_dict for c in val[0:52].lower()):
+        v = 0
+        for x in val[0:52].lower():
+            v = (v << 5) | base32z_map[x]
+        v >>= 4
+        val = '{:64x}'.format(v)
+    if val.endswith('.bdx'):
+        val = val[:-4]
+
+    if val and len(val) < 64 and all(c.isalnum() or c in '_-' for c in val):
+        return _json_ok({'type': 'bns', 'id': val})
+    if not val or len(val) != 64 or any(c not in string.hexdigits for c in val):
+        return _json_ok({'type': 'none', 'id': val})
+
+    mnreq = mn_req(lmq, beldexd, val)
+    blreq = block_header_req(lmq, beldexd, val, fail_okay=True)
+    txreq = tx_req(lmq, beldexd, [val])
+
+    mn = mnreq.get()
+    if mn and mn.get('master_node_states'):
+        return _json_ok({'type': 'mn', 'id': val})
+    bl = blreq.get()
+    if bl and bl.get('block_header'):
+        return _json_ok({'type': 'block', 'id': val})
+    tx = txreq.get()
+    if tx and tx.get('txs'):
+        return _json_ok({'type': 'tx', 'id': val})
+    return _json_ok({'type': 'none', 'id': val})
+
+
+@app.route('/api/v2/tokens')
+def api_v2_tokens():
+    lmq, beldexd = lmq_connection()
+    try:
+        offset = max(0, int(flask.request.args.get('offset', 0)))
+        count = int(flask.request.args.get('count', 20))
+    except ValueError:
+        return _json_err('bad offset/count', 400)
+    if count <= 0 or count > 100:
+        count = 20
+
+    token_list = FutureJSON(lmq, beldexd, 'rpc.get_token_list', 5,
+            args={'offset': offset, 'count': count}).get() or {}
+    token_ids = token_list.get('token_ids', [])
+    total_count = token_list.get('total_count', len(token_ids))
+
+    futures = [FutureJSON(lmq, beldexd, 'rpc.get_token_info', 5, cache_key=tid,
+            args={'token_id': tid}) for tid in token_ids]
+
+    whitelist_by_id = load_whitelist_by_id(getattr(config, 'token_whitelist_url', None))
+
+    tokens = []
+    for tid, fut in zip(token_ids, futures):
+        a = fut.get() or {}
+        wl = whitelist_by_id.get(a.get('token_id', tid), {})
+        tokens.append({
+            'token_id': a.get('token_id', tid),
+            'name': a.get('full_name', ''),
+            'ticker': a.get('ticker', ''),
+            'total_max_supply': format_token_amount(a.get('total_max_supply'), a.get('decimal_point')),
+            'current_supply': format_token_amount(a.get('current_supply'), a.get('decimal_point')),
+            'decimal_point': a.get('decimal_point', ''),
+            'meta_info': a.get('meta_info', ''),
+            'owner': a.get('owner', ''),
+            'logo': wl.get('logo', ''),
+            'social': wl.get('social', ''),
+        })
+
+    return _json_ok({'tokens': tokens, 'offset': offset, 'count': count, 'total_count': total_count})
