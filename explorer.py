@@ -57,8 +57,9 @@ app.url_map.converters['hex64'] = Hex64Converter
 
 @app.template_filter('format_datetime')
 def format_datetime(value, format='long'):
-    print(value)
-    return babel.dates.format_datetime(value, format, tzinfo=babel.dates.get_timezone('UTC'))
+    # Explicit locale: Babel otherwise falls back to LC_TIME, which on macOS is
+    # often set to a bare charset (e.g. "UTF-8") that Locale.parse rejects.
+    return babel.dates.format_datetime(value, format, tzinfo=babel.dates.get_timezone('UTC'), locale='en')
 
 @app.template_filter('from_timestamp')
 def from_timestamp(value):
