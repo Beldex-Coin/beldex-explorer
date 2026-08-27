@@ -1270,3 +1270,142 @@ def api_price(fiat=None):
         fiat = fiat.lower()
         return flask.jsonify({ fiat: ticker_cache[fiat] } if fiat in ticker_cache else {})
         
+
+# ---------------------------------------------------------------------------
+# /stats — blockchain statistics dashboard.
+# Current values come straight from RPC; historical (quarterly) series are
+# built by sampling ~30 block headers in the middle of each calendar quarter
+# and extrapolating, then cached for 6 hours.
+# ---------------------------------------------------------------------------
+
+_stats_history_cache = {'data': None, 'expiry': 0}
+_STATS_QUARTERS = 12          # how many calendar quarters of history to chart
+_STATS_SAMPLE = 30            # block headers sampled per quarter
+_BLOCK_TIME = 30              # target seconds per block
+
+def _quarter_starts(n, now_dt):
+    """Return the datetimes of the last n calendar-quarter starts (oldest
+    first), ending with the current quarter's start."""
+    starts = []
+    y, q = now_dt.year, (now_dt.month - 1) // 3
+    for _ in range(n):
+        starts.append(datetime(y, q * 3 + 1, 1, tzinfo=timezone.utc))
+        q -= 1
+        if q < 0:
+            y, q = y - 1, 3
+    return list(reversed(starts))
+
+def _stats_history(lmq, beldexd, height, now_ts):
+    """Quarterly series (estimates from sampled headers), cached for 6h.
+    Returns None if the daemon cannot answer."""
+    if _stats_history_cache['data'] is not None and _stats_history_cache['expiry'] > now_ts:
+        return _stats_history_cache['data']
+
+    try:
+        now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+        starts = _quarter_starts(_STATS_QUARTERS + 1, now_dt)  # +1: need each quarter's end
+        # Approximate the chain height at each quarter start from block time
+        bounds = []
+        for dt in starts:
+            h = height - 1 - int((now_ts - dt.timestamp()) // _BLOCK_TIME)
+            bounds.append(max(0, h))
+        bounds.append(height - 1)  # current quarter runs to the tip
+
+        quarters = []
+        futures = []
+        for i in range(len(starts)):
+            start_h = bounds[i]
+            end_h = bounds[i + 1]
+            if end_h - start_h < 10:  # chain younger than this quarter
+                futures.append(None)
+                continue
+            mid = (start_h + end_h) // 2
+            futures.append(FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', 21600,
+                    cache_key='stats{}'.format(i),
+                    args={'start_height': mid, 'end_height': min(mid + _STATS_SAMPLE - 1, end_h)}))
+
+        for i, fut in enumerate(futures):
+            if fut is None:
+                continue
+            headers = ((fut.get() or {}).get('headers')) or []
+            if not headers:
+                continue
+            start_h, end_h = bounds[i], bounds[i + 1]
+            nblocks = end_h - start_h
+            def avg(key):
+                vals = [h.get(key, 0) for h in headers]
+                return sum(vals) / len(vals) if vals else 0
+            label = "Q{} '{}".format(starts[i].month // 3 + 1, str(starts[i].year)[2:])
+            quarters.append({
+                'label': label,
+                'blocks': nblocks,
+                'txs': round(avg('num_txes') * nblocks),
+                'emission': round(avg('reward') * nblocks / 1e9),
+                'avg_block_size': round(avg('block_size')),
+                'difficulty': headers[len(headers)//2].get('difficulty', 0),
+                'hashrate': round(headers[len(headers)//2].get('difficulty', 0) / _BLOCK_TIME),
+                'avg_reward': round(avg('reward') / 1e9, 4),
+            })
+
+        data = {'quarters': quarters} if quarters else None
+    except Exception as e:
+        print("stats history unavailable: {}".format(e), file=sys.stderr)
+        data = None
+
+    if data:
+        _stats_history_cache['data'] = data
+        _stats_history_cache['expiry'] = now_ts + 6 * 3600
+    return data
+
+
+@app.route('/stats')
+def stats():
+    lmq, beldexd = lmq_connection()
+    inforeq = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
+    mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
+            args={'all': False, 'fields': {'active': True, 'funded': True}})
+    mempool = get_mempool_future(lmq, beldexd)
+    coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 120, timeout=1, fail_okay=True,
+            args={"height": 0, "count": 2**31-1})
+
+    info = inforeq.get()
+    if info is None:
+        return flask.render_template('daemon_unavailable.html', info=None), 503
+    info['testnet'] = info['nettype'] == 'testnet'
+    info['devnet'] = info['nettype'] == 'devnet'
+    height = info['height']
+    now_ts = time.time()
+
+    mn_counts = {'active': 0, 'awaiting': 0, 'decommissioned': 0}
+    try:
+        for mn in (mn_counts_req.get() or {}).get('master_node_states', []):
+            if mn.get('active'):
+                mn_counts['active'] += 1
+            elif mn.get('funded'):
+                mn_counts['decommissioned'] += 1
+            else:
+                mn_counts['awaiting'] += 1
+    except Exception:
+        pass
+
+    try:
+        mp = parse_mempool(mempool) or {}
+    except Exception:
+        mp = {}
+
+    history = _stats_history(lmq, beldexd, height, now_ts)
+
+    emission = coinbase.get()
+    bns_counts = info.get('bns_counts', 0)
+
+    return flask.render_template('stats.html',
+            info=info,
+            stake=stake.get() or {'staking_requirement': 0},
+            emission=emission,
+            mn_counts=mn_counts,
+            bns_counts=bns_counts,
+            mempool_count=len(mp.get('txs', [])),
+            hashrate=info.get('difficulty', 0) / _BLOCK_TIME,
+            history=history,
+            )

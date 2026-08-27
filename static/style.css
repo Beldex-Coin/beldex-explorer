@@ -441,6 +441,64 @@ form.page-search input[type="submit"]:hover {
     box-shadow: 0 0 20px rgba(0, 217, 89, 0.35);
 }
 
+/* ---------- stats dashboard charts ---------- */
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 20px;
+    margin: 28px 0 48px;
+}
+@media (max-width: 500px) { .chart-grid { grid-template-columns: 1fr; } }
+
+.chart-panel {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 18px 18px 10px;
+    transition: border-color 0.2s;
+}
+.chart-panel:hover { border-color: rgba(0, 217, 89, 0.35); }
+
+.chart-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin: 0 0 12px;
+}
+.chart-sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: none;
+    color: var(--text-faint);
+    margin-left: 8px;
+}
+
+.chart-panel svg { width: 100%; height: auto; display: block; }
+
+.chart-panel .grid { stroke: rgba(255, 255, 255, 0.06); stroke-width: 1; }
+.chart-panel .axis {
+    fill: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 9px;
+}
+.chart-panel .chart-line {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 6px rgba(0, 217, 89, 0.55));
+}
+.chart-panel .chart-dot {
+    fill: #0a0a0a;
+    stroke: var(--green);
+    stroke-width: 1.5;
+}
+.chart-panel .chart-dot:hover { fill: var(--green); r: 4; }
+
 /* ---------- dividers ---------- */
 
 .TitleUnderliner, .TitleDivider {

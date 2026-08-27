@@ -1,0 +1,175 @@
+{% extends "_basic.html" %}
+
+{% block title %}Stats — {% endblock %}
+
+{% block content %}
+<div class="Wrapper">
+
+    <div class="hero" style="padding: 24px 0 8px">
+        <div class="eyebrow">Network Analytics</div>
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Blockchain Stats</h1>
+        <p class="hero-note">Live figures from the daemon · quarterly series estimated from sampled block headers, refreshed every 6h</p>
+    </div>
+
+    {# ---------------- headline tiles ---------------- #}
+    <div class="stat-grid">
+        <div class="stat-card">
+            <span class="label">Block height</span>
+            <span class="value">{{info.height}}</span>
+        </div>
+        <div class="stat-card" title="{{info.tx_count}} transactions">
+            <span class="label">Total transactions</span>
+            <span class="value">{{(info.tx_count / 1000000) | roundish | chop0}}<span class="unit">M</span></span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Circulating supply</span>
+            {% if emission and emission.status == 'OK' %}
+                <span class="value">{{(emission.emission_amount - emission.burn_amount) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+            {% else %}
+                <span class="value">…</span><span class="note">still calculating</span>
+            {% endif %}
+        </div>
+        <div class="stat-card">
+            <span class="label">Total BDX burned</span>
+            {% if emission and emission.status == 'OK' %}
+                <span class="value">{{emission.burn_amount | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+            {% else %}
+                <span class="value">…</span><span class="note">still calculating</span>
+            {% endif %}
+        </div>
+        <div class="stat-card">
+            <span class="label">Active master nodes</span>
+            <span class="value" style="color: var(--green)">{{mn_counts.active}}</span>
+            <span class="note">{{mn_counts.awaiting}} awaiting · {{mn_counts.decommissioned}} decommissioned</span>
+        </div>
+        <div class="stat-card" title="Value staked by active master nodes (nodes × requirement)">
+            <span class="label">Total value staked</span>
+            <span class="value">{{(mn_counts.active * stake.staking_requirement) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+        </div>
+        <div class="stat-card">
+            <span class="label">BNS names</span>
+            <span class="value">{{bns_counts}}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Network hashrate</span>
+            <span class="value">{{hashrate | si}}<span class="unit">H/s</span></span>
+            <span class="note">difficulty {{info.difficulty | si}}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Mempool</span>
+            <span class="value">{{mempool_count}}<span class="unit">txs</span></span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Blockchain size</span>
+            <span class="value">{{info.database_size | si}}B</span>
+        </div>
+    </div>
+
+    {# ---------------- charts ---------------- #}
+    {% if history and history.quarters %}
+    <div class="chart-grid">
+        <div class="chart-panel"><h2 class="chart-title">Transactions / quarter <span class="chart-sub">estimated</span></h2><svg data-chart="txs"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Cumulative transactions <span class="chart-sub">estimated</span></h2><svg data-chart="cum_txs"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Coin emission / quarter <span class="chart-sub">BDX, estimated</span></h2><svg data-chart="emission"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Network hashrate <span class="chart-sub">H/s at quarter mid</span></h2><svg data-chart="hashrate"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Avg block size <span class="chart-sub">bytes</span></h2><svg data-chart="avg_block_size"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Block reward <span class="chart-sub">BDX, quarter avg</span></h2><svg data-chart="avg_reward"></svg></div>
+    </div>
+
+    <script>
+    (function() {
+        var H = {{ history | tojson }};
+        var Q = H.quarters;
+        var total = {{ info.tx_count }};
+
+        // cumulative txs anchored at the current total, walking backwards
+        var cum = [], run = total;
+        for (var i = Q.length - 1; i >= 0; i--) { cum[i] = run; run -= Q[i].txs; }
+
+        function series(key) {
+            if (key === 'cum_txs') return cum;
+            return Q.map(function(q) { return q[key]; });
+        }
+
+        function fmt(v) {
+            if (v >= 1e9) return (v/1e9).toFixed(1) + 'G';
+            if (v >= 1e6) return (v/1e6).toFixed(1) + 'M';
+            if (v >= 1e3) return (v/1e3).toFixed(1) + 'k';
+            return Math.round(v * 100) / 100 + '';
+        }
+
+        var NS = 'http://www.w3.org/2000/svg';
+        function el(name, attrs, parent) {
+            var e = document.createElementNS(NS, name);
+            for (var k in attrs) e.setAttribute(k, attrs[k]);
+            if (parent) parent.appendChild(e);
+            return e;
+        }
+
+        function drawChart(svg, labels, data) {
+            var W = 460, PH = 220, padL = 52, padR = 14, padT = 14, padB = 34;
+            svg.setAttribute('viewBox', '0 0 ' + W + ' ' + PH);
+            var iw = W - padL - padR, ih = PH - padT - padB;
+            var max = Math.max.apply(null, data), min = Math.min.apply(null, data);
+            if (max === min) { max += 1; min = Math.max(0, min - 1); }
+            var span = max - min;
+            max += span * 0.08; min = Math.max(0, min - span * 0.08);
+
+            var x = function(i) { return padL + (data.length === 1 ? iw/2 : i * iw / (data.length - 1)); };
+            var y = function(v) { return padT + ih - (v - min) / (max - min) * ih; };
+
+            // gradient + glow defs (unique per chart)
+            var uid = 'g' + Math.random().toString(36).slice(2, 8);
+            var defs = el('defs', {}, svg);
+            var grad = el('linearGradient', {id: uid, x1: 0, y1: 0, x2: 0, y2: 1}, defs);
+            el('stop', {offset: '0%', 'stop-color': 'rgba(0,217,89,0.35)'}, grad);
+            el('stop', {offset: '100%', 'stop-color': 'rgba(0,217,89,0)'}, grad);
+
+            // horizontal gridlines + y labels
+            for (var g = 0; g <= 4; g++) {
+                var gy = padT + ih * g / 4;
+                el('line', {x1: padL, y1: gy, x2: W - padR, y2: gy, class: 'grid'}, svg);
+                var lbl = el('text', {x: padL - 8, y: gy + 3, class: 'axis', 'text-anchor': 'end'}, svg);
+                lbl.textContent = fmt(max - (max - min) * g / 4);
+            }
+
+            // area + line paths
+            var line = '', area = '';
+            for (var i = 0; i < data.length; i++) {
+                var px = x(i), py = y(data[i]);
+                line += (i ? 'L' : 'M') + px.toFixed(1) + ' ' + py.toFixed(1);
+            }
+            area = line + 'L' + x(data.length - 1).toFixed(1) + ' ' + (padT + ih) +
+                   'L' + x(0).toFixed(1) + ' ' + (padT + ih) + 'Z';
+            el('path', {d: area, fill: 'url(#' + uid + ')', stroke: 'none'}, svg);
+            el('path', {d: line, class: 'chart-line'}, svg);
+
+            // points + tooltips + x labels
+            for (var i = 0; i < data.length; i++) {
+                var c = el('circle', {cx: x(i), cy: y(data[i]), r: 3, class: 'chart-dot'}, svg);
+                var t = el('title', {}, c);
+                t.textContent = labels[i] + ': ' + Number(data[i]).toLocaleString();
+                if (i % Math.ceil(data.length / 8) === 0 || i === data.length - 1) {
+                    var xl = el('text', {x: x(i), y: PH - 10, class: 'axis', 'text-anchor': 'middle'}, svg);
+                    xl.textContent = labels[i];
+                }
+            }
+        }
+
+        var labels = Q.map(function(q) { return q.label; });
+        document.querySelectorAll('svg[data-chart]').forEach(function(svg) {
+            drawChart(svg, labels, series(svg.getAttribute('data-chart')));
+        });
+    })();
+    </script>
+    {% else %}
+    <div class="panel section-gap" style="margin-top: 28px">
+        <div class="panel-body comment">
+            Historical charts are unavailable right now — the daemon could not serve sampled block
+            headers (it may still be syncing). They will appear automatically once it catches up.
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
