@@ -7,21 +7,38 @@
 {%-set decommed = mn.funded and not mn.active %}
 
 <div class="mn-details Wrapper">
+  <div class="hero" style="padding: 24px 0 16px">
+      <div class="eyebrow">Master Node{% if decommed %} · decommissioned{% elif mn.active %} · active{% elif not mn.funded %} · awaiting contributions{% endif %}</div>
+      <h1 class="hero-title" style="font-size: clamp(15px, 2vw, 24px)" title="{{mn.master_node_pubkey}}">{{mn.master_node_pubkey | ellipsize(8,8,'…')}}</h1>
+  </div>
+
   <div class="mn-details-main">
-    <div class="details">
-      <div class="hero" style="padding: 0 0 8px">
-          <div class="eyebrow">Master Node{% if decommed %} · decommissioned{% elif mn.active %} · active{% elif not mn.funded %} · awaiting contributions{% endif %}</div>
-          <h1 class="hero-title" style="font-size: clamp(14px, 1.8vw, 22px); word-break: break-all">{{mn.master_node_pubkey}}</h1>
+    <div class="details panel" style="margin: 0">
+      <div class="kv">
+        <div class="k">Public key</div>
+        <div class="v mn-addr">{{mn.master_node_pubkey}}</div>
       </div>
       {%if mn.pubkey_ed25519 %}
         {%if mn.pubkey_ed25519 != mn.master_node_pubkey%}
-          <h4 style="margin:5px"><label>Master Node Auxiliary Pubkey:</label> {{mn.pubkey_ed25519}}</h4>
+        <div class="kv">
+          <div class="k">Auxiliary pubkey</div>
+          <div class="v mn-addr">{{mn.pubkey_ed25519}}</div>
+        </div>
         {%endif%}
-        <h4 style="margin:5px"><label>Belnet Address:</label> {{mn.pubkey_ed25519 | base32z}}.mnode</h4>
+        <div class="kv">
+          <div class="k">Belnet address</div>
+          <div class="v mn-addr">{{mn.pubkey_ed25519 | base32z}}.mnode</div>
+        </div>
       {%endif%}
-      <h4 style="margin:5px"><label>Operator Address:</label> {{mn.operator_address}}</h4>
+      <div class="kv">
+        <div class="k">Operator address</div>
+        <div class="v mn-addr">{{mn.operator_address}}</div>
+      </div>
     </div>
-    <img class="qr" src="/qr/{{mn.master_node_pubkey}}" title="{{mn.master_node_pubkey}}">
+    <div class="qr-card">
+      <img class="qr" src="/qr/{{mn.master_node_pubkey}}" alt="QR code of the master node public key" title="{{mn.master_node_pubkey}}">
+      <span class="qr-label">Scan pubkey</span>
+    </div>
   </div>
 
   <h2>Metadata</h2>

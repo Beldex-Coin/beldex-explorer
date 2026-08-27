@@ -691,20 +691,50 @@ p.state-change-pubkey { word-break: break-all; }
 
 .mn { word-break: break-all; }
 
-.mn-details {
+.mn-details { padding-bottom: 24px; }
+.mn-details .mn-details-main {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin-bottom: 8px;
+}
+.mn-details .mn-details-main .details { flex: 1; min-width: 300px; }
+
+/* long addresses: full value, small type */
+.mn-addr {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+}
+
+/* modern QR card */
+.qr-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
     border: 1px solid var(--border);
     background: var(--bg-panel);
-    padding: 18px 22px;
-    margin: 16px 0;
+    padding: 20px 24px;
 }
-.mn-details .mn-details-main { display: flex; gap: 24px; flex-wrap: wrap; }
-.mn-details .mn-details-main .details { flex: 1; min-width: 260px; }
-.mn-details .mn-details-main img.qr {
+.qr-card:hover { border-color: rgba(0, 217, 89, 0.4); }
+.qr-card img.qr {
+    display: block;
+    width: 132px;
+    height: 132px;
+    padding: 10px;
     background: #fff;
-    padding: 8px;
     border: 1px solid var(--border-strong);
-    width: 140px;
-    height: 140px;
+    image-rendering: pixelated;
+}
+.qr-card .qr-label {
+    font-family: var(--font-display);
+    font-size: 8.5px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-faint);
 }
 
 .mn-active { color: var(--green); }
