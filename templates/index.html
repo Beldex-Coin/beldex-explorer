@@ -68,7 +68,19 @@
                     <span class="note">still calculating</span>
                 {% elif emission.status == 'OK' %}
                     <span class="value">{{(emission.emission_amount - emission.burn_amount) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
-                    <span class="note">burned {{emission.burn_amount | beldex(decimals=0)}}</span>
+                {% endif %}
+            </div>
+            <div class="stat-card">
+                <span class="label">Total transactions</span>
+                <span class="value">{{info.tx_count}}</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">Total BDX burned</span>
+                {% if emission and emission.status == 'OK' %}
+                    <span class="value">{{emission.burn_amount | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+                {% else %}
+                    <span class="value">…</span>
+                    <span class="note">still calculating</span>
                 {% endif %}
             </div>
             <div class="stat-card">
