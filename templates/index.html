@@ -70,9 +70,9 @@
                     <span class="value">{{(emission.emission_amount - emission.burn_amount) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
                 {% endif %}
             </div>
-            <div class="stat-card">
+            <div class="stat-card" title="{{info.tx_count}} transactions">
                 <span class="label">Total transactions</span>
-                <span class="value">{{info.tx_count}}</span>
+                <span class="value">{{ (info.tx_count / 1000000) | roundish | chop0 }}<span class="unit">M</span></span>
             </div>
             <div class="stat-card">
                 <span class="label">Total BDX burned</span>
