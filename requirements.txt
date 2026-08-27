@@ -1,0 +1,15 @@
+# Python dependencies for the Flask explorer backend.
+# System requirement: libsodium (macOS: `brew install libsodium`, Debian: `apt install libsodium-dev`)
+# Note: pylokimq is NOT on PyPI — build it from the pylokimq/ submodule per README
+# and symlink the resulting .so into the repo root.
+flask
+jinja2>=2.11
+babel
+requests
+pygments
+qrcode
+pillow
+pynacl
+pysodium
+safe-pysha3
+base58
