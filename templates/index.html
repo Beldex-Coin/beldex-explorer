@@ -16,21 +16,11 @@
 
         {# ---------- quick links ---------- #}
         <div class="chips">
-            <a href="/txpool">Transaction Pool</a>
-            <a href="/quorums">Quorums</a>
-            {% if config.pusher %}<a href="/rawtx">TX Pusher</a>{% endif %}
-            {% if config.key_image_checker %}<a href="/rawkeyimgs">Key Image Checker</a>{% endif %}
-            {% if config.output_key_checker %}<a href="/rawoutputkeys">Output Key Checker</a>{% endif %}
             {% if config.autorefresh_option %}
                 {% if refresh %}<a href="/">Autorefresh: ON ({{refresh}}s)</a>
                 {% else %}<a href="/autorefresh/10">Autorefresh: OFF</a>{% endif %}
             {% endif %}
-            {% if info.mainnet and config.belnet_mainnet_url %}<a href="{{config.belnet_mainnet_url}}">Belnet</a>
-            {% elif info.testnet and config.belnet_testnet_url %}<a href="{{config.belnet_testnet_url}}">Belnet</a>
-            {% elif info.devnet and config.belnet_devnet_url %}<a href="{{config.belnet_devnet_url}}">Belnet</a>{% endif %}
             {% if config.testnet_url and not info.testnet %}<a href="{{config.testnet_url}}">Testnet Explorer</a>{% endif %}
-            {% if config.devnet_url and not info.devnet %}<a href="{{config.devnet_url}}">Devnet Explorer</a>{% endif %}
-            {% if config.mainnet_url and not info.mainnet %}<a href="{{config.mainnet_url}}">Mainnet Explorer</a>{% endif %}
         </div>
 
         {# ---------- headline stats ---------- #}
