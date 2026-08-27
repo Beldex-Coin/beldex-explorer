@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 64" width="360" height="64">
+  <!-- Beldex Explorer lockup: magnifier-ring mark + wordmark.
+       (Michroma renders when the font is available; falls back to sans-serif.) -->
+  <g fill="none">
+    <line x1="46.2" y1="46.2" x2="58" y2="58" stroke="#00d959" stroke-width="5.5" stroke-linecap="round"/>
+    <circle cx="29" cy="29" r="21.5" stroke="#00d959" stroke-width="4.4"/>
+    <circle cx="29" cy="7.5" r="3" fill="#00d959" stroke="#0a0a0a" stroke-width="1.6"/>
+    <circle cx="7.5" cy="29" r="3" fill="#2f7dff" stroke="#0a0a0a" stroke-width="1.6"/>
+    <path fill="#2f7dff" d="M22 17h9.4c4.1 0 6.7 2.2 6.7 5.5 0 2.4-1.4 4.2-3.4 4.9 2.6.6 4.4 2.6 4.4 5.4 0 3.7-2.8 6.2-7.1 6.2H22V17z"/>
+    <path fill="#0a0a0a" d="M26.3 20.8v5.7h4.9c1.9 0 3-1.1 3-2.9s-1.1-2.8-3-2.8h-4.9zm0 9.3v5.9h5.6c2 0 3.2-1.1 3.2-2.9 0-1.9-1.2-3-3.2-3h-5.6z"/>
+  </g>
+  <text x="76" y="34" font-family="Michroma, 'Space Mono', sans-serif" font-size="24" letter-spacing="2" fill="#ffffff">BELDEX</text>
+  <text x="77" y="52" font-family="Michroma, 'Space Mono', sans-serif" font-size="10" letter-spacing="7" fill="#00d959">EXPLORER</text>
+</svg>
