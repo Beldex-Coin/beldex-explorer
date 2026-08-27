@@ -5,8 +5,12 @@
 
 <div class="Wrapper">
 
+    <div class="hero" style="padding: 24px 0 12px">
+        <div class="eyebrow">Consensus</div>
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Quorums</h1>
+    </div>
+
     <h2>Master Node testing quorums:</h2>
-    <div class="TitleUnderliner"></div>
 
     <div class="obligations quorums">
         {%for q in quorums.obligation[-18:] | reverse%}

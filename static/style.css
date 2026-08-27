@@ -196,6 +196,145 @@ label.warning { color: var(--amber); }
     box-shadow: 0 0 20px rgba(0, 217, 89, 0.35);
 }
 
+/* ---------- hero (home page) ---------- */
+
+.hero { padding: 44px 0 8px; }
+
+.eyebrow {
+    font-family: var(--font-display);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.35em;
+    color: var(--green);
+}
+
+.hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(22px, 3.4vw, 40px);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.15;
+    margin: 12px 0 0;
+}
+
+.hero-note { color: var(--text-dim); font-size: 13px; margin-top: 10px; }
+
+/* ---------- stat cards ---------- */
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin: 24px 0;
+}
+
+.stat-card {
+    background: var(--bg-panel);
+    padding: 20px 18px 16px;
+    position: relative;
+}
+.stat-card:hover { box-shadow: inset 2px 0 0 var(--green); }
+
+.stat-card .label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+}
+.stat-card .value {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 21px;
+    line-height: 1.25;
+    color: var(--text);
+    word-break: break-word;
+}
+.stat-card .value .unit { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 5px; }
+.stat-card .note { margin-top: 5px; font-size: 11px; color: var(--text-dim); }
+
+/* ---------- panels ---------- */
+
+.panel {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    margin: 28px 0;
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
+}
+.panel-head .title {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin: 0;
+}
+.panel-head .spacer { margin-left: auto; }
+.panel-head .meta { color: var(--text-faint); font-size: 11px; }
+
+.panel > table, .panel .Table { border: 0; margin: 0; }
+
+.panel-body { padding: 16px 20px; }
+
+/* key/value rows inside panels */
+.kv { display: grid; grid-template-columns: 240px 1fr; border-bottom: 1px solid var(--border); }
+.kv:last-child { border-bottom: 0; }
+.kv > .k {
+    padding: 11px 20px;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    border-right: 1px solid var(--border);
+}
+.kv > .v { padding: 11px 20px; word-break: break-all; }
+@media (max-width: 720px) {
+    .kv { grid-template-columns: 1fr; }
+    .kv > .k { border-right: 0; padding-bottom: 0; }
+}
+
+/* quick-link chips (txpool, belnet, autorefresh...) */
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.chips a, .chips span.chip {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 8px 14px;
+    text-decoration: none;
+    transition: color 0.15s, border-color 0.15s;
+}
+.chips a:hover { color: var(--green); border-color: var(--green); text-decoration: none; }
+
+/* tx legend as subtle collapsible */
+details.legend { margin: 14px 0; color: var(--text-dim); }
+details.legend summary {
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+details.legend summary:hover { color: var(--green); }
+details.legend .legend-items { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 2px; font-size: 12px; }
+
 /* ---------- dividers ---------- */
 
 .TitleUnderliner, .TitleDivider {

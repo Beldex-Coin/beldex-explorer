@@ -3,259 +3,263 @@
 {% block content %}
     <div class="Wrapper">
 
-        <div class="info_list nowrap-spans" style="float: none;">
-            <span><label>Server Time:</label> {{ server.datetime | format_datetime }}</span> <br>
-            <span class="beldex-border"><a href="/txpool">Transaction Pool</a></span>
-            {% if config.pusher %}
-                <span class="beldex-border"><a href="/rawtx">Transaction pusher </a></span>
-            {% endif %}
-            {% if config.key_image_checker %}
-                <span class="beldex-border"><a href="/rawkeyimgs">Key images checker</a></span>
-            {% endif %}
-            {% if config.output_key_checker %}
-                <span class="beldex-border"><a href="/rawoutputkeys">Output keys checker</a></span>
-            {% endif %}
+        {# ---------- hero ---------- #}
+        <div class="hero">
+            <div class="eyebrow">Beldex{{ ' · TESTNET' if info and info.testnet else ' · DEVNET' if info and info.devnet else '' }}</div>
+            <h1 class="hero-title">Blockchain Explorer</h1>
+            <p class="hero-note">Server time: {{ server.datetime | format_datetime }} UTC</p>
+        </div>
+
+        {# ---------- quick links ---------- #}
+        <div class="chips">
+            <a href="/txpool">Transaction Pool</a>
+            <a href="/quorums">Quorums</a>
+            {% if config.pusher %}<a href="/rawtx">TX Pusher</a>{% endif %}
+            {% if config.key_image_checker %}<a href="/rawkeyimgs">Key Image Checker</a>{% endif %}
+            {% if config.output_key_checker %}<a href="/rawoutputkeys">Output Key Checker</a>{% endif %}
             {% if config.autorefresh_option %}
-                <span class="beldex-border">
-                    {% if refresh %}
-                        <a href="/">Autorefresh is ON ({{refresh}} s)</a>
-                    {% else %}
-                        <a href="/autorefresh/10">Autorefresh is OFF</a>
-                    {% endif %}
-                </span>
+                {% if refresh %}<a href="/">Autorefresh: ON ({{refresh}}s)</a>
+                {% else %}<a href="/autorefresh/10">Autorefresh: OFF</a>{% endif %}
             {% endif %}
+            {% if info.mainnet and config.belnet_mainnet_url %}<a href="{{config.belnet_mainnet_url}}">Belnet</a>
+            {% elif info.testnet and config.belnet_testnet_url %}<a href="{{config.belnet_testnet_url}}">Belnet</a>
+            {% elif info.devnet and config.belnet_devnet_url %}<a href="{{config.belnet_devnet_url}}">Belnet</a>{% endif %}
+            {% if config.testnet_url and not info.testnet %}<a href="{{config.testnet_url}}">Testnet Explorer</a>{% endif %}
+            {% if config.devnet_url and not info.devnet %}<a href="{{config.devnet_url}}">Devnet Explorer</a>{% endif %}
+            {% if config.mainnet_url and not info.mainnet %}<a href="{{config.mainnet_url}}">Mainnet Explorer</a>{% endif %}
+        </div>
 
-            {% if info.mainnet and config.belnet_mainnet_url %}
-                <span class="beldex-border"><a href="{{config.belnet_mainnet_url}}">Connect via Belnet</a></span>
-            {% elif info.testnet and config.belnet_testnet_url %}
-                <span class="beldex-border"><a href="{{config.belnet_testnet_url}}">Connect via Belnet</a></span>
-            {% elif info.devnet and config.belnet_devnet_url %}
-                <span class="beldex-border"><a href="{{config.belnet_devnet_url}}">Connect via Belnet</a></span>
+        {# ---------- headline stats ---------- #}
+        {% if info %}
+        <div class="stat-grid">
+            <div class="stat-card">
+                <span class="label">Block height</span>
+                <span class="value">{{info.height}}</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">Hard fork</span>
+                <span class="value">v{{hf.version}}</span>
+                <span class="note">{{ 'testnet' if info.testnet else 'devnet' if info.devnet else 'mainnet' }}</span>
+            </div>
+            {% if hf.version >= 17 %}
+            <div class="stat-card" title="{{ info.POS_target_timestamp | from_timestamp | format_datetime }}
+                {%- if info.POS_target_timestamp != info.POS_ideal_timestamp %}
+{{ (info.POS_target_timestamp - info.POS_ideal_timestamp) | reltime(two_part=true, in_ago=false) }}
+                {%- if info.POS_target_timestamp > info.POS_ideal_timestamp %} behind {% else %} ahead of {% endif %} schedule
+                {%- endif -%}">
+                <span class="label">Next POS block</span>
+                <span class="value">{{ (info.POS_target_timestamp|from_timestamp - server.datetime) | reltime(neg_is_now=true) }}</span>
+            </div>
+            {% else %}
+            <div class="stat-card">
+                <span class="label">Network difficulty</span>
+                <span class="value">{{info.difficulty}}</span>
+                <span class="note">~{{(info.difficulty / info.target) | si }}H/s</span>
+            </div>
             {% endif %}
+            <div class="stat-card">
+                <span class="label">Staking requirement</span>
+                <span class="value">{{stake.staking_requirement | beldex(tag=False)}}<span class="unit">BDX</span></span>
+            </div>
+            <div class="stat-card">
+                <span class="label">Circulating supply</span>
+                {% if not emission or emission.status == 'BUSY' %}
+                    <span class="value">…</span>
+                    <span class="note">still calculating</span>
+                {% elif emission.status == 'OK' %}
+                    <span class="value">{{(emission.emission_amount - emission.burn_amount) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+                    <span class="note">burned {{emission.burn_amount | beldex(decimals=0)}}</span>
+                {% endif %}
+            </div>
+            <div class="stat-card">
+                <span class="label">Total BNS records</span>
+                <span class="value">{{bns}}</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">BDX price</span>
+                <span class="value"><span id="bdxPriceLabel">…</span></span>
+                <span class="note" id="lblPrice">via CoinGecko</span>
+            </div>
+            <div class="stat-card">
+                <span class="label">Blockchain size</span>
+                <span class="value">{{info.database_size | si}}B</span>
+            </div>
+        </div>
+        {% endif %}
 
-            {% if config.testnet_url and not info.testnet %}
-                <span class="beldex-border"><a href="{{config.testnet_url}}">Go to testnet explorer</a>
-                    {%if config.belnet_testnet_url%}(<a href="{{config.belnet_testnet_url}}">via Belnet</a>){%endif%}
-                </span>
-            {% endif %}
-            {% if config.devnet_url and not info.devnet %}
-                <span class="beldex-border"><a href="{{config.devnet_url}}">Go to devnet explorer</a>
-                    {%if config.belnet_devnet_url%}(<a href="{{config.belnet_devnet_url}}">via Belnet</a>){%endif%}
-                </span>
-            {% endif %}
-            {% if config.mainnet_url and not info.mainnet %}
-                <span class="beldex-border"><a href="{{config.mainnet_url}}">Go to mainnet explorer</a>
-                    {%if config.belnet_mainnet_url%}(<a href="{{config.belnet_mainnet_url}}">via Belnet</a>){%endif%}
-                </span>
-            {% endif %} 
-            {% if info.testnet %}
-                <span>This is <span style="font-weight: bold">TESTNET</span> blockchain</span>
-            {% elif info.devnet %}
-                <span>This is <span style="font-weight: bold">DEVNET</span> blockchain</span>
+        {# ---------- network parameters ---------- #}
+        <div class="panel">
+            <div class="panel-head"><h2 class="title">Network parameters</h2></div>
+            <div class="kv">
+                <div class="k">Base fee</div>
+                <div class="v" title="{{(2500 * fees.fee_per_byte + 2*fees.fee_per_output) | beldex}} for a typical simple transaction (~2.5kB, 2 outputs)">
+                    {{fees.fee_per_output | beldex}} / output &nbsp;+&nbsp; {{(fees.fee_per_byte * 1000) | beldex}} / kB
+                </div>
+            </div>
+            <div class="kv">
+                <div class="k">Flash fee</div>
+                <div class="v" title="{{(2500 * fees.flash_fee_per_byte + 2*fees.flash_fee_per_output) | beldex}} for a typical simple flash transaction (~2.5kB, 2 outputs)">
+                    {{fees.flash_fee_per_output | beldex}} / output &nbsp;+&nbsp; {{(fees.flash_fee_per_byte * 1000) | beldex}} / kB
+                </div>
+            </div>
+            <div class="kv">
+                <div class="k">Block size limit</div>
+                <div class="v" title="Blocks may include TXes up to the soft limit without penalty and incur increasing reward penalties as they approach the hard limit.">
+                    {{(info.block_size_limit / 2) | si}}B soft &nbsp;/&nbsp; {{info.block_size_limit | si}}B hard
+                </div>
+            </div>
+            {% if emission and emission.status == 'OK' %}
+            <div class="kv">
+                <div class="k">Emission breakdown</div>
+                <div class="v">
+                    {{emission.emission_amount | beldex}} emitted · {{emission.fee_amount | beldex}} fees · {{emission.burn_amount | beldex}} burned
+                    <div class="comment" style="font-size: 11px; margin-top: 4px">
+                        Circulating supply may exclude any currently publicised locked tokens; otherwise it equals the coinbase minus burned coins.
+                        Fees include paid transaction fees less any burned portion.
+                    </div>
+                </div>
+            </div>
             {% endif %}
         </div>
 
-        <div class="TitleDivider"></div>
-
-        {% if info %}
-            <h3 class="general_info info_list nowrap-spans rmv_bg myflex">
-                <span class="bel-label"><label>Height</label> <br><span class="bel-number">{{info.height}}</span></span>
-                <span class="bel-label"><label>Hard fork:</label> <br><span class="bel-number">v{{hf.version}}</span></span>
-                {% if hf.version >= 17 %}
-                    <span class="bel-label" title="{{ info.POS_target_timestamp | from_timestamp | format_datetime }}
-                                 {%-if info.POS_target_timestamp != info.POS_ideal_timestamp %}
-{{ (info.POS_target_timestamp - info.POS_ideal_timestamp) | reltime(two_part=true, in_ago=false) }}
-                                 {%-if info.POS_target_timestamp > info.POS_ideal_timestamp %} behind {%else%} ahead of {%endif%} schedule
-                                 {%-endif-%}
-                                 ">
-                        <label>Next POS:</label> <br><span class="bel-number">{{(info.POS_target_timestamp|from_timestamp - server.datetime) | reltime(neg_is_now=true) }}</span>
-                    </span>
-                {% else %}
-                    <span class="bel-label"><label>Network difficulty:</label> <br><span class="bel-number big-number"> {{info.difficulty}}</span></span>
-                    <span class="bel-label"><label>Hash rate:</label> <br><span class="bel-number">~{{(info.difficulty / info.target) | si }}H/s</span></span>
-                {% endif %}
-                <span class="bel-label"><label>Staking requirement:</label> <br><span class="bel-number">{{stake.staking_requirement | beldex}}</span></span>
-                
-                <div class="newbel">
-                    <div class="bel-width">
-                        <span title="{{(2500 * fees.fee_per_byte + 2*fees.fee_per_output) | beldex}} for a typical simple transaction (~2.5kB, 2 outputs)">
-                        <label>Base fee:</label>
-                        {{fees.fee_per_output | beldex}}/output + {{(fees.fee_per_byte * 1000) | beldex}}/kB
-                        </span> &nbsp;
-                        <span title="{{(2500 * fees.flash_fee_per_byte + 2*fees.flash_fee_per_output) | beldex}} for a typical simple flash transaction (~2.5kB, 2 outputs)">
-                        <label>Flash fee:</label>
-                        {{fees.flash_fee_per_output | beldex}}/output + {{(fees.flash_fee_per_byte * 1000) | beldex}}/kB
-                        </span>
-                    </div>
-        
-                    <div class="bel-width" style="border-left: 1px solid #a3a3a3">
-                        <span title="{{(info.block_size_limit / 2) | si}}B soft limit, {{info.block_size_limit | si}}B hard limit. Blocks may include TXes up to the soft limit without penalty and incur increasing reward penalties as they approach the hard limit.">
-                        <label>Block size limit:</label>
-                        {{(info.block_size_limit / 2) | si}}B/{{info.block_size_limit | si}}B
-                        </span> &nbsp;
-                        <span><label>Blockchain size:</label> {{info.database_size | si}}B</span>
-                    </div>
-
-                    <div class="bel-width" style="border-left: 1px solid #a3a3a3">
-                        <span style="font-size: 13px !important"><label id="lblPrice" >BDX Price : $</label><span id="bdxPriceLabel">Loading...</span> </span>
-                    </div>
-                </div>
-            </h3>
-            
-        {% endif %}
-
-        <h4 class="info_list nowrap-spans">
-            <span><label>Circulating Supply*:</label>:
-                {% if not emission or emission.status == 'BUSY' %}
-                    (still calculating...)</span>
-                {% elif emission.status == 'OK' %}
-                    {{(emission.emission_amount - emission.burn_amount) | beldex}}</span>
-                <span><label>(Emission:</label> {{emission.emission_amount | beldex}}</span>
-                <span><label>Fees:</label> {{emission.fee_amount | beldex}}</span>
-                <span><label>Burned:</label> {{emission.burn_amount | beldex}}<label>).</label></span>
-                {%endif%}
-            <p style="padding: 0px; margin-top: 2px; font-size: 0.9em">
-            * — Circulating supply may exclude any currently, publicised locked tokens, otherwise it is equal to the Coinbase minus burned coins.
-            Fees includes paid transaction fees less any portion of the fee that was burned.
-            </p>
-            <span><label>Total BNS: </label>{{bns}}</span>
-        </h4>
-
-        <p id="bdxPrice"></p>
         <script>
-            // JavaScript code to fetch BDX price from CoinGecko API and update the HTML
             fetch('https://api.coingecko.com/api/v3/simple/price?ids=beldex&vs_currencies=usd')
                 .then(response => response.json())
                 .then(data => {
-                    const bdxPrice = data.beldex.usd;
-                    document.getElementById('bdxPriceLabel').textContent = bdxPrice + " USD";
+                    document.getElementById('bdxPriceLabel').textContent = '$' + data.beldex.usd;
                 })
                 .catch(error => {
                     console.error('Error fetching BDX price:', error);
-                    document.getElementById('lblPrice').remove();
-                    document.getElementById('bdxPriceLabel').remove();
+                    document.getElementById('bdxPriceLabel').textContent = '—';
                 });
         </script>
-
-        <h4 class="tx-type-legend info_list nowrap-spans bel-line" style="margin-top: 10px; margin-bottom: 20px;">
-            <span><label>TX Type Legend:</label> 👑 Master Node Registration</span>
-            <span>🤝 Contribution</span>
-            <span>👍 Recommission</span>
-            <span>👎 Decommission</span>
-            <span>🚫 Deregistration</span>
-            <span>✍️ IP Change Penalty</span>
-            <span>🔓 Stake Unlock</span>
-            <span>📝 Beldex Name System Purchase</span>
-            <span>💾 BNS Update</span>
-            <span>⏳ BNS Renew</span>
-            <span>🎁 Block Reward</span>
-            <span>🕯︎ Coin Burn</span>
-        </h4>
     </div>
 
     {% include 'include/mempool.html' %}
 
     <div class="Wrapper">
-        <h2>Transactions in
-            {% if page == 0 %}
-                the Last {{blocks|length}} Blocks
-            {% else %}
-                Blocks {{blocks[0].height}}–{{blocks[-1].height}}
-            {% endif %}
-            <a class="linked-icon" href="/range/{{blocks[0].height}}/{{blocks[-1].height}}" title="Permanent link to this block range">🔗</a>
-        </h2>
+        <div class="panel">
+            <div class="panel-head">
+                <h2 class="title">Transactions in
+                    {% if page == 0 %}
+                        the last {{blocks|length}} blocks
+                    {% else %}
+                        blocks {{blocks[0].height}}–{{blocks[-1].height}}
+                    {% endif %}
+                    <a class="linked-icon" href="/range/{{blocks[0].height}}/{{blocks[-1].height}}" title="Permanent link to this block range">🔗</a>
+                </h2>
+                <span class="spacer"></span>
+                {% set block_weights = blocks | map(attribute='block_weight') | sort %}
+                {% if block_weights|count > 0 %}
+                <span class="meta" title="Min / Median / Average / Max weights of these blocks">
+                    weights:
+                    {{block_weights[0] | si}}B /
+                    {{(block_weights[(block_weights|count-1)//2]/2 + block_weights[(block_weights|count)//2]/2) | si}}B /
+                    {{(block_weights|sum / block_weights|count) | si}}B /
+                    {{block_weights[-1] | si}}B
+                </span>
+                {% endif %}
+            </div>
 
-        {% set block_weights = blocks | map(attribute='block_weight') | sort %}
-        {%if block_weights|count > 0%}
-          <h4 class="Subtitle">(Min. / Median / Average / Max. weights of these blocks:
-            {{block_weights[0] | si}}B /
-            {{(block_weights[(block_weights|count-1)//2]/2 + block_weights[(block_weights|count)//2]/2) | si}}B /
-            {{(block_weights|sum / block_weights|count) | si}}B /
-            {{block_weights[-1] | si}}B)
-          </h4>
-        {%endif%}
-        <div class="TitleUnderliner"></div>
-
-        <!-- {% include 'include/block_page_controls.html' %} -->
-
-        <table class="Table">
-          <thead>
-            <tr>
-                <td>Height</td>
-                <td>Age [h:m:s]</td>
-                <td>Size</td>
-                <td>Type</td>
-                <td>Transaction Hash</td>
-                <td>Fee</td>
-                <td>Outputs</td>
-                <td>In/Out</td>
-                <td>TX Size</td>
-            </tr>
-          </thead>
-          <tbody>
-            {% import 'include/tx_type_symbol.html' as symbol %}
-            {% import 'include/tx_fee.html' as fee %}
-            {% for b in blocks | reverse %}
-              <tr class="block">
-                <td><a href="/block/{{b.height}}">{{b.height}}</a></td>
-                <td title="{{b.timestamp | from_timestamp | format_datetime}}">{{b.timestamp | from_timestamp | ago}}</td>
-                <td>{{b.block_size | si}}</td>
-                <td title="Block reward" style="cursor: help">🎁</td>
-                <td><a href="/tx/{{b.miner_tx_hash}}">{{b.miner_tx_hash}}</a></td>
-                <td>{% if b.txs and b.txs[0] is defined %}{{fee.display(b.txs[0])}}{% else %}-{% endif %}</td>
-                <td>{{b.reward | beldex(tag=False, fixed=True, decimals=2)}}</td>
-                <td>
-                    {% if b.txs and b.txs[0].vout is defined %}
-                        0/{{b.txs[0].vout | length}}
-                      {% else %}
-                        0/0
-                      {% endif %}
+            <table class="Table">
+              <thead>
+                <tr>
+                    <td>Height</td>
+                    <td>Age [h:m:s]</td>
+                    <td>Size</td>
+                    <td>Type</td>
+                    <td>Transaction Hash</td>
+                    <td>Fee</td>
+                    <td>Outputs</td>
+                    <td>In/Out</td>
+                    <td>TX Size</td>
+                </tr>
+              </thead>
+              <tbody>
+                {% import 'include/tx_type_symbol.html' as symbol %}
+                {% import 'include/tx_fee.html' as fee %}
+                {% for b in blocks | reverse %}
+                  <tr class="block">
+                    <td><a href="/block/{{b.height}}">{{b.height}}</a></td>
+                    <td title="{{b.timestamp | from_timestamp | format_datetime}}">{{b.timestamp | from_timestamp | ago}}</td>
+                    <td>{{b.block_size | si}}</td>
+                    <td title="Block reward" style="cursor: help">🎁</td>
+                    <td><a href="/tx/{{b.miner_tx_hash}}">{{b.miner_tx_hash}}</a></td>
+                    <td>{% if b.txs and b.txs[0] is defined %}{{fee.display(b.txs[0])}}{% else %}-{% endif %}</td>
+                    <td>{{b.reward | beldex(tag=False, fixed=True, decimals=2)}}</td>
+                    <td>
+                        {% if b.txs and b.txs[0].vout is defined %}
+                            0/{{b.txs[0].vout | length}}
+                        {% else %}
+                            0/0
+                        {% endif %}
                     </td>
                     <td>
-                      {% if b.txs and b.txs[0].size is defined %}
-                        {{b.txs[0].size | si}}
-                      {% else %}
-                        -
-                      {% endif %}
+                        {% if b.txs and b.txs[0].size is defined %}
+                            {{b.txs[0].size | si}}
+                        {% else %}
+                            -
+                        {% endif %}
                     </td>
-              </tr>
-              {% for tx in b.txs[1:] %}
-                <tr class="tx">
-                  <td></td>
-                  <td></td>
-                  <td></td>
-                  <td>{{symbol.display(tx)}}</td>
-                  <td><a href="/tx/{{tx.tx_hash}}">{{tx.tx_hash}}</a></td>
-                  <td>{{fee.display(tx)}}</td>
-                  <td></td>
-        <td>{% if tx is defined and tx.vin is defined and tx.vout is defined %}
-            {{tx.vin | length}}/{{tx.vout | length}}
-          {% else %}
-            -
-          {% endif %}
-        </td>
-        <td>{% if tx.size is defined %}{{tx.size | si}}{% else %}-{% endif %}</td>
-                </tr>
-              {% endfor %}
-            {% endfor %}
-          </tbody>
-        </table>
+                  </tr>
+                  {% for tx in b.txs[1:] %}
+                    <tr class="tx">
+                      <td></td>
+                      <td></td>
+                      <td></td>
+                      <td>{{symbol.display(tx)}}</td>
+                      <td><a href="/tx/{{tx.tx_hash}}">{{tx.tx_hash}}</a></td>
+                      <td>{{fee.display(tx)}}</td>
+                      <td></td>
+                      <td>{% if tx is defined and tx.vin is defined and tx.vout is defined %}
+                          {{tx.vin | length}}/{{tx.vout | length}}
+                        {% else %}
+                          -
+                        {% endif %}
+                      </td>
+                      <td>{% if tx.size is defined %}{{tx.size | si}}{% else %}-{% endif %}</td>
+                    </tr>
+                  {% endfor %}
+                {% endfor %}
+              </tbody>
+            </table>
+        </div>
+
+        <details class="legend">
+            <summary>TX type legend</summary>
+            <div class="legend-items">
+                <span>👑 Master Node Registration</span>
+                <span>🤝 Contribution</span>
+                <span>👍 Recommission</span>
+                <span>👎 Decommission</span>
+                <span>🚫 Deregistration</span>
+                <span>✍️ IP Change Penalty</span>
+                <span>🔓 Stake Unlock</span>
+                <span>📝 BNS Purchase</span>
+                <span>💾 BNS Update</span>
+                <span>⏳ BNS Renew</span>
+                <span>🎁 Block Reward</span>
+                <span>🕯︎ Coin Burn</span>
+            </div>
+        </details>
 
         {% include 'include/block_page_controls.html' %}
     </div>
 
-    {%set limit_awaiting = 10%}
-    {%set limit_inactive = 10%}
-    {%set limit_active = 10%}
+    {% set limit_awaiting = 10 %}
+    {% set limit_inactive = 10 %}
+    {% set limit_active = 10 %}
 
-    {%include 'include/master_nodes_lists.html'%}
+    {% include 'include/master_nodes_lists.html' %}
 
-    {%if checkpoints and checkpoints.checkpoints|length > 0%}
-      {%include 'include/checkpoints.html'%}
-    {%endif%}
+    {% if checkpoints and checkpoints.checkpoints|length > 0 %}
+        {% include 'include/checkpoints.html' %}
+    {% endif %}
 
-    <div class="Wrapper">
-      <h2> <a href="/quorums">View recent stored testing/checkpoint/flash/POS quorums</a> </p>
+    <div class="Wrapper" style="margin-bottom: 40px">
+        <div class="chips">
+            <a href="/quorums">View recent testing / checkpoint / flash / POS quorums →</a>
+        </div>
     </div>
 
 {% endblock %}

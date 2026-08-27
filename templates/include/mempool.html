@@ -3,52 +3,55 @@
 {% elif mempool_limit is none %}{% set mempool_limit = mempool.txs|length %}
 {% endif %}
 <div class="Wrapper">
-    <h2 style="margin-bottom: 0px; width: 100%; float: left;"> Transaction Pool</h2>
-
-    <h4 style=" width: 100%; float: left; margin-bottom: 10px" class="Subtitle">{{mempool.txs|length}} transactions,
-        {{mempool.txs|sum(attribute='size') | si}}B</h4>
-    <div class="TitleUnderliner"></div>
-
-    <table style="width:100%">
-        <thead>
-            <tr>
-                <td title="How long ago the transaction was received by this node">Age [h:m:s]</td>
-                <td>Type</td>
-                <td>Transaction Hash</td>
-                <td>Fee/Per kB</td>
-                <td>In/Out</td>
-                <td>TX Size</td>
-            </tr>
-        </thead>
-        <tbody>
-        {% import 'include/tx_type_symbol.html' as symbol %}
-        {% import 'include/tx_fee.html' as fee %}
-        {% for tx in mempool.txs[:mempool_limit] %}
-            <tr>
-<td title="{{ (tx.receive_time if tx.receive_time is defined else tx.received_timestamp) | from_timestamp | format_datetime }}">
-    {{ (tx.receive_time if tx.receive_time is defined else tx.received_timestamp) | from_timestamp | ago }}
-</td>
-                <td>{{symbol.display(tx)}}</td>
-                <td><a href="/tx/{{tx.tx_hash}}">{{tx.tx_hash}}</a></td>
-                <td>
-                    {%if 'rct_signatures' in tx%}
-                        {{fee.display(tx)}} / {{(tx.rct_signatures.txnFee * 1000 / tx.size) | beldex(tag=false, decimals=4)}}
-                    {%else%}
-                        N/A
-                    {%endif%}
-                </td>
-                <td>{{tx.vin | length}}/{{tx.vout | length}}</td>
-                <td>{{tx.size | si}}B</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-
-    {% if mempool.txs|length > mempool_limit %}
-        <div class="center" style="text-align: center; margin-bottom: 10px">
-            <a href="/txpool">Only {{mempool_limit}}/{{mempool.txs | length}} transactions shown. Click here to see all of them</a>
+    <div class="panel">
+        <div class="panel-head">
+            <h2 class="title">Transaction Pool</h2>
+            <span class="spacer"></span>
+            <span class="meta">{{mempool.txs|length}} transactions · {{mempool.txs|sum(attribute='size') | si}}B</span>
         </div>
-    {% endif %}
 
+        <table style="width:100%">
+            <thead>
+                <tr>
+                    <td title="How long ago the transaction was received by this node">Age [h:m:s]</td>
+                    <td>Type</td>
+                    <td>Transaction Hash</td>
+                    <td>Fee/Per kB</td>
+                    <td>In/Out</td>
+                    <td>TX Size</td>
+                </tr>
+            </thead>
+            <tbody>
+            {% import 'include/tx_type_symbol.html' as symbol %}
+            {% import 'include/tx_fee.html' as fee %}
+            {% for tx in mempool.txs[:mempool_limit] %}
+                <tr>
+    <td title="{{ (tx.receive_time if tx.receive_time is defined else tx.received_timestamp) | from_timestamp | format_datetime }}">
+        {{ (tx.receive_time if tx.receive_time is defined else tx.received_timestamp) | from_timestamp | ago }}
+    </td>
+                    <td>{{symbol.display(tx)}}</td>
+                    <td><a href="/tx/{{tx.tx_hash}}">{{tx.tx_hash}}</a></td>
+                    <td>
+                        {%if 'rct_signatures' in tx%}
+                            {{fee.display(tx)}} / {{(tx.rct_signatures.txnFee * 1000 / tx.size) | beldex(tag=false, decimals=4)}}
+                        {%else%}
+                            N/A
+                        {%endif%}
+                    </td>
+                    <td>{{tx.vin | length}}/{{tx.vout | length}}</td>
+                    <td>{{tx.size | si}}B</td>
+                </tr>
+            {% endfor %}
+            {% if mempool.txs|length == 0 %}
+                <tr><td colspan="6" class="center comment">Mempool is empty — all transactions confirmed</td></tr>
+            {% endif %}
+            </tbody>
+        </table>
+
+        {% if mempool.txs|length > mempool_limit %}
+            <div class="center" style="text-align: center; padding: 12px">
+                <a href="/txpool">Only {{mempool_limit}}/{{mempool.txs | length}} transactions shown. Click here to see all of them</a>
+            </div>
+        {% endif %}
+    </div>
 </div> <!-- Wrapper -->
-

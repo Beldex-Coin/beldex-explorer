@@ -1,29 +1,57 @@
 <div class="Wrapper">
-    <div class="TitleDivider"></div>
-    <h1 style="margin-bottom: 0px">Master Nodes</h1>
-    <h3><span class="mn-count">{{awaiting_mns | count}}</span> master nodes awaiting contributions,
-        <span class="mn-count">{{inactive_mns | count}}</span> decommissioned master nodes,
-        and <span class="mn-count">{{active_mns | count}}</span> active master nodes.</h3>
+    <div class="hero" style="padding: 24px 0 0">
+        <div class="eyebrow">Network backbone</div>
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Master Nodes</h1>
+    </div>
 
-    <h2 style="margin-bottom: 0px" id="master-nodes-awaiting">Master Nodes Awaiting Contributions <span class="mn-count">({{awaiting_mns | count}})</span></h2>
-    <div class="TitleDivider mn-awaiting"></div>
-    {%include 'include/mn_awaiting.html'%}
+    <div class="stat-grid">
+        <div class="stat-card">
+            <span class="label">Active</span>
+            <span class="value" style="color: var(--green)">{{active_mns | count}}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Awaiting contributions</span>
+            <span class="value" style="color: var(--amber)">{{awaiting_mns | count}}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Decommissioned</span>
+            <span class="value" style="color: var(--red)">{{inactive_mns | count}}</span>
+            <span class="note">not earning rewards, face deregistration</span>
+        </div>
+    </div>
 
+    <div class="panel" id="master-nodes-awaiting">
+        <div class="panel-head">
+            <h2 class="title">Awaiting Contributions</h2>
+            <span class="spacer"></span>
+            <span class="meta">{{awaiting_mns | count}} nodes</span>
+        </div>
+        {%include 'include/mn_awaiting.html'%}
+    </div>
 
-    <h2 style="margin-bottom: 0px" id="master-nodes-inactive">Inactive/Decommissioned Master Nodes <span class="mn-count">({{inactive_mns | count}})</span></h2>
-    <h4 class="Subtitle">(These master nodes are currently decommissioned for failing network obligations, <span style="font-weight: bold; text-decoration: underline">are not earning rewards</span>, and face deregistration soon)</h4>
-    <div class="TitleDivider mn-inactive"></div>
-    {%include 'include/mn_inactive.html'%}
+    <div class="panel" id="master-nodes-inactive">
+        <div class="panel-head">
+            <h2 class="title">Inactive / Decommissioned</h2>
+            <span class="spacer"></span>
+            <span class="meta" title="These master nodes are currently decommissioned for failing network obligations, are not earning rewards, and face deregistration soon">{{inactive_mns | count}} nodes</span>
+        </div>
+        {%include 'include/mn_inactive.html'%}
+    </div>
 
-
-    <h2 style="margin-bottom: 0px">Active Master Nodes <span class="mn-count">({{active_mns | count}})</span></h2>
-    <div class="TitleDivider mn-active"></div>
-    {%include 'include/mn_active.html'%}
+    <div class="panel">
+        <div class="panel-head">
+            <h2 class="title">Active Master Nodes</h2>
+            <span class="spacer"></span>
+            <span class="meta">{{active_mns | count}} nodes</span>
+        </div>
+        {%include 'include/mn_active.html'%}
+    </div>
 </div>
 
 {%if limit_active%}
 <div class="Wrapper">
-    <p> <a class="" href="/master_nodes">Click here to see the full master node list (at most {{limit_active}} are shown here)</a> </p>
+    <div class="chips">
+        <a href="/master_nodes">Full master node list (at most {{limit_active}} shown here) →</a>
+    </div>
 </div>
 {%endif%}
-

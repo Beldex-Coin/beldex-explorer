@@ -8,7 +8,10 @@
 
 <div class="Wrapper">
 
-    <h4 style="margin:5px"><label>TX Hash:</label> {{tx.tx_hash}}</H4>
+    <div class="hero" style="padding: 24px 0 0">
+        <div class="eyebrow">Transaction</div>
+        <h1 class="hero-title" style="font-size: clamp(14px, 1.8vw, 22px); word-break: break-all">{{tx.tx_hash}}</h1>
+    </div>
     {# FIXME
     {%if config.enable_mixins_details%}
         <H4 style="margin:5px"><label>TX Prefix Hash:</label> {{tx.tx_prefix_hash}}</H4>

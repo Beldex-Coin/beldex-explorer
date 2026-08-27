@@ -2,25 +2,26 @@
 
 {% block content %}
   <div class="Wrapper">
-      <h4 style="margin:5px"><label>Block Hash:</label> {{block_header.hash}}</h4>
-      <h4 style="margin:5px"><label>Block Height:</label> {{block_header.height}}
-          {%if block_header.height < info.height - 1%}
-              <span class="comment">({{info.height - 1 - block_header.height}} blocks ago)</span>
-          {%elif block_header.height == info.height - 1%}
-              <span class="comment">(current top block)</span>
-          {%endif%}
-      </h4>
-      <h4 style="margin:5px" class="prev_next_block">
+      <div class="hero" style="padding: 24px 0 0">
+          <div class="eyebrow">Block
+              {%if block_header.height < info.height - 1%}
+                  · {{info.height - 1 - block_header.height}} blocks ago
+              {%elif block_header.height == info.height - 1%}
+                  · current top block
+              {%endif%}
+          </div>
+          <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">#{{block_header.height}}</h1>
+          <p class="hero-note" style="word-break: break-all">{{block_header.hash}}</p>
+      </div>
+      <div class="chips">
           {%if block_header.height > 0%}
-              <a href="/block/{{block_header.height-1}}{%if details_html%}/1{%endif%}">⏴ Block {{block_header.height-1}} <span class="comment">({{block_header.prev_hash | ellipsize(8,3)}})</span></a>
+              <a href="/block/{{block_header.height-1}}{%if details_html%}/1{%endif%}" title="{{block_header.prev_hash | ellipsize(8,3)}}">⏴ Block {{block_header.height-1}}</a>
           {%endif%}
           {%if block_header.height < info.height - 1%}
-              {%if block_header.height > 0%} | {%endif%}
               <a href="/block/{{block_header.height+1}}{%if details_html%}/1{%endif%}">Block {{block_header.height+1}} ⏵</a>
-              |
               <a href="/block/latest">Latest block ⏭</a>
           {%endif%}
-      </h4>
+      </div>
 
 
     <h2>Metadata</h2>
