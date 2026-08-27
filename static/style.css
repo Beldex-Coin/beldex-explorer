@@ -139,16 +139,7 @@ label.warning { color: var(--amber); }
 
 #header h1.Header img { height: 40px; display: block; }
 
-/* BELDEX wordmark added after the logo via CSS so no template change needed */
-#header h1.Header a::after {
-    content: 'BELDEX';
-    font-family: var(--font-display);
-    font-size: 20px;
-    letter-spacing: 0.08em;
-    color: #fff;
-    margin-left: 12px;
-    vertical-align: middle;
-}
+/* logo.svg already carries the BELDEX wordmark */
 #header h1.Header a { display: flex; align-items: center; }
 #header h1.Header a:hover { text-decoration: none; }
 
