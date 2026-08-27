@@ -8,6 +8,10 @@
             <div class="eyebrow">Beldex{{ ' · TESTNET' if info and info.testnet else ' · DEVNET' if info and info.devnet else '' }}</div>
             <h1 class="hero-title">Blockchain Explorer</h1>
             <p class="hero-note">Server time: {{ server.datetime | format_datetime }} UTC</p>
+            <form action="/search" method="get" class="page-search">
+                <input type="text" name="value" placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">
+                <input type="submit" value="SEARCH">
+            </form>
         </div>
 
         {# ---------- quick links ---------- #}

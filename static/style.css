@@ -341,8 +341,7 @@ details.legend .legend-items { display: flex; flex-wrap: wrap; gap: 6px 18px; pa
     display: flex;
     gap: 4px;
     flex-wrap: wrap;
-    flex-basis: 100%;
-    padding-top: 2px;
+    margin-left: auto;
 }
 
 .site-nav a {
@@ -360,6 +359,95 @@ details.legend .legend-items { display: flex; flex-wrap: wrap; gap: 6px 18px; pa
     color: var(--green);
     border-color: var(--border-strong);
     text-decoration: none;
+}
+
+/* ---------- pager ---------- */
+
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 12px 18px;
+    margin: 20px 0;
+}
+
+.pager-btn {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 8px 16px;
+    text-decoration: none !important;
+    transition: color 0.15s, border-color 0.15s;
+}
+a.pager-btn:hover { color: var(--green); border-color: var(--green); }
+.pager-btn.disabled { color: var(--text-faint); border-color: var(--border); cursor: default; }
+
+.pager-info { color: var(--text-dim); font-size: 12px; }
+.pager-info .page-number { color: var(--green); font-weight: 700; }
+.pager-sep { color: var(--text-faint); margin: 0 2px; }
+
+.pager-spacer { margin-left: auto; }
+
+.pager-select { color: var(--text-faint); font-size: 12px; }
+.pager-select select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 5px 8px;
+    margin: 0 4px;
+}
+
+/* ---------- page search (hero) ---------- */
+
+form.page-search {
+    display: flex;
+    align-items: stretch;
+    max-width: 720px;
+    margin: 22px 0 4px;
+    border: 1px solid var(--border-strong);
+    background: rgba(10, 10, 10, 0.85);
+}
+form.page-search:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green);
+}
+form.page-search input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 13px 16px;
+}
+form.page-search input[type="text"]::placeholder { color: var(--text-faint); }
+form.page-search input[type="submit"] {
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    color: #000;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 0 28px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+form.page-search input[type="submit"]:hover {
+    background: var(--green);
+    box-shadow: 0 0 20px rgba(0, 217, 89, 0.35);
 }
 
 /* ---------- dividers ---------- */
