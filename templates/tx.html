@@ -8,16 +8,27 @@
 
 <div class="Wrapper">
 
-    <div class="hero" style="padding: 24px 0 0">
-        <div class="eyebrow">Transaction</div>
-        <h1 class="hero-title" style="font-size: clamp(14px, 1.8vw, 22px); word-break: break-all">{{tx.tx_hash}}</h1>
+    <div class="hero" style="padding: 24px 0 16px">
+        <div class="eyebrow">Transaction · {{sym.display(tx, text=true)}}</div>
+        <h1 class="hero-title" style="font-size: clamp(15px, 2vw, 24px)" title="{{tx.tx_hash}}">{{tx.tx_hash | ellipsize(8,8,'…')}}</h1>
     </div>
-    {# FIXME
-    {%if config.enable_mixins_details%}
-        <H4 style="margin:5px"><label>TX Prefix Hash:</label> {{tx.tx_prefix_hash}}</H4>
-    {%endif%}
-    #}
-    <h4 style="margin:5px"><label>TX Public Key:</label> <span id="tx_pub_key">{{tx.extra.pubkey}}</span></H4>
+
+    <div class="panel" style="margin-top: 0">
+        <div class="kv">
+            <div class="k">TX hash</div>
+            <div class="v mn-addr">{{tx.tx_hash}}</div>
+        </div>
+        <div class="kv">
+            <div class="k">TX public key</div>
+            <div class="v mn-addr"><span id="tx_pub_key">{{tx.extra.pubkey}}</span></div>
+        </div>
+        {%if tx.extra.payment_id%}
+        <div class="kv">
+            <div class="k">Payment ID ({%if tx.extra_payment_id|length == 64%}un{%endif%}encrypted)</div>
+            <div class="v mn-addr"><span id="payment_id">{{tx.extra.payment_id}}</span></div>
+        </div>
+        {%endif%}
+    </div>
     <span id="add_tx_pub_keys" style="display: none;">
         {%-for pk in tx.extra.additional_pubkeys%}
             {%-if not loop.first%}; {%endif-%}
@@ -25,63 +36,75 @@
         {%-endfor-%}
     </span>
 
-    {%if tx.extra.payment_id%}
-        <h4 style="margin:5px"><label>Payment ID ({%if tx.extra_payment_id|length == 64%}un{%endif%}encrypted):</label> <span id="payment_id">{{tx.extra.payment_id}}</span></h4>
-    {%endif%}
-
-{# FIXME - what is this?
-    {%if have_prev_hash%}
-        <h4>Previous TX: <a href="/tx/{{prev_hash}}">{{prev_hash}}</a></h4>
-    {%endif%}
-
-    {%if have_next_hash%}
-        <h4>Next TX: <a href="/tx/{{next_hash}}">{{next_hash}}</a></h4>
-    {%endif%}
-#}
-
-    <h2>Metadata</h2>
-    <div class="TitleUnderliner"></div>
-
-    <h4 class="info_list nowrap-spans">
+    <div class="panel">
+        <div class="panel-head"><h2 class="title">Metadata</h2></div>
         {%if 'block_height' in tx%}
-          <span><label>In block:</label> <a href="/block/{{tx.block_height}}">{{tx.block_height}}</a></span>
+        <div class="kv">
+            <div class="k">In block</div>
+            <div class="v"><a href="/block/{{tx.block_height}}">{{tx.block_height}}</a></div>
+        </div>
         {%else%}
-          <span title="Unix timestamp: {{tx.received_timestamp}}"><label>In mempool since:</label> {{tx.received_timestamp | from_timestamp | format_datetime('short')}} UTC
-          ({{tx.received_timestamp | from_timestamp | ago}} ago)</span>
+        <div class="kv">
+            <div class="k">In mempool since</div>
+            <div class="v" title="Unix timestamp: {{tx.received_timestamp}}">{{tx.received_timestamp | from_timestamp | format_datetime('short')}} UTC
+            ({{tx.received_timestamp | from_timestamp | ago}} ago)</div>
+        </div>
         {%endif%}
-        <span><label>TX Version/Type:</label> {{tx.version}}/{{sym.display(tx, text=true)}}</span>
+        <div class="kv">
+            <div class="k">TX version / type</div>
+            <div class="v">{{tx.version}} / {{sym.display(tx, text=true)}}</div>
+        </div>
         {%if not have_raw_tx%}
           {%if 'block_timestamp' in tx%}
-            <span title="Unix timestamp: {{tx.block_timestamp}}"><label>Timestamp:</label> {{tx.block_timestamp | from_timestamp | format_datetime('short')}} UTC
-            ({{tx.block_timestamp | from_timestamp | ago}} ago)</span>
+        <div class="kv">
+            <div class="k">Timestamp</div>
+            <div class="v" title="Unix timestamp: {{tx.block_timestamp}}">{{tx.block_timestamp | from_timestamp | format_datetime('short')}} UTC
+            ({{tx.block_timestamp | from_timestamp | ago}} ago)</div>
+        </div>
           {%endif%}
         {%endif%}
-
-        {# FIXME - if in mempool then link to mempool page instead #}
-        <span><label>Fee (Per kB):</label>
+        <div class="kv">
+            <div class="k">Fee (per kB)</div>
+            <div class="v">
             {%if tx.coinbase or 'rct_signatures' not in tx%}
                 N/A
             {%else%}
                 {{fee.display(tx)}}
                 ({{(tx.rct_signatures.txnFee * 1000 / tx.size) | beldex(tag=false, decimals=6)}})
             {%endif%}
-        </span>
-        <span title="{{tx.size}} bytes"><label>TX Size:</label> {{tx.size|si}}B</span>
-
-        <span><label>No. Confirmations:</label> {%if 'block_height' in tx%}{{info.height - tx.block_height}}{%else%}None (in mempool){%endif%}</span>
-        <span><label>RingCT/RingCT Type:</label> {%if tx.version >= 2 and 'rct_signatures' in tx and not tx.coinbase%}Yes/{{tx.rct_signatures.type}}{%else%}No{%endif%}</span>
-
+            </div>
+        </div>
+        <div class="kv">
+            <div class="k">TX size</div>
+            <div class="v" title="{{tx.size}} bytes">{{tx.size|si}}B</div>
+        </div>
+        <div class="kv">
+            <div class="k">Confirmations</div>
+            <div class="v">{%if 'block_height' in tx%}{{info.height - tx.block_height}}{%else%}<span class="omg">None (in mempool)</span>{%endif%}</div>
+        </div>
+        <div class="kv">
+            <div class="k">RingCT / type</div>
+            <div class="v">{%if tx.version >= 2 and 'rct_signatures' in tx and not tx.coinbase%}Yes / {{tx.rct_signatures.type}}{%else%}No{%endif%}</div>
+        </div>
         {%if tx.coinbase and tx.extra.mn_winner%}
-          <span><label>Master Node Winner:</label>
+        <div class="kv">
+            <div class="k">Master node winner</div>
+            <div class="v mn-addr">
             {%if tx.extra.mn_winner == "0000000000000000000000000000000000000000000000000000000000000000"%}
               None
             {%else%}
               <a href="/mn/{{tx.extra.mn_winner}}">{{tx.extra.mn_winner}}</a>
             {%endif%}
-          </span>
+            </div>
+        </div>
         {%endif%}
-    </h4>
-    <div class="info-item"><label>Extra: </label>{{tx.tx_extra_raw}}</div>
+        {%if tx.tx_extra_raw%}
+        <div class="kv">
+            <div class="k">Extra</div>
+            <div class="v mn-addr">{{tx.tx_extra_raw}}</div>
+        </div>
+        {%endif%}
+    </div>
 
     {% if tx.version >= 4 -%}
         {% if tx.type == 1 and 'mn_state_change' in tx.extra %}
@@ -143,14 +166,14 @@ This tx includes a verified vote by this testing master node."
                                     {%else%} class="mn" title="{{v}}
 This tx does not includes a vote from this testing master node (only 7 votes are needed)."
                                     {%endif%}
-                                    href="/mn/{{v}}">{{v}}</a>
+                                    href="/mn/{{v}}">{{v | ellipsize(6,6,'…')}}</a>
                             {%endfor%}
                         </div>
                         <div class="workers">
                             <label>MNs tested:</label>
                             {%for w in testing_quorum.workers%}
                                 <a class="mn{%if loop.index0 == mn_index%} testee{%endif%}"
-                                   href="/mn/{{w}}" title="{{w}}">{{w}}</a>
+                                   href="/mn/{{w}}" title="{{w}}">{{w | ellipsize(6,6,'…')}}</a>
                             {%endfor%}
                         </div>
                     </div>
