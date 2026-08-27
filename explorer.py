@@ -201,7 +201,7 @@ def get_mns(mns_future, info_future):
     info = info_future.get()
     awaiting_mns, active_mns, inactive_mns = [], [], []
     mn_states = mns_future.get()
-    mn_states = mn_states['master_node_states'] if 'master_node_states' in mn_states else []
+    mn_states = mn_states['master_node_states'] if mn_states and 'master_node_states' in mn_states else []
     for mn in mn_states:
         mn['staking_requirement'] = int(mn['staking_requirement'])
         mn['total_reserved'] = int(mn.get('total_reserved', 0))
@@ -247,6 +247,8 @@ def parse_mempool(mempool_future):
     # *both* binary+hex encoded values and JSON-encoded values slammed into a string, which means we
     # have to invoke an *extra* JSON parser for each tx.  This is terrible.
     mp = mempool_future.get()
+    if mp is None:  # RPC failed/timed out
+        return None
     if 'transactions' in mp:
         rename = {
                 'id_hash': 'tx_hash',
@@ -342,11 +344,11 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
         end_height = max(0, height - per_page*page - 1)
         start_height = max(0, end_height - per_page + 1)
 
-    blocks = FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', cache_key='main', args={
+    blocks = (FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', cache_key='main', args={
         'start_height': start_height,
         'end_height': end_height,
         'get_tx_hashes': True,
-        }).get()['headers']
+        }).get() or {}).get('headers', [])
 
     # If 'txs' is already there then it is probably left over from our cached previous call through
     # here.
@@ -380,22 +382,25 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     # Clean up the MN data a bit to make things easier for the templates
     awaiting_mns, active_mns, inactive_mns = get_mns(mns, inforeq)
 
+    # Fall back to safe defaults for any RPC that failed/timed out so a busy
+    # daemon degrades the page instead of 500ing it.
     return flask.render_template('index.html',
             bns=bns,
             info=info,
-            stake=stake.get(),
-            fees=base_fee.get(),
+            stake=stake.get() or {'staking_requirement': 0},
+            fees=base_fee.get() or {'fee_per_byte': 0, 'fee_per_output': 0,
+                'flash_fee_per_byte': 0, 'flash_fee_per_output': 0, 'flash_fee_fixed': 0},
             emission=coinbase.get(),
-            hf=hfinfo.get(),
+            hf=hfinfo.get() or {'version': 0},
             active_mns=active_mns,
             inactive_mns=inactive_mns,
             awaiting_mns=awaiting_mns,
             blocks=blocks,
-            block_size_median=statistics.median(b['block_size'] for b in blocks),
+            block_size_median=statistics.median(b['block_size'] for b in blocks) if blocks else 0,
             page=page,
             per_page=per_page,
             custom_per_page=custom_per_page,
-            mempool=parse_mempool(mempool),
+            mempool=parse_mempool(mempool) or {'txs': []},
             checkpoints=checkpoints.get(),
             refresh=refresh,
             )
@@ -636,7 +641,8 @@ def parse_txs(txs_rpc):
 
     This modifies the txs_rpc['txs'] values in-place.  Returns txs_rpc['txs'] if it exists, otherwise an empty list.
     """
-    if 'txs' not in txs_rpc:
+    if txs_rpc is None or 'txs' not in txs_rpc:
+        # None happens when the RPC request failed/timed out (e.g. busy daemon)
         return []
 
     for tx in txs_rpc['txs']:
