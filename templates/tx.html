@@ -676,8 +676,45 @@ This tx does not includes a vote from this testing master node (only 7 votes are
       {{details_html | safe}}
     {%else%}
       <h5>
-        <a href="/tx/{{tx.tx_hash}}/1#more_details">Show raw details</a>
+        <a href="/tx/{{tx.tx_hash}}/1#more_details" id="toggle-raw-details">Show raw details</a>
       </h5>
+      <div id="raw-details" style="display: none"></div>
+      <script>
+        (function() {
+          var link = document.getElementById('toggle-raw-details');
+          var box = document.getElementById('raw-details');
+          var loaded = false, cssInjected = false;
+          link.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (loaded) {
+              var show = box.style.display === 'none';
+              box.style.display = show ? 'block' : 'none';
+              link.textContent = show ? 'Hide raw details' : 'Show raw details';
+              return;
+            }
+            link.textContent = 'Loading raw details…';
+            fetch('/tx/{{tx.tx_hash}}/rawjson')
+              .then(function(r) { if (!r.ok) throw new Error(r.status); return r.json(); })
+              .then(function(d) {
+                if (!cssInjected) {
+                  var style = document.createElement('style');
+                  style.textContent = d.css;
+                  document.head.appendChild(style);
+                  cssInjected = true;
+                }
+                box.innerHTML = d.html;
+                box.style.display = 'block';
+                loaded = true;
+                link.textContent = 'Hide raw details';
+              })
+              .catch(function(err) {
+                console.error('raw details fetch failed:', err);
+                // graceful fallback: do the old full-page navigation
+                window.location.href = '/tx/{{tx.tx_hash}}/1#more_details';
+              });
+          });
+        })();
+      </script>
     {%endif%}
 
 

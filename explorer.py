@@ -759,6 +759,23 @@ def show_block_latest():
     return flask.redirect(flask.url_for('show_block', height=height), code=302)
 
 
+@app.route('/tx/<hex64:txid>/rawjson')
+def show_tx_rawjson(txid):
+    """Syntax-highlighted raw tx JSON as a fragment, fetched on demand by the
+    'Show raw details' toggle on the tx page (avoids a full page reload)."""
+    lmq, beldexd = lmq_connection()
+    txs = tx_req(lmq, beldexd, [txid]).get()
+    if not txs or 'txs' not in txs or not txs['txs']:
+        return flask.jsonify({'status': 'ERROR', 'message': 'tx not found'}), 404
+    tx = parse_txs(txs)[0]
+    formatter = HtmlFormatter(cssclass="syntax-highlight", style="paraiso-dark")
+    return flask.jsonify({
+        'status': 'OK',
+        'css': formatter.get_style_defs('.syntax-highlight'),
+        'html': highlight(json.dumps(tx, indent="\t", sort_keys=True), JsonLexer(), formatter),
+    })
+
+
 @app.route('/tx/<hex64:txid>')
 @app.route('/tx/<hex64:txid>/<int:more_details>')
 def show_tx(txid, more_details=False):
