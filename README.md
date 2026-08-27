@@ -1,37 +1,80 @@
 # Beldex-Explorer
-Block explorer using Beldex 4+ LMQ RPC interface that does everything through RPC requests.  Sexy,
-awesome, safe.
 
-## Prerequisite packages 
+Block explorer using the Beldex 4+ LMQ RPC interface that does everything through RPC requests.
+
+This branch (`design-revamp-lagacy`) carries a **full design revamp of the server-rendered
+Flask/Jinja frontend**, styled after beldex.io: near-black dot-grid canvas, Michroma display
+type, Space Mono body, sharp white buttons, and Beldex green (#00d959) accents. Highlights:
+
+- Header with top-right nav (Explorer / Master Nodes / Mempool / Quorums); search lives on the page
+- Home page: hero + stat tiles (height, hard fork, POS, master nodes, supply, transactions in
+  millions, burned BDX, BNS count, live BDX price, chain size), network-parameters panel,
+  panelized blocks table, collapsible TX-type legend
+- Master node lists on their own `/master_nodes` page; home shows count tiles only (faster load)
+- Quorums page with tabbed quorum types and ellipsized pubkeys (`abc123…def456`)
+- Master node & transaction pages with key/value detail panels, compact addresses, modern QR card
+- Raw TX details load inline via `/tx/<txid>/rawjson` (no page reload)
+- Resilience: RPC timeouts degrade pages gracefully; if the daemon is unreachable the explorer
+  serves an auto-retrying "daemon busy" page instead of a 500
+
+## Prerequisite packages
+
+Debian/Ubuntu:
 
     sudo apt install build-essential pkg-config libsodium-dev libzmq3-dev python3-dev python3-flask python3-babel python3-pygments python3-qrcode python3-pysodium python3-sha3 python3-base58
 
-## Building and running
+macOS (Apple Silicon) — use the native ARM Homebrew (`/opt/homebrew`):
 
-Quick and dirty setup instructions for now:
+    /opt/homebrew/bin/brew install cmake pkg-config zeromq libsodium
+    python3 -m venv .venv && source .venv/bin/activate
+    pip install -r requirements.txt
+
+## Building pylokimq
 
     git submodule update --init --recursive
     cd pylokimq
     mkdir build
     cd build
-    cmake ..
+    cmake .. -DPYTHON_EXECUTABLE=$(which python)
     make -j6
     cd ../..
     ln -s pylokimq/build/pylokimq/pylokimq.cpython-*.so .
-    
-(Note that we require a very recent python3-jinja package (2.11+), which may not be installed by the
-above.)
 
-You'll also need to run beldexd with `--lmq-local-control ipc:///path/to/beldex-explorer/mainnet.sock`.
+Notes:
 
-## Running in debug mode
+- The compiled module is Python-version-specific: the `.so` name must match your interpreter
+  (e.g. `pylokimq.cpython-312-darwin.so` for Python 3.12) or the import silently falls back to
+  the empty source directory.
+- On CMake 4+ add `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`; if you upgrade the vendored pybind11
+  (required for Python 3.12+), also add `-DSUBMODULE_CHECK=OFF`.
+- On Apple Silicon force a native build if your toolchain defaults to x86_64:
+  `arch -arm64 cmake .. -DCMAKE_OSX_ARCHITECTURES=arm64 ...` and verify with
+  `file pylokimq.cpython-*.so` (must say `arm64`).
 
-To run it in debug mode (production requires setting up a WSGI server, see below):
+## Connecting to beldexd
 
-    FLASK_APP=explorer flask run --reload --debugger
+Run beldexd with an LMQ admin socket and point the explorer at it. Either let the explorer's
+default work by starting beldexd with:
 
-This mode seems to be a bit flakey, though -- reloading, in particular, seems to break things and
-make it just silently exit after a while.
+    beldexd --lmq-local-control ipc:///path/to/beldex-explorer/beldexd/mainnet.sock
+
+or set the socket you prefer in `mainnet.py`:
+
+    config.beldexd_rpc = 'ipc:///Users/you/.beldex/beldexd.sock'
+
+The flag's path and the config value must match, and beldexd must be started after the path is
+chosen. While the daemon is busy syncing, RPCs may time out; the explorer shows a self-refreshing
+"waiting for the daemon" page until it responds.
+
+## Running in development
+
+    ./run-mainnet.sh [port]
+
+The script activates `.venv` if present, sets `DYLD_FALLBACK_LIBRARY_PATH` on macOS so ctypes
+finds Homebrew's arm64 libsodium, and runs Flask on port 5000 by default. Note that plain
+`flask run` caches templates — restart the process after template changes.
+
+(Equivalent manual invocation: `FLASK_APP=mainnet flask run --port 5000`.)
 
 ## Setting up for production with uwsgi-emperor:
 
@@ -68,12 +111,12 @@ In the beldex-explorer/mainnet.py, beldex-explorer/config.py, set:
     config.beldexd_rpc = 'ipc:///path/to/beldex-explorer/mainnet.sock'
 
 ## Setting up for HTTP Server with Apache:
- 
- Finally, proxy requests from the webserver to the wsgi socket.
-    
+
+Finally, proxy requests from the webserver to the wsgi socket.
+
     apt install apache2
 
- For Apache  `/etc/apache2/apache2.conf` do this with:
+For Apache `/etc/apache2/apache2.conf` do this with:
 
     # Allow access to static files (e.g. .css and .js):
     <Directory /path/to/beldex-explorer/static>
@@ -94,3 +137,8 @@ apache2/uwsgi-emperor layers).
 
 If you want to set up a testnet or devnet explorer the procedure is essentially the same, but
 using testnet.py or devnet.py pointing to a beldexd.sock from a testnet or devnet beldexd.
+
+## Related branches
+
+- `design-revamp` — the same visual revamp built as a React (Vite) SPA in `frontend/`, backed by
+  JSON API v2 endpoints added to `explorer.py`. See that branch's `frontend/README.md`.
