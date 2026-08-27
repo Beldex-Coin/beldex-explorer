@@ -3,6 +3,24 @@
 {% elif mempool_limit is none %}{% set mempool_limit = mempool.txs|length %}
 {% endif %}
 <div class="Wrapper">
+    <details class="legend">
+        <summary>TX type legend</summary>
+        <div class="legend-items">
+            <span>👑 Master Node Registration</span>
+            <span>🤝 Contribution</span>
+            <span>👍 Recommission</span>
+            <span>👎 Decommission</span>
+            <span>🚫 Deregistration</span>
+            <span>✍️ IP Change Penalty</span>
+            <span>🔓 Stake Unlock</span>
+            <span>📝 BNS Purchase</span>
+            <span>💾 BNS Update</span>
+            <span>⏳ BNS Renew</span>
+            <span>🎁 Block Reward</span>
+            <span>🕯︎ Coin Burn</span>
+        </div>
+    </details>
+
     <div class="panel">
         <div class="panel-head">
             <h2 class="title">Transaction Pool</h2>

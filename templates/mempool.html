@@ -1,23 +1,6 @@
 {% extends "_basic.html" %}
 
 {% block content %}
-    <div class="Wrapper">
-
-        <div class="TitleDivider"></div>
-
-        <h4 class="tx-type-legend info_list nowrap-spans" style="margin-top: 0">
-            <span><label>TX Type Legend:</label> 👑 Master Node Registration</span>
-            <span>🤝 Contribution</span>
-            <span>👍 Recommission</span>
-            <span>👎 Decommission</span>
-            <span>🚫 Deregistration</span>
-            <span>✍️ IP Change Penalty</span>
-            <span>🔓 Stake Unlock</span>
-            <span>📝 Beldex Name System Purchase</span>
-            <span>💾 BNS Update</span>
-        </h4>
-    </div>
-
     {% set mempool_limit = none %}
     {% include 'include/mempool.html' %}
 
