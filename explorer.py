@@ -1420,7 +1420,82 @@ def stats():
     emission = coinbase.get()
     bns_counts = info.get('bns_counts', 0)
 
+    # ---- derived insights ------------------------------------------------
+    insights = []
+    try:
+        years = (history or {}).get('years') or []
+        if len(years) >= 2:
+            cur, prev = years[-1], years[-2]
+            # Compare per-block activity so the partial current year is fair
+            cur_rate = cur['txs'] / cur['blocks'] if cur['blocks'] else 0
+            prev_rate = prev['txs'] / prev['blocks'] if prev['blocks'] else 0
+            if prev_rate > 0:
+                delta = (cur_rate - prev_rate) / prev_rate * 100
+                insights.append({
+                    'label': 'TX activity trend',
+                    'value': '{:+.1f}%'.format(delta),
+                    'tone': 'up' if delta >= 0 else 'down',
+                    'desc': 'transactions per block in {} vs {} ({:.2f} vs {:.2f} tx/block)'.format(
+                        cur['label'], prev['label'], cur_rate, prev_rate),
+                })
+            insights.append({
+                'label': 'Est. daily transactions',
+                'value': '{:,}'.format(round(cur_rate * 86400 / _BLOCK_TIME)),
+                'tone': 'neutral',
+                'desc': 'at the {} average of {:.2f} tx/block, one block every {}s'.format(
+                    cur['label'], cur_rate, _BLOCK_TIME),
+            })
+            size_delta = ((cur['avg_block_size'] - prev['avg_block_size'])
+                    / prev['avg_block_size'] * 100) if prev['avg_block_size'] else None
+            if size_delta is not None:
+                insights.append({
+                    'label': 'Block size trend',
+                    'value': '{:+.1f}%'.format(size_delta),
+                    'tone': 'up' if size_delta >= 0 else 'down',
+                    'desc': 'average block size {} vs {} ({:,} B vs {:,} B)'.format(
+                        cur['label'], prev['label'], cur['avg_block_size'], prev['avg_block_size']),
+                })
+            insights.append({
+                'label': 'New BDX per day',
+                'value': '{:,.0f} BDX'.format(cur['avg_reward'] * 86400 / _BLOCK_TIME),
+                'tone': 'neutral',
+                'desc': 'current emission rate at {:.2f} BDX average block reward'.format(cur['avg_reward']),
+            })
+        mn_years = (history or {}).get('mn_years') or []
+        if mn_years:
+            reg_this_year = mn_years[-1]['registered']
+            insights.append({
+                'label': 'MN registrations in {}'.format(mn_years[-1]['label']),
+                'value': '{:,}'.format(reg_this_year),
+                'tone': 'up' if reg_this_year > 0 else 'neutral',
+                'desc': 'still-registered nodes that joined this year (of {:,} total)'.format(
+                    mn_years[-1]['cumulative']),
+            })
+        if emission and emission.get('status') == 'OK':
+            circ = emission['emission_amount'] - emission['burn_amount']
+            if emission['emission_amount']:
+                burn_pct = emission['burn_amount'] / emission['emission_amount'] * 100
+                insights.append({
+                    'label': 'Supply burned',
+                    'value': '{:.2f}%'.format(burn_pct),
+                    'tone': 'neutral',
+                    'desc': '{:,.0f} BDX permanently removed from the {:,.0f} BDX ever emitted'.format(
+                        emission['burn_amount'] / 1e9, emission['emission_amount'] / 1e9),
+                })
+            staked = mn_counts['active'] * (stake.get() or {}).get('staking_requirement', 0)
+            if circ > 0 and staked > 0:
+                insights.append({
+                    'label': 'Supply staked',
+                    'value': '{:.1f}%'.format(staked / circ * 100),
+                    'tone': 'up',
+                    'desc': '{:,.0f} BDX locked in {:,} active master nodes'.format(
+                        staked / 1e9, mn_counts['active']),
+                })
+    except Exception as e:
+        print("stats insights failed: {}".format(e), file=sys.stderr)
+
     return flask.render_template('stats.html',
+            insights=insights,
             info=info,
             stake=stake.get() or {'staking_requirement': 0},
             emission=emission,

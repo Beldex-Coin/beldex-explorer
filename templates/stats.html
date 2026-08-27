@@ -65,6 +65,27 @@
         </div>
     </div>
 
+    {# ---------------- insights ---------------- #}
+    {% if insights %}
+    <div class="panel" style="margin-top: 28px">
+        <div class="panel-head"><h2 class="title">Network Insights</h2><span class="spacer"></span><span class="meta">derived from live + sampled data</span></div>
+        <div class="insight-grid">
+            {% for ins in insights %}
+            <div class="insight-card">
+                <div class="insight-top">
+                    <span class="insight-value {{ins.tone}}">
+                        {%- if ins.tone == 'up' %}▲ {% elif ins.tone == 'down' %}▼ {% endif -%}
+                        {{ins.value}}
+                    </span>
+                    <span class="insight-label">{{ins.label}}</span>
+                </div>
+                <p class="insight-desc">{{ins.desc}}</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {# ---------------- charts ---------------- #}
     {% if history and history.years %}
     <div class="chart-grid">
