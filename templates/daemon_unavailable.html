@@ -1,0 +1,22 @@
+{% extends "_basic.html" %}
+
+{% block head %}
+    {{ super() }}
+    <meta http-equiv="refresh" content="10">
+{% endblock %}
+
+{% block content %}
+<div class="Wrapper">
+    <div class="hero" style="padding: 72px 0 24px">
+        <div class="eyebrow" style="color: var(--amber)">Daemon busy</div>
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Waiting for the Beldex daemon…</h1>
+        <p class="hero-note">
+            The explorer could not get a response from beldexd (request timed out).
+            This usually means the daemon is busy syncing or starting up.
+            This page retries automatically every 10 seconds.
+        </p>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer %}{% endblock %}

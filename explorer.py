@@ -182,6 +182,15 @@ def add_global_headers(response):
             response.headers[k] = v
     return response
 
+@app.errorhandler(500)
+def internal_error(e):
+    # In this app an unhandled exception almost always traces back to a beldexd
+    # RPC timeout while the daemon is busy/syncing (futures return None and
+    # downstream code trips over it). Render a friendly auto-retrying page;
+    # the real traceback is still printed to the log.
+    return flask.render_template('daemon_unavailable.html', info=None), 503
+
+
 @app.route('/style.css')
 def css():
     return flask.send_from_directory('static', 'style.css')
@@ -327,10 +336,14 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     # non-dependent requests should already have a future initiated above so that they can
     # potentially run in parallel.
     info = inforeq.get()
+    if info is None:
+        # Even get_info timed out: daemon is unreachable or too busy to answer.
+        # Render a friendly auto-retrying page instead of crashing.
+        return flask.render_template('daemon_unavailable.html', info=None), 503
     height = info['height']
     info['testnet']  = info['nettype'] == 'testnet'
     info['devnet']   = info['nettype'] == 'devnet'
-    bns = info['bns_counts']
+    bns = info.get('bns_counts', 0)
     # Permalinked block range:
     if first is not None and last is not None and 0 <= first <= last and last <= first + 99:
         start_height, end_height = first, last
