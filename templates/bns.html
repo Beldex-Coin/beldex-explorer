@@ -21,7 +21,7 @@
         <h4 style="margin:5px"><label>Expiration Height :</label> <a href="/block/{{bns.result.expiration_height}}">{{bns.result.expiration_height}}</a></h4>
 
         <h2 style="margin-top:35px"><label>Bchat</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         {% if bns.result.encrypted_bchat_value %}
           <h4 style="margin:5px"><label>Available:</label> No</h4>
           <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.bchat_value}}</h4>
@@ -30,7 +30,7 @@
         {% endif %}
 
         <h2 style="margin-top:35px"><label>Wallet</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         {% if bns.result.encrypted_wallet_value %}
           <h4 style="margin:5px"><label>Available:</label> No</h4>
           <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.wallet_value}}</h4>
@@ -39,7 +39,7 @@
         {% endif %}
 
         <h2 style="margin-top:35px"><label>Belnet</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         {% if bns.result.encrypted_belnet_value %}
           <h4 style="margin:5px"><label>Available:</label> No</h4>
           <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.belnet_value}}</h4>
@@ -48,7 +48,7 @@
         {% endif %}
 
         <h2 style="margin-top:35px"><label>Eth</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         {% if bns.result.encrypted_eth_addr_value %}
           <h4 style="margin:5px"><label>Available:</label> No</h4>
           <h4 style="margin:5px"><label>Mapping:</label> {{bns.result.eth_addr_value}}</h4>
@@ -58,19 +58,19 @@
 
       {% else %}
         <h2 style="margin-top:35px"><label>Bchat</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         <h4 style="margin:5px"><label>Available:</label> Yes</h4>
 
         <h2 style="margin-top:35px"><label>Wallet</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         <h4 style="margin:5px"><label>Available:</label> Yes</h4>
 
         <h2 style="margin-top:35px"><label>Belnet</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         <h4 style="margin:5px"><label>Available:</label> Yes</h4>
 
         <h2 style="margin-top:35px"><label>Eth</label></h2>
-        <hr style="width: 100%; height: 3px; background-color: #39D540; border: none; display: inline-block;">
+        <hr style="width: 100%; height: 1px; background-color: var(--border-strong); border: none; display: inline-block;">
         <h4 style="margin:5px"><label>Available:</label> Yes</h4>
       {% endif %}
     </div>

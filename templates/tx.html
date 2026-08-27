@@ -500,7 +500,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
 
                     if (mine_output) {
 
-                        mine_output_str = '<span style="color: #008009;font-weight: bold">true</span>';
+                        mine_output_str = '<span style="color: var(--green);font-weight: bold">true</span>';
 
                         if (is_rct && rct_type > 0 /* not coinbase*/) {
                             try {
@@ -591,7 +591,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
                 {%if have_raw_tx%}
                   Already spent:
                   {%if already_spent%}
-                    <span style="color: red; font-weight: bold;">True</span>
+                    <span style="color: var(--red); font-weight: bold;">True</span>
                   {%else%}
                     False
                   {%endif%}
@@ -616,7 +616,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
                     <td><label>- {{loop.index0}}:</label> <a href="/tx/{{oinfo.txid}}">{{oinfo.key}}</a></td>
                     {%if have_raw_tx%}
                       {%if mix_is_it_real%}
-                        <td><span style="color: #008009;font-weight: bold">{{mix_is_it_real}}</span></td>
+                        <td><span style="color: var(--green);font-weight: bold">{{mix_is_it_real}}</span></td>
                       {%else%}
                         <td>{{mix_is_it_real}}</td>
                       {%endif%}
@@ -660,7 +660,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
         {%if with_ring_signatures%}
           <div class="TitleDivider"></div>
           <div id="decoded-inputs">
-            <div style="border: 1px solid #008552; margin-top: 1em; padding: 1em; background-color: rgba(0, 0, 0, 0.2)">
+            <div style="border: 1px solid var(--border-strong); margin-top: 1em; padding: 1em; background-color: rgba(0, 0, 0, 0.2)">
               <code class="center" style="white-space: pre-wrap; font-size: 1.5em;">
                 {{tx_json}}
               </code>
@@ -698,7 +698,7 @@ This tx does not includes a vote from this testing master node (only 7 votes are
 
 <div>
   {%if has_error%}
-    <h4 style="color:red">Attempt failed</h4>
+    <h4 style="color:var(--red)">Attempt failed</h4>
     {%if error_tx_not_found%}
       <h4>Tx {{tx_hash}} not found. </h4>
       <div class="center" style="text-align: center;width:80%">
