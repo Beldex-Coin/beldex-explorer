@@ -57,6 +57,11 @@
                 <span class="note">~{{(info.difficulty / info.target) | si }}H/s</span>
             </div>
             {% endif %}
+            <div class="stat-card" onclick="location.href='/master_nodes'" style="cursor: pointer">
+                <span class="label">Active master nodes</span>
+                <span class="value" style="color: var(--green)">{{mn_counts.active}}</span>
+                <span class="note">{{mn_counts.awaiting}} awaiting · {{mn_counts.decommissioned}} decommissioned</span>
+            </div>
             <div class="stat-card">
                 <span class="label">Staking requirement</span>
                 <span class="value">{{stake.staking_requirement | beldex(tag=False)}}<span class="unit">BDX</span></span>
@@ -258,18 +263,13 @@
         {% include 'include/block_page_controls.html' %}
     </div>
 
-    {% set limit_awaiting = 10 %}
-    {% set limit_inactive = 10 %}
-    {% set limit_active = 10 %}
-
-    {% include 'include/master_nodes_lists.html' %}
-
     {% if checkpoints and checkpoints.checkpoints|length > 0 %}
         {% include 'include/checkpoints.html' %}
     {% endif %}
 
     <div class="Wrapper" style="margin-bottom: 40px">
         <div class="chips">
+            <a href="/master_nodes">Master node list →</a>
             <a href="/quorums">View recent testing / checkpoint / flash / POS quorums →</a>
         </div>
     </div>

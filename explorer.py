@@ -305,7 +305,10 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     base_fee = FutureJSON(lmq, beldexd, 'rpc.get_fee_estimate', 10)
     hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
     mempool = get_mempool_future(lmq, beldexd)
-    mns = get_mns_future(lmq, beldexd)
+    # Master node lists moved to /master_nodes; the home page only shows counts,
+    # so request just two booleans per node instead of the full states.
+    mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
+            args={'all': False, 'fields': {'active': True, 'funded': True}})
     checkpoints = FutureJSON(lmq, beldexd, 'rpc.get_checkpoints', args={"count": 3})
 
     # This call is slow the first time it gets called in beldexd but will be fast after that, so call
@@ -379,8 +382,15 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
                         break
                 blocks[i]['txs'].append(tx)
 
-    # Clean up the MN data a bit to make things easier for the templates
-    awaiting_mns, active_mns, inactive_mns = get_mns(mns, inforeq)
+    # Lightweight master node counts for the stat tiles
+    mn_counts = {'active': 0, 'awaiting': 0, 'decommissioned': 0}
+    for mn in (mn_counts_req.get() or {}).get('master_node_states', []):
+        if mn.get('active'):
+            mn_counts['active'] += 1
+        elif mn.get('funded'):
+            mn_counts['decommissioned'] += 1
+        else:
+            mn_counts['awaiting'] += 1
 
     # Fall back to safe defaults for any RPC that failed/timed out so a busy
     # daemon degrades the page instead of 500ing it.
@@ -392,9 +402,7 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
                 'flash_fee_per_byte': 0, 'flash_fee_per_output': 0, 'flash_fee_fixed': 0},
             emission=coinbase.get(),
             hf=hfinfo.get() or {'version': 0},
-            active_mns=active_mns,
-            inactive_mns=inactive_mns,
-            awaiting_mns=awaiting_mns,
+            mn_counts=mn_counts,
             blocks=blocks,
             block_size_median=statistics.median(b['block_size'] for b in blocks) if blocks else 0,
             page=page,

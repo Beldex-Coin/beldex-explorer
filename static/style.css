@@ -335,6 +335,33 @@ details.legend summary {
 details.legend summary:hover { color: var(--green); }
 details.legend .legend-items { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 2px; font-size: 12px; }
 
+/* ---------- header nav ---------- */
+
+.site-nav {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    flex-basis: 100%;
+    padding-top: 2px;
+}
+
+.site-nav a {
+    font-family: var(--font-display);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 7px 14px;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: color 0.15s, border-color 0.15s;
+}
+.site-nav a:hover {
+    color: var(--green);
+    border-color: var(--border-strong);
+    text-decoration: none;
+}
+
 /* ---------- dividers ---------- */
 
 .TitleUnderliner, .TitleDivider {
