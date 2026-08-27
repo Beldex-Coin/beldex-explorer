@@ -499,6 +499,15 @@ form.page-search input[type="submit"]:hover {
 }
 .chart-panel .chart-dot:hover { fill: var(--green); r: 4; }
 
+.chart-panel .chart-bar {
+    fill: rgba(0, 217, 89, 0.25);
+    stroke: var(--green);
+    stroke-width: 1;
+    transition: fill 0.15s;
+}
+.chart-panel .chart-bar:hover { fill: rgba(0, 217, 89, 0.55); }
+.chart-panel .bar-value { fill: var(--text-dim); }
+
 /* ---------- dividers ---------- */
 
 .TitleUnderliner, .TitleDivider {

@@ -1273,58 +1273,58 @@ def api_price(fiat=None):
 
 # ---------------------------------------------------------------------------
 # /stats — blockchain statistics dashboard.
-# Current values come straight from RPC; historical (quarterly) series are
-# built by sampling ~30 block headers in the middle of each calendar quarter
-# and extrapolating, then cached for 6 hours.
+# Current values come straight from RPC; historical (yearly) series are built
+# by sampling ~30 block headers at each year's midpoint plus per-year
+# admin.get_coinbase_tx_sum ranges (burn), then cached for 6 hours.
 # ---------------------------------------------------------------------------
 
 _stats_history_cache = {'data': None, 'expiry': 0}
-_STATS_QUARTERS = 12          # how many calendar quarters of history to chart
-_STATS_SAMPLE = 30            # block headers sampled per quarter
+_STATS_MAX_YEARS = 8          # how many calendar years of history to chart
+_STATS_SAMPLE = 30            # block headers sampled per year
 _BLOCK_TIME = 30              # target seconds per block
 
-def _quarter_starts(n, now_dt):
-    """Return the datetimes of the last n calendar-quarter starts (oldest
-    first), ending with the current quarter's start."""
-    starts = []
-    y, q = now_dt.year, (now_dt.month - 1) // 3
-    for _ in range(n):
-        starts.append(datetime(y, q * 3 + 1, 1, tzinfo=timezone.utc))
-        q -= 1
-        if q < 0:
-            y, q = y - 1, 3
-    return list(reversed(starts))
-
 def _stats_history(lmq, beldexd, height, now_ts):
-    """Quarterly series (estimates from sampled headers), cached for 6h.
-    Returns None if the daemon cannot answer."""
+    """Yearly series (estimates from sampled headers + real per-year burn from
+    the admin coinbase RPC), cached for 6h. Returns None if the daemon cannot
+    answer."""
     if _stats_history_cache['data'] is not None and _stats_history_cache['expiry'] > now_ts:
         return _stats_history_cache['data']
 
     try:
         now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
-        starts = _quarter_starts(_STATS_QUARTERS + 1, now_dt)  # +1: need each quarter's end
-        # Approximate the chain height at each quarter start from block time
+        years = list(range(now_dt.year - _STATS_MAX_YEARS + 1, now_dt.year + 1))
+        # Approximate chain height at each Jan 1 from the target block time
         bounds = []
-        for dt in starts:
-            h = height - 1 - int((now_ts - dt.timestamp()) // _BLOCK_TIME)
-            bounds.append(max(0, h))
-        bounds.append(height - 1)  # current quarter runs to the tip
+        for y in years:
+            ts = datetime(y, 1, 1, tzinfo=timezone.utc).timestamp()
+            bounds.append(max(0, height - 1 - int((now_ts - ts) // _BLOCK_TIME)))
+        bounds.append(height - 1)  # current year runs to the tip
 
-        quarters = []
-        futures = []
-        for i in range(len(starts)):
-            start_h = bounds[i]
-            end_h = bounds[i + 1]
-            if end_h - start_h < 10:  # chain younger than this quarter
-                futures.append(None)
+        # Fire everything up-front so the requests run in parallel
+        header_futs, burn_futs = [], []
+        for i, y in enumerate(years):
+            start_h, end_h = bounds[i], bounds[i + 1]
+            if end_h - start_h < 10:  # chain younger than this year
+                header_futs.append(None)
+                burn_futs.append(None)
                 continue
             mid = (start_h + end_h) // 2
-            futures.append(FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', 21600,
-                    cache_key='stats{}'.format(i),
+            header_futs.append(FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', 21600,
+                    cache_key='statsy{}'.format(y),
                     args={'start_height': mid, 'end_height': min(mid + _STATS_SAMPLE - 1, end_h)}))
+            burn_futs.append(FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 21600,
+                    cache_key='statsburn{}'.format(y), timeout=5, fail_okay=True,
+                    args={'height': start_h, 'count': end_h - start_h}))
 
-        for i, fut in enumerate(futures):
+        # Master node registrations: registration_height of the currently
+        # registered set, bucketed by (approximate) year
+        mn_reg_fut = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 21600,
+                cache_key='stats_mn_reg',
+                args={'all': False, 'fields': {'registration_height': True}})
+
+        yearly = []
+        for i, y in enumerate(years):
+            fut = header_futs[i]
             if fut is None:
                 continue
             headers = ((fut.get() or {}).get('headers')) or []
@@ -1335,19 +1335,40 @@ def _stats_history(lmq, beldexd, height, now_ts):
             def avg(key):
                 vals = [h.get(key, 0) for h in headers]
                 return sum(vals) / len(vals) if vals else 0
-            label = "Q{} '{}".format(starts[i].month // 3 + 1, str(starts[i].year)[2:])
-            quarters.append({
-                'label': label,
+            burn = None
+            b = burn_futs[i].get() if burn_futs[i] is not None else None
+            if b and 'burn_amount' in b:
+                burn = round(b['burn_amount'] / 1e9)
+            yearly.append({
+                'label': str(y),
                 'blocks': nblocks,
                 'txs': round(avg('num_txes') * nblocks),
-                'emission': round(avg('reward') * nblocks / 1e9),
                 'avg_block_size': round(avg('block_size')),
-                'difficulty': headers[len(headers)//2].get('difficulty', 0),
-                'hashrate': round(headers[len(headers)//2].get('difficulty', 0) / _BLOCK_TIME),
                 'avg_reward': round(avg('reward') / 1e9, 4),
+                'burned': burn,
             })
 
-        data = {'quarters': quarters} if quarters else None
+        # MN registration years (height -> approximate timestamp -> year)
+        mn_years = []
+        try:
+            states = (mn_reg_fut.get() or {}).get('master_node_states', [])
+            counts = {}
+            for mn in states:
+                rh = mn.get('registration_height')
+                if rh is None:
+                    continue
+                ts = now_ts - (height - 1 - rh) * _BLOCK_TIME
+                ry = datetime.fromtimestamp(ts, tz=timezone.utc).year
+                counts[ry] = counts.get(ry, 0) + 1
+            if counts:
+                run = 0
+                for y in range(min(counts), now_dt.year + 1):
+                    run += counts.get(y, 0)
+                    mn_years.append({'label': str(y), 'registered': counts.get(y, 0), 'cumulative': run})
+        except Exception as e:
+            print("stats: mn registration history unavailable: {}".format(e), file=sys.stderr)
+
+        data = {'years': yearly, 'mn_years': mn_years} if yearly else None
     except Exception as e:
         print("stats history unavailable: {}".format(e), file=sys.stderr)
         data = None

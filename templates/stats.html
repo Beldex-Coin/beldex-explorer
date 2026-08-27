@@ -8,7 +8,7 @@
     <div class="hero" style="padding: 24px 0 8px">
         <div class="eyebrow">Network Analytics</div>
         <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Blockchain Stats</h1>
-        <p class="hero-note">Live figures from the daemon · quarterly series estimated from sampled block headers, refreshed every 6h</p>
+        <p class="hero-note">Live figures from the daemon · yearly series estimated from sampled block headers, refreshed every 6h</p>
     </div>
 
     {# ---------------- headline tiles ---------------- #}
@@ -66,20 +66,23 @@
     </div>
 
     {# ---------------- charts ---------------- #}
-    {% if history and history.quarters %}
+    {% if history and history.years %}
     <div class="chart-grid">
-        <div class="chart-panel"><h2 class="chart-title">Transactions / quarter <span class="chart-sub">estimated</span></h2><svg data-chart="txs"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Transactions / year <span class="chart-sub">estimated</span></h2><svg data-chart="txs"></svg></div>
         <div class="chart-panel"><h2 class="chart-title">Cumulative transactions <span class="chart-sub">estimated</span></h2><svg data-chart="cum_txs"></svg></div>
-        <div class="chart-panel"><h2 class="chart-title">Coin emission / quarter <span class="chart-sub">BDX, estimated</span></h2><svg data-chart="emission"></svg></div>
-        <div class="chart-panel"><h2 class="chart-title">Network hashrate <span class="chart-sub">H/s at quarter mid</span></h2><svg data-chart="hashrate"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Master nodes <span class="chart-sub">registered set, cumulative by reg. year</span></h2><svg data-chart="mn_cum"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">BNS registered <span class="chart-sub">current split by type</span></h2><svg data-chart="bns"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">BDX burned / year <span class="chart-sub">BDX</span></h2><svg data-chart="burned"></svg></div>
         <div class="chart-panel"><h2 class="chart-title">Avg block size <span class="chart-sub">bytes</span></h2><svg data-chart="avg_block_size"></svg></div>
-        <div class="chart-panel"><h2 class="chart-title">Block reward <span class="chart-sub">BDX, quarter avg</span></h2><svg data-chart="avg_reward"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">Block reward <span class="chart-sub">BDX, yearly avg</span></h2><svg data-chart="avg_reward"></svg></div>
     </div>
 
     <script>
     (function() {
         var H = {{ history | tojson }};
-        var Q = H.quarters;
+        var Q = H.years;
+        var MN = H.mn_years || [];
+        var BNS = {{ bns_counts | tojson }};
         var total = {{ info.tx_count }};
 
         // cumulative txs anchored at the current total, walking backwards
@@ -104,6 +107,32 @@
             for (var k in attrs) e.setAttribute(k, attrs[k]);
             if (parent) parent.appendChild(e);
             return e;
+        }
+
+        function drawBars(svg, labels, data) {
+            var W = 460, PH = 220, padL = 52, padR = 14, padT = 14, padB = 34;
+            svg.setAttribute('viewBox', '0 0 ' + W + ' ' + PH);
+            var iw = W - padL - padR, ih = PH - padT - padB;
+            var max = Math.max.apply(null, data) || 1;
+            max *= 1.08;
+            for (var g = 0; g <= 4; g++) {
+                var gy = padT + ih * g / 4;
+                el('line', {x1: padL, y1: gy, x2: W - padR, y2: gy, class: 'grid'}, svg);
+                var lbl = el('text', {x: padL - 8, y: gy + 3, class: 'axis', 'text-anchor': 'end'}, svg);
+                lbl.textContent = fmt(max - max * g / 4);
+            }
+            var slot = iw / data.length, bw = Math.min(64, slot * 0.5);
+            for (var i = 0; i < data.length; i++) {
+                var bx = padL + slot * i + (slot - bw) / 2;
+                var bh = data[i] / max * ih;
+                var r = el('rect', {x: bx, y: padT + ih - bh, width: bw, height: Math.max(bh, 1), class: 'chart-bar'}, svg);
+                var t = el('title', {}, r);
+                t.textContent = labels[i] + ': ' + Number(data[i]).toLocaleString();
+                var xl = el('text', {x: bx + bw / 2, y: PH - 10, class: 'axis', 'text-anchor': 'middle'}, svg);
+                xl.textContent = labels[i];
+                var vl = el('text', {x: bx + bw / 2, y: padT + ih - bh - 6, class: 'axis bar-value', 'text-anchor': 'middle'}, svg);
+                vl.textContent = fmt(data[i]);
+            }
         }
 
         function drawChart(svg, labels, data) {
@@ -158,7 +187,36 @@
 
         var labels = Q.map(function(q) { return q.label; });
         document.querySelectorAll('svg[data-chart]').forEach(function(svg) {
-            drawChart(svg, labels, series(svg.getAttribute('data-chart')));
+            var key = svg.getAttribute('data-chart');
+            var panel = svg.closest('.chart-panel');
+
+            if (key === 'mn_cum') {
+                if (!MN.length) { panel.style.display = 'none'; return; }
+                drawChart(svg, MN.map(function(m) { return m.label; }),
+                          MN.map(function(m) { return m.cumulative; }));
+                return;
+            }
+            if (key === 'bns') {
+                var bLabels, bData;
+                if (Array.isArray(BNS)) {
+                    var names = ['BChat', 'Wallet', 'Belnet', 'ETH'];
+                    bLabels = BNS.map(function(_, i) { return names[i] || ('Type ' + i); });
+                    bData = BNS;
+                } else {
+                    bLabels = ['Total'];
+                    bData = [BNS || 0];
+                }
+                drawBars(svg, bLabels, bData);
+                return;
+            }
+            if (key === 'burned') {
+                var burnedOk = Q.filter(function(q) { return q.burned !== null && q.burned !== undefined; });
+                if (!burnedOk.length) { panel.style.display = 'none'; return; }
+                drawBars(svg, burnedOk.map(function(q) { return q.label; }),
+                         burnedOk.map(function(q) { return q.burned; }));
+                return;
+            }
+            drawChart(svg, labels, series(key));
         });
     })();
     </script>
