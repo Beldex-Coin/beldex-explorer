@@ -486,9 +486,14 @@ def bns_info(lmq, beldexd, name, **kwargs):
     name_hash = nacl.hash.blake2b(name.encode(), encoder=nacl.encoding.RawEncoder)
     # Convert to Base64
     name_hash_b64 = base64.b64encode(name_hash).decode('ascii')
-    
-    print(f"Name: {name}, Name Hash (Base64): {name_hash_b64}")
-    
+
+    # PRIVACY: a leftover debug `print` recorded every looked-up BNS name to the
+    # server log. The whole point of hashing the name before sending it to the daemon
+    # is that the plaintext name should not need to be retained; logging it defeats
+    # that and builds a persistent record of who looked up which name, correlatable
+    # with the request's source address in the access log. Removed rather than
+    # downgraded to a logger call, because there is no operational need for it.
+
     # Send name_hash as an array
     fut = FutureJSON(lmq, beldexd, 'rpc.bns_names_to_owners', args={
         "name_hash": [name_hash_b64]  # Send as an array
@@ -911,6 +916,20 @@ def api_networkinfo():
 def api_bnslookup():
     lmq, beldexd = lmq_connection()
     name = flask.request.args.get('name')
+    # ROBUSTNESS / INPUT VALIDATION: `name` is absent whenever the caller omits the
+    # query parameter, in which case `flask.request.args.get` returns None and
+    # `bns_info` raised AttributeError on `name.encode()`. That surfaced as an
+    # unhandled 500 — noise in the logs, and a stack trace disclosed to the client on
+    # any deployment left with debug output enabled — for what is simply a malformed
+    # request. Reject it as a 400 instead, before any daemon RPC is issued.
+    #
+    # The length bound keeps an unbounded caller-supplied string out of the blake2b
+    # hash and the RPC payload; BNS names are far shorter than this ceiling, so the
+    # limit rejects only abuse.
+    if not name:
+        flask.abort(400, description="Missing required query parameter: name")
+    if len(name) > 256:
+        flask.abort(400, description="Query parameter 'name' is too long.")
     bnsinfo = bns_info(lmq, beldexd, name).get()
     bns_data = {'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
 
