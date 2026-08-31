@@ -23,12 +23,10 @@
         </div>
         <div class="stat-card">
             <span class="label">Circulating supply</span>
-            {% if circulating %}
-                <span class="value">{{"{:,.0f}".format(circulating)}}<span class="unit">BDX</span></span>
-            {% elif emission and emission.status == 'OK' %}
+            {% if emission and emission.status == 'OK' %}
                 <span class="value">{{(emission.emission_amount - emission.burn_amount) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
             {% else %}
-                <span class="value">…</span><span class="note">unavailable</span>
+                <span class="value">…</span><span class="note">still calculating</span>
             {% endif %}
         </div>
         <div class="stat-card">

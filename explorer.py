@@ -196,27 +196,6 @@ def css():
     return flask.send_from_directory('static', 'style.css')
 
 
-# Official circulating supply from the Beldex API (returns a bare number in
-# whole BDX). Cached for 5 minutes; on failure a stale value is preferred over
-# nothing.
-_circulating_cache = {'value': None, 'expiry': 0}
-
-def get_circulating_supply():
-    now = time.time()
-    if _circulating_cache['value'] is not None and _circulating_cache['expiry'] > now:
-        return _circulating_cache['value']
-    url = getattr(config, 'circulating_supply_url',
-            'https://api.beldex.io/api/v1/bdx/circulating-supply')
-    try:
-        v = float(requests.get(url, timeout=5).text.strip())
-        _circulating_cache['value'] = v
-        _circulating_cache['expiry'] = now + 300
-        return v
-    except Exception as e:
-        print("Failed to fetch circulating supply from {}: {}".format(url, e), file=sys.stderr)
-        return _circulating_cache['value']  # stale (or None) is the best we have
-
-
 def get_mns_future(lmq, beldexd):
     return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 5,
             args={
@@ -437,7 +416,6 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
             emission=coinbase.get(),
             hf=hfinfo.get() or {'version': 0},
             mn_counts=mn_counts,
-            circulating=get_circulating_supply(),
             blocks=blocks,
             block_size_median=statistics.median(b['block_size'] for b in blocks) if blocks else 0,
             page=page,
@@ -1441,7 +1419,6 @@ def stats():
 
     emission = coinbase.get()
     bns_counts = info.get('bns_counts', 0)
-    circulating = get_circulating_supply()  # whole BDX, from the official API
 
     # ---- derived insights ------------------------------------------------
     insights = []
@@ -1506,8 +1483,6 @@ def stats():
                         emission['burn_amount'] / 1e9, emission['emission_amount'] / 1e9),
                 })
             staked = mn_counts['active'] * (stake.get() or {}).get('staking_requirement', 0)
-            if circulating:
-                circ = circulating * 1e9  # prefer the official figure
             if circ > 0 and staked > 0:
                 insights.append({
                     'label': 'Supply staked',
@@ -1521,7 +1496,6 @@ def stats():
 
     return flask.render_template('stats.html',
             insights=insights,
-            circulating=circulating,
             info=info,
             stake=stake.get() or {'staking_requirement': 0},
             emission=emission,
