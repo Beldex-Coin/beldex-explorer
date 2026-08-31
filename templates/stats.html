@@ -53,7 +53,7 @@
         <div class="stat-card">
             <span class="label">Network hashrate</span>
             <span class="value">{{hashrate | si}}<span class="unit">H/s</span></span>
-            <span class="note">difficulty {{info.difficulty | si}}</span>
+            <span class="note">difficulty {{(info.difficulty | default(0)) | si}}</span>
         </div>
         <div class="stat-card">
             <span class="label">Mempool</span>

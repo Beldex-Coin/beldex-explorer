@@ -47,8 +47,8 @@
             {% else %}
             <div class="stat-card">
                 <span class="label">Network difficulty</span>
-                <span class="value">{{info.difficulty}}</span>
-                <span class="note">~{{(info.difficulty / info.target) | si }}H/s</span>
+                <span class="value">{{info.difficulty | default(0)}}</span>
+                <span class="note">~{{((info.difficulty | default(0)) / info.target) | si }}H/s</span>
             </div>
             {% endif %}
             <div class="stat-card" onclick="location.href='/master_nodes'" style="cursor: pointer">
