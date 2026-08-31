@@ -62,7 +62,9 @@
             </div>
             <div class="stat-card">
                 <span class="label">Circulating supply</span>
-                {% if not emission or emission.status == 'BUSY' %}
+                {% if circulating_supply is not none %}
+                    <span class="value">{{circulating_supply | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+                {% elif not emission or emission.status == 'BUSY' %}
                     <span class="value">…</span>
                     <span class="note">still calculating</span>
                 {% elif emission.status == 'OK' %}
@@ -125,7 +127,7 @@
                 <div class="v">
                     {{emission.emission_amount | beldex}} emitted · {{emission.fee_amount | beldex}} fees · {{emission.burn_amount | beldex}} burned
                     <div class="comment" style="font-size: 11px; margin-top: 4px">
-                        Circulating supply may exclude any currently publicised locked tokens; otherwise it equals the coinbase minus burned coins.
+                        Circulating supply is sourced from api.beldex.io and may exclude currently publicised locked tokens.
                         Fees include paid transaction fees less any burned portion.
                     </div>
                 </div>

@@ -405,6 +405,9 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
         else:
             mn_counts['awaiting'] += 1
 
+    supply = fetch_circulating_supply()
+    circulating_supply = supply * 1_000_000_000 if supply is not None else None
+
     # Fall back to safe defaults for any RPC that failed/timed out so a busy
     # daemon degrades the page instead of 500ing it.
     return flask.render_template('index.html',
@@ -414,6 +417,7 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
             fees=base_fee.get() or {'fee_per_byte': 0, 'fee_per_output': 0,
                 'flash_fee_per_byte': 0, 'flash_fee_per_output': 0, 'flash_fee_fixed': 0},
             emission=coinbase.get(),
+            circulating_supply=circulating_supply,
             hf=hfinfo.get() or {'version': 0},
             mn_counts=mn_counts,
             blocks=blocks,
@@ -1128,6 +1132,22 @@ def show_tx_info(txid, more_details=False):
             "status": "success"
             })
 
+circulating_supply_cache, circulating_supply_cache_expires = None, None
+def fetch_circulating_supply():
+    """Fetches the circulating supply (in whole BDX) from api.beldex.io, caching the result
+    for 5 minutes. Returns None if the fetch fails and no cached value is available yet."""
+    global circulating_supply_cache, circulating_supply_cache_expires
+    if not circulating_supply_cache_expires or circulating_supply_cache_expires < time.time():
+        try:
+            r = requests.get("https://api.beldex.io/api/v1/bdx/circulating-supply", timeout=5)
+            r.raise_for_status()
+            circulating_supply_cache = float(r.text)
+            circulating_supply_cache_expires = time.time() + 300
+        except Exception as e:
+            print("Failed to retrieve circulating supply: {}".format(e), file=sys.stderr)
+    return circulating_supply_cache
+
+
 @app.route('/api/emission')
 def api_emission():
     lmq, beldexd = lmq_connection()
@@ -1137,11 +1157,14 @@ def api_emission():
     if not coinbase:
         return flask.jsonify(None)
     info = info.get()
+    supply = fetch_circulating_supply()
+    circulating_supply = (supply * 1_000_000_000 if supply is not None
+            else coinbase["emission_amount"] - coinbase["burn_amount"])
     return flask.jsonify({
         "data": {
             "blk_no": info['height'] - 1,
             "burn": coinbase["burn_amount"],
-            "circulating_supply": coinbase["emission_amount"] - coinbase["burn_amount"],
+            "circulating_supply": circulating_supply,
             "coinbase": coinbase["emission_amount"] - coinbase["burn_amount"],
             "emission": coinbase["emission_amount"],
             "fee": coinbase["fee_amount"]
@@ -1187,6 +1210,9 @@ def api_master_node_stats():
 
 @app.route('/api/circulating_supply')
 def api_circulating_supply():
+    supply = fetch_circulating_supply()
+    if supply is not None:
+        return flask.jsonify(int(supply))
     lmq, beldexd = lmq_connection()
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
             args={"height":0, "count":2**31-1}).get()
@@ -1420,6 +1446,9 @@ def stats():
     emission = coinbase.get()
     bns_counts = info.get('bns_counts', 0)
 
+    supply = fetch_circulating_supply()
+    circulating_supply = supply * 1_000_000_000 if supply is not None else None
+
     # ---- derived insights ------------------------------------------------
     insights = []
     try:
@@ -1472,7 +1501,7 @@ def stats():
                     mn_years[-1]['cumulative']),
             })
         if emission and emission.get('status') == 'OK':
-            circ = emission['emission_amount'] - emission['burn_amount']
+            circ = circulating_supply if circulating_supply is not None else emission['emission_amount'] - emission['burn_amount']
             if emission['emission_amount']:
                 burn_pct = emission['burn_amount'] / emission['emission_amount'] * 100
                 insights.append({
@@ -1499,6 +1528,7 @@ def stats():
             info=info,
             stake=stake.get() or {'staking_requirement': 0},
             emission=emission,
+            circulating_supply=circulating_supply,
             mn_counts=mn_counts,
             bns_counts=bns_counts,
             mempool_count=len(mp.get('txs', [])),
