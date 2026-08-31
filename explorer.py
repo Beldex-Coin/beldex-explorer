@@ -1317,13 +1317,25 @@ def _stats_history(lmq, beldexd, height, now_ts):
         return _stats_history_cache['data']
 
     try:
-        now_dt = datetime.fromtimestamp(now_ts, tz=timezone.utc)
+        # Anchor the year<->height mapping on the top block's real timestamp,
+        # not the wall clock: while the daemon is still syncing the tip can be
+        # months behind "now", which would shift every year bucket backwards.
+        anchor_ts = now_ts
+        try:
+            top = FutureJSON(lmq, beldexd, 'rpc.get_block_header_by_height', 60,
+                    cache_key='stats_top', args={'height': height - 1}).get()
+            if top and top.get('block_header', {}).get('timestamp'):
+                anchor_ts = top['block_header']['timestamp']
+        except Exception:
+            pass
+
+        now_dt = datetime.fromtimestamp(anchor_ts, tz=timezone.utc)
         years = list(range(now_dt.year - _STATS_MAX_YEARS + 1, now_dt.year + 1))
         # Approximate chain height at each Jan 1 from the target block time
         bounds = []
         for y in years:
             ts = datetime(y, 1, 1, tzinfo=timezone.utc).timestamp()
-            bounds.append(max(0, height - 1 - int((now_ts - ts) // _BLOCK_TIME)))
+            bounds.append(max(0, height - 1 - int((anchor_ts - ts) // _BLOCK_TIME)))
         bounds.append(height - 1)  # current year runs to the tip
 
         # Fire everything up-front so the requests run in parallel
@@ -1401,7 +1413,10 @@ def _stats_history(lmq, beldexd, height, now_ts):
 
     if data:
         _stats_history_cache['data'] = data
-        _stats_history_cache['expiry'] = now_ts + 6 * 3600
+        # If the daemon hasn't produced burn figures yet (admin coinbase calc
+        # still running), retry much sooner so the burn chart fills in.
+        burn_pending = all(y.get('burned') is None for y in data['years'])
+        _stats_history_cache['expiry'] = now_ts + (600 if burn_pending else 6 * 3600)
     return data
 
 

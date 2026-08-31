@@ -234,7 +234,13 @@
             }
             if (key === 'burned') {
                 var burnedOk = Q.filter(function(q) { return q.burned !== null && q.burned !== undefined; });
-                if (!burnedOk.length) { panel.style.display = 'none'; return; }
+                if (!burnedOk.length) {
+                    var note = document.createElement('p');
+                    note.className = 'chart-pending';
+                    note.textContent = 'The daemon is still computing burn totals (admin coinbase scan) — this chart fills in automatically once it finishes.';
+                    svg.replaceWith(note);
+                    return;
+                }
                 drawBars(svg, burnedOk.map(function(q) { return q.label; }),
                          burnedOk.map(function(q) { return q.burned; }));
                 return;

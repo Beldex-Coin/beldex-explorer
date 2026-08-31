@@ -557,6 +557,13 @@ form.page-search input[type="submit"]:hover {
 .chart-panel .chart-bar:hover { fill: rgba(0, 217, 89, 0.55); }
 .chart-panel .bar-value { fill: var(--text-dim); }
 
+.chart-pending {
+    color: var(--text-faint);
+    font-size: 12px;
+    padding: 48px 12px;
+    text-align: center;
+}
+
 /* ---------- dividers ---------- */
 
 .TitleUnderliner, .TitleDivider {
