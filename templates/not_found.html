@@ -1,38 +1,58 @@
 {% extends "_basic.html" %}
 
 {% block content %}
-
 <div class="Wrapper">
-  {%if type != 'bns_reserved'%}
-    <h1>Not Found!</h1>
-  {%endif%}
+    <div class="hero" style="padding: 72px 0 24px">
+        <div class="eyebrow" style="color: var(--amber)">{%if type == 'bns_reserved'%}Reserved name{%else%}Not found{%endif%}</div>
 
-  {%if type == 'tx'%}
-    <h2>The transaction with id <code>{{id}}</code> was not found on the blockchain.</h2>
-  {%elif type == 'mn'%}
-    <h2>The master node with pubkey <code>{{id}}</code> is not currently registered.</h2>
-  {%elif type == 'bad_search'%}
-    <h2>Invalid search request: <code>{{id}}</code></h2>
-    <h3>Please enter a block hash, height, transaction id, or master node public key.</h3>
-  {%elif type == 'search'%}
-    <h2>Not found: <code>{{id}}</code></h2>
-    <h3>Couldn't find a block, transaction, or master node matching your query.</h3>
-  {%elif type == 'bns_reserved'%}
-    <h2>Not Available: "{{id}}"</h2>
-    <h3>These names are reserved by the organization :
-    <ul>
-      <li>localhost</li>
-      <li>mnode</li>
-      <li>beldex</li>
-    </ul></h3>
-  {%else%}
-    <h3>Whoops! Couldn't find what you were looking for.</h3>
-  {%endif%}
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">
+            {%- if type == 'tx' -%}
+                Transaction not found
+            {%- elif type == 'mn' -%}
+                Master node not found
+            {%- elif type == 'block' -%}
+                Block not found
+            {%- elif type == 'bad_search' -%}
+                Invalid search
+            {%- elif type == 'bns_reserved' -%}
+                Name not available
+            {%- elif type == 'search' -%}
+                No matches
+            {%- else -%}
+                Whoops!
+            {%- endif -%}
+        </h1>
 
-  <form action="/search" method="get" class="page-search">
-      <input type="text" name="value" placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">
-      <input type="submit" value="SEARCH">
-  </form>
+        <p class="hero-note">
+            {%- if type == 'tx' -%}
+                The transaction <code>{{id}}</code> was not found on the blockchain.
+            {%- elif type == 'mn' -%}
+                The master node with pubkey <code>{{id}}</code> is not currently registered.
+            {%- elif type == 'block' -%}
+                The block {%if height is defined and height is not none%}at height <code>{{height}}</code>{%else%}<code>{{id}}</code>{%endif%} was not found.
+            {%- elif type == 'bad_search' -%}
+                Invalid search request: <code>{{id}}</code>. Please enter a block height, block hash, transaction id, master node public key, or BNS name.
+            {%- elif type == 'bns_reserved' -%}
+                "{{id}}" is reserved by the organization and cannot be registered.
+            {%- elif type == 'search' -%}
+                Couldn't find a block, transaction, or master node matching <code>{{id}}</code>.
+            {%- else -%}
+                Couldn't find what you were looking for.
+            {%- endif -%}
+        </p>
+
+        {%if type == 'bns_reserved'%}
+            <div class="chips">
+                <span class="chip">localhost</span>
+                <span class="chip">mnode</span>
+                <span class="chip">beldex</span>
+            </div>
+        {%endif%}
+
+        <form action="/search" method="get" class="page-search">
+            <input type="text" name="value" placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">
+            <input type="submit" value="SEARCH">
+        </form>
+    </div>
 </div>
-
 {% endblock %}
