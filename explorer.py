@@ -1309,7 +1309,7 @@ _STATS_MAX_YEARS = 8          # how many calendar years of history to chart
 _STATS_SAMPLE = 30            # block headers sampled per year
 _BLOCK_TIME = 30              # target seconds per block
 
-def _stats_history(lmq, beldexd, height, now_ts):
+def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
     """Yearly series (estimates from sampled headers + real per-year burn from
     the admin coinbase RPC), cached for 6h. Returns None if the daemon cannot
     answer."""
@@ -1350,9 +1350,13 @@ def _stats_history(lmq, beldexd, height, now_ts):
             header_futs.append(FutureJSON(lmq, beldexd, 'rpc.get_block_headers_range', 21600,
                     cache_key='statsy{}'.format(y),
                     args={'start_height': mid, 'end_height': min(mid + _STATS_SAMPLE - 1, end_h)}))
+            # Per-year coinbase sums are expensive for the daemon; only request
+            # them once the cheap totals call reports the daemon's coinbase
+            # cache is ready (include_burn), so we never pile heavy scans onto
+            # a busy/syncing daemon.
             burn_futs.append(FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 21600,
                     cache_key='statsburn{}'.format(y), timeout=5, fail_okay=True,
-                    args={'height': start_h, 'count': end_h - start_h}))
+                    args={'height': start_h, 'count': end_h - start_h}) if include_burn else None)
 
         # Master node registrations: registration_height of the currently
         # registered set, bucketed by (approximate) year
@@ -1456,9 +1460,10 @@ def stats():
     except Exception:
         mp = {}
 
-    history = _stats_history(lmq, beldexd, height, now_ts)
-
     emission = coinbase.get()
+    history = _stats_history(lmq, beldexd, height, now_ts,
+            include_burn=bool(emission and emission.get('status') == 'OK'))
+
     bns_counts = info.get('bns_counts', 0)
 
     supply = fetch_circulating_supply()
