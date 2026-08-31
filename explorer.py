@@ -1305,6 +1305,26 @@ def api_price(fiat=None):
 # ---------------------------------------------------------------------------
 
 _stats_history_cache = {'data': None, 'expiry': 0}
+
+# Last fully-computed burn figures survive daemon busyness and restarts in a
+# small JSON file next to the code, so the burn chart can show the previous
+# values (marked with when they were calculated) instead of a pending note.
+import os as _os
+_STATS_DISK_CACHE = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), '.stats_cache.json')
+
+def _load_disk_stats():
+    try:
+        with open(_STATS_DISK_CACHE) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+def _save_disk_stats(data):
+    try:
+        with open(_STATS_DISK_CACHE, 'w') as f:
+            json.dump(data, f)
+    except Exception as e:
+        print("Failed to save stats cache: {}".format(e), file=sys.stderr)
 _STATS_MAX_YEARS = 8          # how many calendar years of history to chart
 _STATS_SAMPLE = 30            # block headers sampled per year
 _BLOCK_TIME = 30              # target seconds per block
@@ -1411,16 +1431,35 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
             print("stats: mn registration history unavailable: {}".format(e), file=sys.stderr)
 
         data = {'years': yearly, 'mn_years': mn_years} if yearly else None
+
+        if data:
+            fresh_burn_missing = any(y.get('burned') is None for y in yearly)
+            if not fresh_burn_missing:
+                # Full burn set fresh from the daemon: remember it for later
+                _save_disk_stats({'years': [{'label': y['label'], 'burned': y['burned']}
+                        for y in yearly], 'saved_at': now_ts})
+            else:
+                # Fill gaps from the last successful calculation, if any
+                disk = _load_disk_stats()
+                if disk:
+                    saved = {y['label']: y.get('burned') for y in disk.get('years', [])}
+                    filled = False
+                    for y in yearly:
+                        if y.get('burned') is None and saved.get(y['label']) is not None:
+                            y['burned'] = saved[y['label']]
+                            filled = True
+                    if filled:
+                        data['burn_asof'] = disk.get('saved_at')
+            data['_burn_pending'] = fresh_burn_missing
     except Exception as e:
         print("stats history unavailable: {}".format(e), file=sys.stderr)
         data = None
 
     if data:
         _stats_history_cache['data'] = data
-        # If the daemon hasn't produced burn figures yet (admin coinbase calc
-        # still running), retry much sooner so the burn chart fills in.
-        burn_pending = all(y.get('burned') is None for y in data['years'])
-        _stats_history_cache['expiry'] = now_ts + (600 if burn_pending else 6 * 3600)
+        # While the daemon hasn't produced fresh burn figures, retry much
+        # sooner (stale values may be on display in the meantime).
+        _stats_history_cache['expiry'] = now_ts + (600 if data.pop('_burn_pending', False) else 6 * 3600)
     return data
 
 

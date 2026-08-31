@@ -95,7 +95,7 @@
         <div class="chart-panel"><h2 class="chart-title">Cumulative transactions <span class="chart-sub">estimated</span></h2><svg data-chart="cum_txs"></svg></div>
         <div class="chart-panel"><h2 class="chart-title">Master nodes <span class="chart-sub">registered set, cumulative by reg. year</span></h2><svg data-chart="mn_cum"></svg></div>
         <div class="chart-panel"><h2 class="chart-title">BNS registered <span class="chart-sub">current split by type</span></h2><svg data-chart="bns"></svg></div>
-        <div class="chart-panel"><h2 class="chart-title">BDX burned / year <span class="chart-sub">BDX</span></h2><svg data-chart="burned"></svg></div>
+        <div class="chart-panel"><h2 class="chart-title">BDX burned / year <span class="chart-sub">BDX{% if history.burn_asof %} · last calculated {{ history.burn_asof | from_timestamp | ago }} ago{% endif %}</span></h2><svg data-chart="burned"></svg></div>
         <div class="chart-panel"><h2 class="chart-title">Avg block size <span class="chart-sub">bytes</span></h2><svg data-chart="avg_block_size"></svg></div>
         <div class="chart-panel"><h2 class="chart-title">Block reward <span class="chart-sub">BDX, yearly avg</span></h2><svg data-chart="avg_reward"></svg></div>
     </div>

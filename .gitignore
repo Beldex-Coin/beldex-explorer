@@ -4,3 +4,4 @@ devnet.sock
 pylokimq.cpython-*.so
 __pycache__
 local_config.py
+.stats_cache.json
