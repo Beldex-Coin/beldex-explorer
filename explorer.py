@@ -198,6 +198,24 @@ def css():
     return flask.send_from_directory('static', 'style.css')
 
 
+# Remember the last successful get_info so a momentarily-unresponsive daemon
+# serves slightly stale pages (with a warning strip) instead of the busy page.
+_last_info = {'data': None, 'ts': 0}
+_LAST_INFO_MAX_AGE = 600  # seconds
+
+def get_info_or_stale(inforeq):
+    """Returns (info, stale). Fresh result is cached; on failure the cached
+    copy is returned with stale=True while it is under 10 minutes old."""
+    info = inforeq.get()
+    if info:
+        _last_info['data'] = dict(info)
+        _last_info['ts'] = time.time()
+        return dict(info), False
+    if _last_info['data'] and time.time() - _last_info['ts'] < _LAST_INFO_MAX_AGE:
+        return dict(_last_info['data']), True
+    return None, False
+
+
 def get_mns_future(lmq, beldexd):
     return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 5,
             args={
@@ -337,13 +355,16 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     # We have some chained request dependencies here and below, so get() them as needed; all other
     # non-dependent requests should already have a future initiated above so that they can
     # potentially run in parallel.
-    info = inforeq.get()
+    info, stale_info = get_info_or_stale(inforeq)
     if info is None:
-        # Even get_info timed out: daemon is unreachable or too busy to answer.
-        # Render a friendly auto-retrying page instead of crashing.
+        # get_info timed out and we have no recent cached copy: daemon is
+        # unreachable. Render a friendly auto-retrying page instead of crashing.
         print("daemon-busy page served for {}: get_info timed out".format(flask.request.path),
                 file=sys.stderr)
         return flask.render_template('daemon_unavailable.html', info=None), 503
+    if stale_info:
+        print("serving {} with cached get_info (daemon busy)".format(flask.request.path),
+                file=sys.stderr)
     height = info['height']
     info['testnet']  = info['nettype'] == 'testnet'
     info['devnet']   = info['nettype'] == 'devnet'
@@ -432,6 +453,7 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
             mempool=parse_mempool(mempool) or {'txs': []},
             checkpoints=checkpoints.get(),
             refresh=refresh,
+            stale_info=stale_info,
             )
 
 
@@ -1478,7 +1500,7 @@ def stats():
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 120, timeout=1, fail_okay=True,
             args={"height": 0, "count": 2**31-1})
 
-    info = inforeq.get()
+    info, stale_info = get_info_or_stale(inforeq)
     if info is None:
         print("daemon-busy page served for /stats: get_info timed out", file=sys.stderr)
         return flask.render_template('daemon_unavailable.html', info=None), 503
@@ -1589,6 +1611,7 @@ def stats():
 
     return flask.render_template('stats.html',
             insights=insights,
+            stale_info=stale_info,
             info=info,
             stake=stake.get() or {'staking_requirement': 0},
             emission=emission,

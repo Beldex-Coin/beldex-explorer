@@ -1,6 +1,9 @@
 {% extends "_basic.html" %}
 
 {% block content %}
+    {% if stale_info %}
+    <div class="stale-banner">Daemon busy — showing recently cached data; refreshes automatically once it responds.</div>
+    {% endif %}
     <div class="Wrapper">
 
         {# ---------- hero ---------- #}

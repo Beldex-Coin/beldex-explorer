@@ -3,6 +3,9 @@
 {% block title %}Stats — {% endblock %}
 
 {% block content %}
+{% if stale_info %}
+<div class="stale-banner">Daemon busy — showing recently cached data; refreshes automatically once it responds.</div>
+{% endif %}
 <div class="Wrapper">
 
     <div class="hero" style="padding: 24px 0 8px">

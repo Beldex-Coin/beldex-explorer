@@ -195,6 +195,20 @@ code {
     box-shadow: 0 0 20px rgba(0, 217, 89, 0.35);
 }
 
+/* ---------- stale-data banner ---------- */
+
+.stale-banner {
+    background: rgba(255, 176, 32, 0.12);
+    border-bottom: 1px solid rgba(255, 176, 32, 0.4);
+    color: var(--amber);
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 8px 16px;
+}
+
 /* ---------- hero (home page) ---------- */
 
 .hero { padding: 44px 0 8px; }
