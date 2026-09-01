@@ -1609,6 +1609,37 @@ def stats():
     except Exception as e:
         print("stats insights failed: {}".format(e), file=sys.stderr)
 
+    # BNS registrations over years: the RPC only exposes the current total, so
+    # persist a yearly snapshot and interpolate between known points (implicit
+    # zero before the first charted year). Grows more accurate over time.
+    total_bns = sum(bns_counts) if isinstance(bns_counts, (list, tuple)) else (bns_counts or 0)
+    if history and history.get('years'):
+        try:
+            disk = _load_disk_stats() or {}
+            snaps = disk.get('bns_snapshots', {})
+            labels = [y['label'] for y in history['years']]
+            cur_year = labels[-1]
+            if total_bns and snaps.get(cur_year, 0) < total_bns:
+                snaps[cur_year] = total_bns
+                disk['bns_snapshots'] = snaps
+                _save_disk_stats(disk)
+            anchor_pts = [(-1, 0)] + sorted(
+                    (labels.index(y), v) for y, v in snaps.items() if y in labels)
+            series = []
+            for i in range(len(labels)):
+                lo = max((p for p in anchor_pts if p[0] <= i), key=lambda p: p[0])
+                highs = [p for p in anchor_pts if p[0] > i]
+                if not highs:
+                    val = lo[1]
+                else:
+                    hi = min(highs, key=lambda p: p[0])
+                    val = lo[1] + (hi[1] - lo[1]) * (i - lo[0]) / (hi[0] - lo[0])
+                series.append(round(val))
+            history['bns_years'] = [
+                    {'label': l, 'cumulative': v} for l, v in zip(labels, series)]
+        except Exception as e:
+            print("stats: bns series failed: {}".format(e), file=sys.stderr)
+
     return flask.render_template('stats.html',
             insights=insights,
             stale_info=stale_info,
