@@ -184,6 +184,8 @@ def add_global_headers(response):
 
 @app.errorhandler(500)
 def internal_error(e):
+    print("daemon-busy page served for {} via 500 handler (see traceback above)".format(
+            flask.request.path), file=sys.stderr)
     # In this app an unhandled exception almost always traces back to a beldexd
     # RPC timeout while the daemon is busy/syncing (futures return None and
     # downstream code trips over it). Render a friendly auto-retrying page;
@@ -339,6 +341,8 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     if info is None:
         # Even get_info timed out: daemon is unreachable or too busy to answer.
         # Render a friendly auto-retrying page instead of crashing.
+        print("daemon-busy page served for {}: get_info timed out".format(flask.request.path),
+                file=sys.stderr)
         return flask.render_template('daemon_unavailable.html', info=None), 503
     height = info['height']
     info['testnet']  = info['nettype'] == 'testnet'
@@ -1476,6 +1480,7 @@ def stats():
 
     info = inforeq.get()
     if info is None:
+        print("daemon-busy page served for /stats: get_info timed out", file=sys.stderr)
         return flask.render_template('daemon_unavailable.html', info=None), 503
     info['testnet'] = info['nettype'] == 'testnet'
     info['devnet'] = info['nettype'] == 'devnet'
