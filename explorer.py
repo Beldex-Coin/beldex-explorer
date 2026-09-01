@@ -1376,6 +1376,8 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
             pass
 
         now_dt = datetime.fromtimestamp(anchor_ts, tz=timezone.utc)
+        print("stats: anchor timestamp {} ({}), tip height {}".format(
+                int(anchor_ts), now_dt.strftime('%Y-%m-%d'), height - 1), file=sys.stderr)
         years = list(range(now_dt.year - _STATS_MAX_YEARS + 1, now_dt.year + 1))
         # Approximate chain height at each Jan 1 from the target block time
         bounds = []
@@ -1389,6 +1391,8 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
         for i, y in enumerate(years):
             start_h, end_h = bounds[i], bounds[i + 1]
             if end_h - start_h < 10:  # chain younger than this year
+                print("stats: skipping year {}: only {} blocks in range".format(
+                        y, end_h - start_h), file=sys.stderr)
                 header_futs.append(None)
                 burn_futs.append(None)
                 continue
@@ -1417,6 +1421,8 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
                 continue
             headers = ((fut.get() or {}).get('headers')) or []
             if not headers:
+                print("stats: year {} dropped: header sample RPC returned nothing "
+                        "(daemon busy?)".format(years[i]), file=sys.stderr)
                 continue
             start_h, end_h = bounds[i], bounds[i + 1]
             nblocks = end_h - start_h
@@ -1483,9 +1489,16 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
 
     if data:
         _stats_history_cache['data'] = data
-        # While the daemon hasn't produced fresh burn figures, retry much
-        # sooner (stale values may be on display in the meantime).
-        _stats_history_cache['expiry'] = now_ts + (600 if data.pop('_burn_pending', False) else 6 * 3600)
+        burn_pending = data.pop('_burn_pending', False)
+        # An incomplete series (newest year missing, e.g. its sample RPC timed
+        # out) or pending burn figures: retry soon instead of caching for 6h.
+        newest_missing = not data['years'] or \
+                data['years'][-1]['label'] != str(datetime.fromtimestamp(
+                    now_ts, tz=timezone.utc).year)
+        if newest_missing:
+            print("stats: newest year missing from series; will rebuild in 10 min",
+                    file=sys.stderr)
+        _stats_history_cache['expiry'] = now_ts + (600 if (burn_pending or newest_missing) else 6 * 3600)
     return data
 
 
