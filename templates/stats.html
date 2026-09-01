@@ -27,9 +27,9 @@
         <div class="stat-card">
             <span class="label">Circulating supply</span>
             {% if circulating_supply is not none %}
-                <span class="value">{{circulating_supply | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+                <span class="value" title="{{circulating_supply | beldex(tag=False, decimals=0)}} BDX">{{(circulating_supply / 1e18) | roundish | chop0}}<span class="unit">B BDX</span></span>
             {% elif emission and emission.status == 'OK' %}
-                <span class="value">{{(emission.emission_amount - emission.burn_amount) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+                <span class="value" title="{{(emission.emission_amount - emission.burn_amount) | beldex(tag=False, decimals=0)}} BDX">{{((emission.emission_amount - emission.burn_amount) / 1e18) | roundish | chop0}}<span class="unit">B BDX</span></span>
             {% else %}
                 <span class="value">…</span><span class="note">still calculating</span>
             {% endif %}
@@ -37,7 +37,7 @@
         <div class="stat-card">
             <span class="label">Total BDX burned</span>
             {% if emission and emission.status == 'OK' %}
-                <span class="value">{{emission.burn_amount | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+                <span class="value" title="{{emission.burn_amount | beldex(tag=False, decimals=0)}} BDX">{{(emission.burn_amount / 1e15) | roundish | chop0}}<span class="unit">M BDX</span></span>
             {% else %}
                 <span class="value">…</span><span class="note">still calculating</span>
             {% endif %}
@@ -47,9 +47,9 @@
             <span class="value" style="color: var(--green)">{{mn_counts.active}}</span>
             <span class="note">{{mn_counts.awaiting}} awaiting · {{mn_counts.decommissioned}} decommissioned</span>
         </div>
-        <div class="stat-card" title="Value staked by active master nodes (nodes × requirement)">
+        <div class="stat-card" title="Value staked by active master nodes (nodes × requirement): {{(mn_counts.active * stake.staking_requirement) | beldex(tag=False, decimals=0)}} BDX">
             <span class="label">Total value staked</span>
-            <span class="value">{{(mn_counts.active * stake.staking_requirement) | beldex(tag=False, decimals=0)}}<span class="unit">BDX</span></span>
+            <span class="value">{{((mn_counts.active * stake.staking_requirement) / 1e15) | roundish | chop0}}<span class="unit">M BDX</span></span>
         </div>
         <div class="stat-card">
             <span class="label">BNS names</span>

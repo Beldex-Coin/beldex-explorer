@@ -18,6 +18,11 @@
             <span class="value" style="color: var(--red)">{{inactive_mns | count}}</span>
             <span class="note">not earning rewards, face deregistration</span>
         </div>
+        {% set total_staked = (active_mns | sum(attribute='staking_requirement')) %}
+        <div class="stat-card" title="{{total_staked | beldex(tag=False, decimals=0)}} BDX staked across active master nodes">
+            <span class="label">Total value staked</span>
+            <span class="value">{{(total_staked / 1e15) | roundish | chop0}}<span class="unit">M BDX</span></span>
+        </div>
     </div>
 
     <div class="panel" id="master-nodes-awaiting">
