@@ -5,3 +5,4 @@ pylokimq.cpython-*.so
 __pycache__
 local_config.py
 .stats_cache.json
+.info_cache.json
