@@ -232,7 +232,8 @@ class _CachedInfoFuture:
     info when the daemon answers, else the last snapshot (up to 1h old) with
     .stale set, else None."""
     def __init__(self, lmq, beldexd):
-        self._fut = _CachedInfoFuture(lmq, beldexd)
+        self._fut = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+        # self._fut = _CachedInfoFuture(lmq, beldexd)
         self.stale = False
 
     def get(self):
@@ -1025,16 +1026,39 @@ def api_networkinfo():
 def api_bnslookup():
     lmq, beldexd = lmq_connection()
     name = flask.request.args.get('name')
-    bnsinfo = bns_info(lmq, beldexd, name).get()
-    bns_data = {'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
 
-    if 'result' in bnsinfo:
-        bnsinfo = bnsinfo['result'][0]
-        types = {
-        'bchat': 'encrypted_bchat_value',
-        'belnet': 'encrypted_belnet_value',
-        'wallet': 'encrypted_wallet_value',
-        'eth_addr': 'encrypted_eth_addr_value'
+    blocked_names = {"beldex.bdx", "localhost.bdx", "mnode.bdx"}
+    bns_data = {
+        'available': True,
+        'name': name,
+        'bchat': "",
+        'belnet': "",
+        'wallet': "",
+        'ethAddress': "",
+    }
+
+    if name in blocked_names:
+        bns_data['available'] = False
+        return flask.jsonify({"bnsData": bns_data, "status": "ok"})
+
+    bnsinfo = bns_info(lmq, beldexd, name)
+    result = bnsinfo.get('result')
+
+    print(f"API BNS Lookup for name: {name}, Result: {result}")
+
+    if result:
+        info = result[0]
+        bns_data.update({
+            'owner': info.get('owner'),
+            'exp_height': info.get('expiration_height'),
+            'available': False,
+        })
+
+        field_map = {
+            'bchat': 'encrypted_bchat_value',
+            'belnet': 'encrypted_belnet_value',
+            'wallet': 'encrypted_wallet_value',
+            'eth_addr': 'encrypted_eth_addr_value',
         }
         for key, value in types.items():
             if len(bnsinfo[value]) != 0:
