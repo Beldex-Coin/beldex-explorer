@@ -37,10 +37,13 @@
         <p class="hero-note">Where the master node set lives — geographic and hosting-provider spread of every node's public IP</p>
     </div>
 
-    {% if geo_status.running %}
-    <div class="stale-banner">Locating nodes — {{ geo_status.pending }} address{{ '' if geo_status.pending == 1 else 'es' }} still queued. This page refreshes itself as results arrive.</div>
+    {% set _left = geo_status.remaining | default(0, true) %}
+    {% if _left and dist.located %}
+    <div class="stale-banner">Showing {{ dist.located }} located nodes — {{ _left }} address{{ '' if _left == 1 else 'es' }} still to look up{{ ' (ip-api rate limit reached; resuming shortly)' if geo_status.rate_limited else '' }}. This page refreshes automatically.</div>
+    {% elif _left %}
+    <div class="stale-banner">Looking up node locations — {{ _left }} address{{ '' if _left == 1 else 'es' }} to go{% if geo_status.error %} · last attempt failed: {{ geo_status.error }}{% endif %}. This page refreshes automatically.</div>
     {% elif dist.located == 0 %}
-    <div class="stale-banner">No location data yet{% if geo_status.error %} — last lookup failed: {{ geo_status.error }}{% endif %}. Lookups run in the background and the page refreshes automatically.</div>
+    <div class="stale-banner">No location data available{% if geo_status.error %} — {{ geo_status.error }}{% endif %}.</div>
     {% endif %}
 
     {# ---------------- headline tiles ---------------- #}

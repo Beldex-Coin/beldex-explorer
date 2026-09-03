@@ -538,11 +538,10 @@ def _mn_status(mn):
     return 'awaiting'
 
 
-def _distribution(mns):
-    """Aggregates master nodes by country, ASN and map point using whatever
-    geolocation data is already cached (see geoip.py)."""
+def _distribution(mns, geo):
+    """Aggregates master nodes by country, ASN and map point from the
+    resolved geolocation map (see geoip.py)."""
     ips = [mn.get('public_ip') for mn in mns if mn.get('public_ip')]
-    geo = geoip.lookup(ips)
 
     by_country, by_asn, points = {}, {}, {}
     located = 0
@@ -603,17 +602,17 @@ def distribution():
     awaiting, active, inactive = get_mns(mns_future, inforeq)
     mns = active + inactive + awaiting
 
-    # Queue any missing/stale lookups in the background, then build the page
-    # from whatever is cached right now. The first ever load therefore renders
-    # immediately (mostly empty) and fills in over the next refreshes.
+    # Resolve locations in-line so the page always renders with data. Anything
+    # not covered by the time/rate budget is picked up on the next request.
     ips = [mn['public_ip'] for mn in mns if mn.get('public_ip')]
     try:
-        geoip.refresh(ips)
+        geo, geo_info = geoip.geolocate(ips)
     except Exception as e:
-        print("geoip refresh failed: {}".format(e), file=sys.stderr)
-    geo_status = geoip.status()
+        print("geoip lookup failed: {}".format(e), file=sys.stderr)
+        geo, geo_info = {}, {'remaining': len(ips), 'error': str(e),
+                             'resolved': 0, 'rate_limited': False}
 
-    dist = _distribution(mns)
+    dist = _distribution(mns, geo)
     dist['status_counts'] = {
         'active': len(active),
         'decommissioned': len(inactive),
@@ -624,9 +623,9 @@ def distribution():
             info=info,
             stale_info=stale_info,
             dist=dist,
-            geo_status=geo_status,
-            # Refresh while lookups are still in flight so the map fills in.
-            refresh=20 if (geo_status.get('running') or dist['located'] == 0) else None,
+            geo_status=geo_info,
+            # Only auto-refresh while addresses are still outstanding.
+            refresh=30 if geo_info.get('remaining') else None,
             )
 
 

@@ -374,6 +374,13 @@ details.legend .legend-items { display: flex; flex-wrap: wrap; gap: 6px 18px; pa
     text-decoration: none;
 }
 
+.site-nav a.active {
+    color: #00c853;
+    font-weight: 600;
+    border-color: var(--border-strong);
+    /* border-bottom: 2px solid #00c853; */
+}
+
 /* ---------- pager ---------- */
 
 .pager {
