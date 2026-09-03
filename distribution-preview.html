@@ -1,0 +1,2166 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  
+      <title>Distribution — Beldex
+  Blockchain Explorer</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Michroma&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+    <style>
+/* ============================================================
+   BELDEX EXPLORER — legacy (Jinja) frontend, design revamp.
+   Styled after beldex.io: near-black canvas, dot-grid field,
+   Michroma display type, Space Mono body, sharp white buttons,
+   Beldex green (#00d959) accents.
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Michroma&family=Space+Mono:ital,wght@0,400;0,700;1,400&display=swap');
+
+:root {
+    /* legacy variable names kept so any inline uses still resolve */
+    --primary-bg-color: #0a0a0a;
+    --primary-fg-color: #f2f2f2;
+    --primary-link-color: #f2f2f2;
+    --primary-link-highlight-color: #00d959;
+    --control-bg-color: #ffffff;
+    --control-fg-color: #000000;
+    --control-highlight-link-color: #00d959;
+    --control-highlight-bg-color: #00d959;
+    --control-highlight-fg-color: #000000;
+    --text-highlight-color: #00d959;
+    --header-bg-color: #050505;
+    --header-fg-color: #ffffff;
+
+    /* new tokens */
+    --bg: #0a0a0a;
+    --bg-panel: #0d0d0d;
+    --dot: rgba(255, 255, 255, 0.08);
+    --border: #1e1e1e;
+    --border-strong: #2c2c2c;
+    --text: #f2f2f2;
+    --text-dim: #8f8f8f;
+    --text-faint: #5c5c5c;
+    --green: #00d959;
+    --green-dim: rgba(0, 217, 89, 0.12);
+    --blue: #2f7dff;
+    --red: #ff4d5b;
+    --amber: #ffb020;
+    --font-display: 'Michroma', 'Orbitron', sans-serif;
+    --font-mono: 'Space Mono', 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+    margin: 0;
+    background-color: var(--bg);
+    background-image: radial-gradient(circle, var(--dot) 1.2px, transparent 1.2px);
+    background-size: 30px 30px;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+}
+
+::selection { background: var(--green); color: #000; }
+
+/* ---------- typography ---------- */
+
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text);
+    margin: 1.2em 0 0.6em;
+}
+
+h1 { font-size: 26px; }
+h2 { font-size: 19px; }
+h3 { font-size: 15px; }
+h4 { font-size: 13px; }
+h5, h6 { font-size: 11px; color: var(--text-dim); }
+
+a:link, a:visited {
+    color: var(--green);
+    text-decoration: none;
+}
+a:hover {
+    color: #fff;
+    text-decoration: underline;
+}
+
+label { color: var(--text-faint); }
+
+p > label, span > label, h3 > label, h4 > label, td > label, .info-item > label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-right: 8px;
+}
+
+label.warning { color: var(--amber); }
+.warning { color: var(--amber); }
+
+.comment { color: var(--text-dim); font-style: italic; }
+
+code {
+    font-family: var(--font-mono);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--border-strong);
+    padding: 2px 7px;
+    word-break: break-all;
+}
+
+/* ---------- layout ---------- */
+
+.Wrapper {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 0 24px;
+}
+
+/* ---------- header ---------- */
+
+#header {
+    max-width: none;
+    padding: 0;
+    background: rgba(5, 5, 5, 0.92);
+    border-bottom: 1px solid var(--border);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    backdrop-filter: blur(12px);
+}
+
+#header > #header-content {
+    max-width: 1280px;
+    margin: 0 auto;
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    gap: 28px;
+    flex-wrap: wrap;
+}
+
+#header h1.Header {
+    margin: 0;
+    display: flex;
+    align-items: center;
+}
+
+#header h1.Header img { height: 40px; display: block; }
+
+/* logo.svg already carries the BELDEX wordmark */
+#header h1.Header a { display: flex; align-items: center; }
+#header h1.Header a:hover { text-decoration: none; }
+
+#header form.top-search {
+    display: flex;
+    align-items: stretch;
+    flex: 1;
+    min-width: 280px;
+    max-width: 720px;
+    margin: 0 0 0 auto;
+    border: 1px solid var(--border-strong);
+    background: rgba(10, 10, 10, 0.85);
+}
+#header form.top-search:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green);
+}
+
+#header form.top-search input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 11px 16px;
+}
+#header form.top-search input[type="text"]::placeholder { color: var(--text-faint); }
+
+#header form.top-search input[type="submit"] {
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    color: #000;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 0 26px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+#header form.top-search input[type="submit"]:hover {
+    background: var(--green);
+    box-shadow: 0 0 20px rgba(0, 217, 89, 0.35);
+}
+
+/* ---------- stale-data banner ---------- */
+
+.stale-banner {
+    background: rgba(255, 176, 32, 0.12);
+    border-bottom: 1px solid rgba(255, 176, 32, 0.4);
+    color: var(--amber);
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    text-align: center;
+    padding: 8px 16px;
+}
+
+/* ---------- hero (home page) ---------- */
+
+.hero { padding: 44px 0 8px; }
+
+.eyebrow {
+    font-family: var(--font-display);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.35em;
+    color: var(--green);
+}
+
+.hero-title {
+    font-family: var(--font-display);
+    font-size: clamp(22px, 3.4vw, 40px);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    line-height: 1.15;
+    margin: 12px 0 0;
+}
+
+.hero-note { color: var(--text-dim); font-size: 13px; margin-top: 10px; }
+
+/* ---------- stat cards ---------- */
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin: 24px 0;
+}
+
+.stat-card {
+    background: var(--bg-panel);
+    padding: 20px 18px 16px;
+    position: relative;
+}
+.stat-card:hover { box-shadow: inset 2px 0 0 var(--green); }
+
+.stat-card .label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-bottom: 8px;
+}
+.stat-card .value {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 21px;
+    line-height: 1.25;
+    color: var(--text);
+    word-break: break-word;
+}
+.stat-card .value .unit { font-size: 12px; color: var(--text-dim); font-weight: 400; margin-left: 5px; }
+.stat-card .note { margin-top: 5px; font-size: 11px; color: var(--text-dim); }
+
+/* ---------- panels ---------- */
+
+.panel {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    margin: 28px 0;
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border);
+}
+.panel-head .title {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin: 0;
+}
+.panel-head .spacer { margin-left: auto; }
+.panel-head .meta { color: var(--text-faint); font-size: 11px; }
+
+.panel > table, .panel .Table { border: 0; margin: 0; }
+
+.panel-body { padding: 16px 20px; }
+
+/* key/value rows inside panels */
+.kv { display: grid; grid-template-columns: 240px 1fr; border-bottom: 1px solid var(--border); }
+.kv:last-child { border-bottom: 0; }
+.kv > .k {
+    padding: 11px 20px;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    border-right: 1px solid var(--border);
+}
+.kv > .v { padding: 11px 20px; word-break: break-all; }
+@media (max-width: 720px) {
+    .kv { grid-template-columns: 1fr; }
+    .kv > .k { border-right: 0; padding-bottom: 0; }
+}
+
+/* quick-link chips (txpool, belnet, autorefresh...) */
+.chips { display: flex; flex-wrap: wrap; gap: 10px; margin: 18px 0; }
+.chips a, .chips span.chip {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 8px 14px;
+    text-decoration: none;
+    transition: color 0.15s, border-color 0.15s;
+}
+.chips a:hover { color: var(--green); border-color: var(--green); text-decoration: none; }
+
+/* tx legend as subtle collapsible */
+details.legend { margin: 14px 0; color: var(--text-dim); }
+details.legend summary {
+    cursor: pointer;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+details.legend summary:hover { color: var(--green); }
+details.legend .legend-items { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 2px; font-size: 12px; }
+
+/* ---------- header nav ---------- */
+
+.site-nav {
+    display: flex;
+    gap: 4px;
+    flex-wrap: wrap;
+    margin-left: auto;
+}
+
+.site-nav a {
+    font-family: var(--font-display);
+    font-size: 10.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    padding: 7px 14px;
+    border: 1px solid transparent;
+    text-decoration: none;
+    transition: color 0.15s, border-color 0.15s;
+}
+.site-nav a:hover {
+    color: var(--green);
+    border-color: var(--border-strong);
+    text-decoration: none;
+}
+
+/* ---------- pager ---------- */
+
+.pager {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 12px 18px;
+    margin: 20px 0;
+}
+
+.pager-btn {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 8px 16px;
+    text-decoration: none !important;
+    transition: color 0.15s, border-color 0.15s;
+}
+a.pager-btn:hover { color: var(--green); border-color: var(--green); }
+.pager-btn.disabled { color: var(--text-faint); border-color: var(--border); cursor: default; }
+
+.pager-info { color: var(--text-dim); font-size: 12px; }
+.pager-info .page-number { color: var(--green); font-weight: 700; }
+.pager-sep { color: var(--text-faint); margin: 0 2px; }
+
+.pager-spacer { margin-left: auto; }
+
+.pager-select { color: var(--text-faint); font-size: 12px; }
+.pager-select select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 5px 8px;
+    margin: 0 4px;
+}
+
+/* ---------- page search (hero) ---------- */
+
+form.page-search {
+    display: flex;
+    align-items: stretch;
+    max-width: 720px;
+    margin: 22px 0 4px;
+    border: 1px solid var(--border-strong);
+    background: rgba(10, 10, 10, 0.85);
+}
+form.page-search:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green);
+}
+form.page-search input[type="text"] {
+    flex: 1;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 13px 16px;
+}
+form.page-search input[type="text"]::placeholder { color: var(--text-faint); }
+form.page-search input[type="submit"] {
+    border: 0;
+    border-radius: 0;
+    background: #fff;
+    color: #000;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 13px;
+    padding: 0 28px;
+    cursor: pointer;
+    transition: background 0.15s, box-shadow 0.15s;
+}
+form.page-search input[type="submit"]:hover {
+    background: var(--green);
+    box-shadow: 0 0 20px rgba(0, 217, 89, 0.35);
+}
+
+/* ---------- stats insights ---------- */
+
+.insight-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1px;
+    background: var(--border);
+}
+
+.insight-card {
+    background: var(--bg-panel);
+    padding: 18px 20px;
+    position: relative;
+}
+.insight-card:hover { box-shadow: inset 2px 0 0 var(--green); }
+
+.insight-top { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+
+.insight-value {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 20px;
+}
+.insight-value.up { color: var(--green); }
+.insight-value.down { color: var(--red); }
+.insight-value.neutral { color: var(--text); }
+
+.insight-label {
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.insight-desc {
+    margin: 8px 0 0;
+    font-size: 12px;
+    color: var(--text-dim);
+}
+
+/* ---------- stats dashboard charts ---------- */
+
+.chart-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+    gap: 20px;
+    margin: 28px 0 48px;
+}
+@media (max-width: 500px) { .chart-grid { grid-template-columns: 1fr; } }
+
+.chart-panel {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 18px 18px 10px;
+    transition: border-color 0.2s;
+}
+.chart-panel:hover { border-color: rgba(0, 217, 89, 0.35); }
+
+.chart-title {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin: 0 0 12px;
+}
+.chart-sub {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.05em;
+    text-transform: none;
+    color: var(--text-faint);
+    margin-left: 8px;
+}
+
+.chart-panel svg { width: 100%; height: auto; display: block; }
+
+.chart-panel .grid { stroke: rgba(255, 255, 255, 0.06); stroke-width: 1; }
+.chart-panel .axis {
+    fill: var(--text-faint);
+    font-family: var(--font-mono);
+    font-size: 9px;
+}
+.chart-panel .chart-line {
+    fill: none;
+    stroke: var(--green);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    filter: drop-shadow(0 0 6px rgba(0, 217, 89, 0.55));
+}
+.chart-panel .chart-dot {
+    fill: #0a0a0a;
+    stroke: var(--green);
+    stroke-width: 1.5;
+}
+.chart-panel .chart-dot:hover { fill: var(--green); r: 4; }
+
+.chart-panel .chart-bar {
+    fill: rgba(0, 217, 89, 0.25);
+    stroke: var(--green);
+    stroke-width: 1;
+    transition: fill 0.15s;
+}
+.chart-panel .chart-bar:hover { fill: rgba(0, 217, 89, 0.55); }
+.chart-panel .bar-value { fill: var(--text-dim); }
+
+.chart-pending {
+    color: var(--text-faint);
+    font-size: 12px;
+    padding: 48px 12px;
+    text-align: center;
+}
+
+/* ---------- dividers ---------- */
+
+.TitleUnderliner, .TitleDivider {
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    height: 0;
+}
+
+/* ---------- buttons & pagination ---------- */
+
+.PageButton, .blue_btn {
+    display: inline-block;
+    background: #fff;
+    color: #000 !important;
+    border: 1px solid #fff;
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 7px 18px;
+    cursor: pointer;
+    text-decoration: none !important;
+    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
+}
+.PageButton:hover, .blue_btn:hover {
+    background: var(--green);
+    border-color: var(--green);
+    box-shadow: 0 0 20px rgba(0, 217, 89, 0.35);
+    color: #000 !important;
+}
+
+.PageButton.disabled, .PageButton.disabled:hover {
+    background: transparent;
+    color: var(--text-faint) !important;
+    border-color: var(--border);
+    cursor: default;
+    box-shadow: none;
+}
+
+.PaginationControl select {
+    background: var(--bg-panel);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 6px 10px;
+}
+
+.pages { color: var(--text-faint); }
+.pages a:link, .pages a:visited {
+    color: var(--text-dim);
+    padding: 4px 8px;
+    border: 1px solid transparent;
+}
+.pages a:hover {
+    color: var(--green);
+    border-color: var(--border-strong);
+    text-decoration: none;
+}
+.page-number { color: var(--green); font-weight: 700; }
+
+/* ---------- tables ---------- */
+
+table {
+    border-collapse: collapse;
+    width: 100%;
+    background: var(--bg-panel);
+    border: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.Table { margin: 12px 0 24px; }
+
+table th, .TableHeader {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: 9px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    background: var(--bg-panel);
+    text-align: left;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+td {
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+}
+
+tr:last-child > td { border-bottom: 0; }
+
+tbody tr { transition: background 0.12s; }
+tbody tr:hover { background: rgba(255, 255, 255, 0.025); }
+
+table th:first-child, table thead tr td:first-child { border-radius: 0; }
+table th:last-child, table thead tr td:last-child { border-radius: 0; }
+
+.Table.metadata td { border-bottom: 1px solid var(--border); word-break: break-all; }
+.Table.metadata label {
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+/* ---------- info blocks (home page stats etc.) ---------- */
+
+.general_info { margin: 20px 0; }
+
+.info_list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin: 16px 0;
+}
+
+.info_list > span {
+    flex: 1 1 210px;
+    background: var(--bg-panel);
+    padding: 18px 18px 14px;
+    display: flex;
+    flex-direction: column-reverse; /* value above, label below in markup order variance */
+    position: relative;
+}
+.info_list > span:hover { box-shadow: inset 2px 0 0 var(--green); }
+
+.info_list > span > label {
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+.info_list > span > label.omg { color: var(--amber); }
+
+.bel-label {
+    font-family: var(--font-display);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+.bel-number {
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 19px;
+    color: var(--text);
+    word-break: break-word;
+}
+
+.info-item { padding: 6px 0; }
+.info-item:before { content: none; }
+
+.nowrap-spans > span { white-space: nowrap; }
+
+.omg { color: var(--amber); }
+
+.Subtitle {
+    font-family: var(--font-display);
+    font-size: 12px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--green);
+    margin: 28px 0 10px;
+}
+
+.center { text-align: center; }
+
+.curr-height { color: var(--text-dim); }
+.curr-height span, h3 .mn-count { color: var(--green); }
+
+.beldex-border { border: 1px solid var(--border-strong); }
+
+/* ---------- icons ---------- */
+
+span.icon, .icon { filter: none; }
+.linked-icon { text-decoration: none; }
+.TXType {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 8.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 2px 8px;
+}
+
+/* ---------- tabs (radio-based, tx/block details) ---------- */
+
+.tabs { margin: 16px 0; }
+
+.tab [type=radio], input#toggle-1[type=checkbox] { display: none; }
+
+.tab label, label#show-decoded-inputs {
+    display: inline-block;
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    padding: 8px 16px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+}
+.tab label:hover, label#show-decoded-inputs:hover { color: var(--green); border-color: var(--green); }
+
+.content {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 16px 20px;
+    display: none;
+}
+
+[type=radio]:checked ~ label {
+    color: var(--green);
+    border-color: var(--green);
+    background: var(--green-dim);
+}
+[type=radio]:checked ~ label ~ .content { display: block; }
+
+div#decoded-inputs { display: none; }
+input#toggle-1[type=checkbox]:checked ~ div#decoded-inputs { display: block; }
+
+/* ---------- mempool / tx ---------- */
+
+.pending-mempool-stakes .tx { color: var(--amber); }
+
+.tx-inputs, .tx-outputs { margin: 8px 0; }
+tr.tx-input-key-image > td {
+    color: var(--text-dim);
+    font-size: 12px;
+    word-break: break-all;
+}
+
+p.state-change-pubkey { word-break: break-all; }
+
+/* ---------- master nodes ---------- */
+
+.mn { word-break: break-all; }
+
+.mn-details { padding-bottom: 24px; }
+.mn-details .mn-details-main {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    align-items: stretch;
+    margin-bottom: 8px;
+}
+.mn-details .mn-details-main .details { flex: 1; min-width: 300px; }
+
+/* long addresses: full value, small type */
+.mn-addr {
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+}
+
+/* modern QR card */
+.qr-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 20px 24px;
+}
+.qr-card:hover { border-color: rgba(0, 217, 89, 0.4); }
+.qr-card img.qr {
+    display: block;
+    width: 132px;
+    height: 132px;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid var(--border-strong);
+    image-rendering: pixelated;
+}
+.qr-card .qr-label {
+    font-family: var(--font-display);
+    font-size: 8.5px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+}
+
+.mn-active { color: var(--green); }
+.mn-awaiting { color: var(--amber); }
+
+td.mn-more { color: var(--text-faint); font-size: 12px; }
+
+/* ---------- tabset (CSS-only tabs, quorums page) ---------- */
+
+.tabset { margin: 8px 0 40px; }
+
+.tabset > input[type=radio] { display: none; }
+
+.tabset .tabbar {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 20px;
+}
+
+.tabset .tabbar label {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    border: 1px solid var(--border-strong);
+    border-bottom: none;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: color 0.15s, background 0.15s;
+}
+.tabset .tabbar label:hover { color: var(--green); }
+
+.tabset .tabpanel { display: none; }
+
+#qtab-testing:checked ~ .tabbar label[for="qtab-testing"],
+#qtab-pos:checked ~ .tabbar label[for="qtab-pos"],
+#qtab-checkpoint:checked ~ .tabbar label[for="qtab-checkpoint"],
+#qtab-flash:checked ~ .tabbar label[for="qtab-flash"] {
+    color: var(--green);
+    background: var(--green-dim);
+    border-color: rgba(0, 217, 89, 0.4);
+}
+
+#qtab-testing:checked ~ #qpanel-testing,
+#qtab-pos:checked ~ #qpanel-pos,
+#qtab-checkpoint:checked ~ #qpanel-checkpoint,
+#qtab-flash:checked ~ #qpanel-flash { display: block; }
+
+/* ---------- quorums ---------- */
+
+div.quorums { display: flex; flex-wrap: wrap; gap: 16px; margin: 16px 0; }
+
+div.quorums > div {
+    border: 1px solid var(--border);
+    background: var(--bg-panel);
+    padding: 14px 16px;
+    flex: 1 1 280px;
+}
+
+div.quorums h2 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+}
+div.quorums > div.now { border-color: rgba(0, 217, 89, 0.4); }
+div.quorums > div.now h2 { color: var(--green); }
+
+div.quorums h5 {
+    margin: 12px 0 6px;
+    color: var(--text-faint);
+    letter-spacing: 0.2em;
+}
+
+.quorums .mn,
+.quorums .validators .mn {
+    display: inline-block;
+    font-size: 11px;
+    color: var(--green);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    margin: 2px;
+    transition: border-color 0.12s;
+}
+.quorums .mn:hover { border-color: var(--green); text-decoration: none; }
+
+.quorums .workers label, .quorums .validators label {
+    display: block;
+    font-family: var(--font-display);
+    font-size: 8.5px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 6px 0 4px;
+}
+
+div.tx-state-change-quorum div.workers .mn.testee {
+    border-color: var(--amber);
+    color: var(--amber);
+}
+
+td.quorum-pubkey span { word-break: break-all; }
+
+th.voter-signature, td.voter-signature { font-size: 11px; word-break: break-all; }
+
+td span.checkpoint-signed { color: var(--green); }
+td span.checkpoint-not-signed { color: var(--red); }
+
+/* ---------- code / json details ---------- */
+
+.syntax-highlight > pre {
+    background: #050505;
+    border: 1px solid var(--border);
+    padding: 16px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* ---------- footer ---------- */
+
+#footer { padding-bottom: 40px; }
+
+.bel-footer {
+    color: var(--text-faint);
+    font-size: 12px;
+}
+.bel-footer a:link, .bel-footer a:visited { color: var(--text-dim); }
+.bel-footer a:hover { color: var(--green); }
+
+/* ---------- misc / forms ---------- */
+
+form { margin: 0; }
+
+input[type="text"], input[type="number"], textarea, select {
+    background: var(--bg-panel);
+    color: var(--text);
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 8px 12px;
+}
+input[type="text"]:focus, textarea:focus {
+    outline: none;
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green);
+}
+
+div.bns { word-break: break-all; }
+
+/* ---------- responsive ---------- */
+
+@media (max-width: 720px) {
+    #header > #header-content { gap: 14px; }
+    #header form.top-search { min-width: 100%; }
+    .Wrapper { padding: 0 14px; }
+    table { display: block; overflow-x: auto; }
+}
+
+/* ============================================================
+   MASTER NODE DISTRIBUTION (/distribution)
+   ============================================================ */
+
+/* ---------- world map ---------- */
+
+.worldmap {
+    position: relative;
+    margin-top: 6px;
+    border: 1px solid var(--border);
+    background:
+        radial-gradient(120% 90% at 50% 0%, rgba(0, 217, 89, 0.05), transparent 60%),
+        #070707;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.worldmap__svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    cursor: grab;
+}
+.worldmap__svg.is-panning { cursor: grabbing; }
+
+.worldmap__sphere { fill: rgba(255, 255, 255, 0.015); stroke: var(--border-strong); stroke-width: 1; }
+.worldmap__grat { fill: none; stroke: rgba(255, 255, 255, 0.045); stroke-width: 1; }
+.worldmap__land { fill: #171717; stroke: #2a2a2a; stroke-width: 0.8; }
+
+.worldmap__pin { cursor: pointer; }
+.worldmap__pinshadow { fill: rgba(0, 0, 0, 0.55); }
+.worldmap__pinbody { stroke: rgba(0, 0, 0, 0.55); stroke-width: 1; }
+.worldmap__pinbody--active { fill: var(--green); }
+.worldmap__pinbody--decommissioned { fill: var(--red); }
+.worldmap__pinbody--awaiting { fill: var(--amber); }
+.worldmap__pinhole { fill: #050505; }
+.worldmap__pin:hover .worldmap__pinbody { filter: brightness(1.35); }
+
+.worldmap__zoom {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.worldmap__zbtn {
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+}
+.worldmap__zbtn:hover { color: var(--green); border-color: var(--green); }
+
+.worldmap__legend {
+    position: absolute;
+    left: 10px;
+    bottom: 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.worldmap__lg {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+.worldmap__lg::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+.worldmap__lg--active { color: var(--green); }
+.worldmap__lg--decommissioned { color: var(--red); }
+.worldmap__lg--awaiting { color: var(--amber); }
+.worldmap__lg:hover { border-color: currentColor; }
+.worldmap__lg.is-off { color: var(--text-faint); opacity: 0.6; }
+
+.worldmap__tip {
+    position: absolute;
+    transform: translate(-50%, calc(-100% - 16px));
+    background: rgba(5, 5, 5, 0.96);
+    border: 1px solid var(--border-strong);
+    padding: 7px 10px;
+    pointer-events: none;
+    white-space: nowrap;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 3;
+}
+.worldmap__tip strong {
+    font-family: var(--font-display);
+    font-size: 10px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+}
+.worldmap__tip span { font-size: 11px; color: var(--text-dim); }
+.worldmap__tipbreak { color: var(--text-faint) !important; font-size: 10px !important; }
+
+.worldmap__note {
+    position: absolute;
+    left: 10px;
+    top: 10px;
+    font-size: 10px;
+    color: var(--text-faint);
+    background: rgba(10, 10, 10, 0.85);
+    border: 1px solid var(--border);
+    padding: 3px 7px;
+}
+
+/* ---------- ranked bar lists ---------- */
+
+.barlist {
+    list-style: none;
+    margin: 4px 0 0;
+    padding: 0;
+}
+
+.barlist__row {
+    display: grid;
+    grid-template-columns: minmax(90px, 1.35fr) minmax(60px, 2fr) auto;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+.barlist__row:last-child { border-bottom: none; }
+.barlist__row.is-extra { display: none; }
+.barlist.is-expanded .barlist__row.is-extra { display: grid; }
+
+.barlist__label {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+}
+.barlist__flag { font-size: 13px; line-height: 1; flex: none; }
+.barlist__name {
+    font-size: 12px;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.barlist__track {
+    height: 6px;
+    background: rgba(255, 255, 255, 0.05);
+    overflow: hidden;
+}
+.barlist__fill {
+    height: 100%;
+    background: linear-gradient(90deg, rgba(0, 217, 89, 0.45), var(--green));
+}
+
+.barlist__val {
+    font-size: 12px;
+    color: var(--text);
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+.barlist__pct { color: var(--text-faint); font-size: 10px; margin-left: 6px; }
+
+.barlist__more {
+    margin-top: 10px;
+    background: none;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+.barlist__more:hover { color: var(--green); border-color: var(--green); }
+
+@media (max-width: 560px) {
+    .barlist__row { grid-template-columns: minmax(80px, 1.4fr) 1fr auto; gap: 7px; }
+    .worldmap__legend { font-size: 9px; }
+}
+
+</style>
+    
+  
+</head>
+
+<body>
+<div id="header" class="Wrapper">
+    
+    <div id="header-content">
+        <!-- <h1 class="Header"><a href="/">Beldex
+                
+                Blockchain Explorer1</a></h1> -->
+                <h1 class="Header">
+                   <a href="/">BELDEX</a>
+                </h1>
+        <nav class="site-nav">
+            <a href="/">Explorer</a>
+            <a href="/master_nodes">Master Nodes</a>
+            <a href="/distribution">Distribution</a>
+            <a href="/quorums">Quorums</a>
+            <a href="/stats">Stats</a>
+        </nav>
+    </div>
+    
+</div>
+
+
+
+<div class="Wrapper">
+
+    <div class="hero" style="padding: 24px 0 8px">
+        <div class="eyebrow">Network Analytics</div>
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Master Node Distribution</h1>
+        <p class="hero-note">Where the master node set lives — geographic and hosting-provider spread of every node's public IP</p>
+    </div>
+
+    
+
+    
+    <div class="stat-grid">
+        <div class="stat-card">
+            <span class="label">Master nodes</span>
+            <span class="value">435</span>
+            <span class="note">435 with a public IP</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Located</span>
+            <span class="value" style="color: var(--green)">424</span>
+            <span class="note">11 unresolved</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Countries</span>
+            <span class="value">20</span>
+            <span class="note">top: Germany (95)</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Providers / ASNs</span>
+            <span class="value">18</span>
+            <span class="note" title="HETZNER">top: HETZNER</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Active</span>
+            <span class="value" style="color: var(--green)">381</span>
+            <span class="note">17 awaiting · 37 decommissioned</span>
+        </div>
+        <div class="stat-card" title="Share of located nodes sitting in the single largest country">
+            <span class="label">Top country share</span>
+            <span class="value">22.4<span class="unit">%</span></span>
+            <span class="note">concentration indicator</span>
+        </div>
+    </div>
+
+    
+    <div class="chart-panel" style="margin-top: 22px">
+        <h2 class="chart-title">Node map
+            <span class="chart-sub">424 located · 11 unknown · scroll or drag to explore</span>
+        </h2>
+        <div class="worldmap" data-worldmap>
+            <svg class="worldmap__svg" viewBox="0 0 820 420" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="worldmap__zoom">
+                <button type="button" class="worldmap__zbtn" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button>
+                <button type="button" class="worldmap__zbtn" data-zoom="out" title="Zoom out" aria-label="Zoom out">&minus;</button>
+                <button type="button" class="worldmap__zbtn" data-zoom="reset" title="Reset view" aria-label="Reset view">&#8634;</button>
+            </div>
+            <div class="worldmap__legend">
+                <button type="button" class="worldmap__lg worldmap__lg--active" data-status="active">Active</button>
+                <button type="button" class="worldmap__lg worldmap__lg--decommissioned" data-status="decommissioned">Decommissioned</button>
+                <button type="button" class="worldmap__lg worldmap__lg--awaiting" data-status="awaiting">Awaiting</button>
+            </div>
+            <div class="worldmap__tip" hidden></div>
+            <div class="worldmap__note" hidden></div>
+        </div>
+    </div>
+
+    
+    <div class="chart-grid" style="margin-top: 18px">
+        <div class="chart-panel">
+            <h2 class="chart-title">Nodes by country <span class="chart-sub">20 countries</span></h2>
+            
+                
+    
+    <ul class="barlist">
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Germany">
+                <span class="barlist__flag">🇩🇪</span>
+                <span class="barlist__name">Germany</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 100.0%"></div>
+            </div>
+            <div class="barlist__val">
+                95<span class="barlist__pct">22.4%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="United States">
+                <span class="barlist__flag">🇺🇸</span>
+                <span class="barlist__name">United States</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 73.68%"></div>
+            </div>
+            <div class="barlist__val">
+                70<span class="barlist__pct">16.5%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="India">
+                <span class="barlist__flag">🇮🇳</span>
+                <span class="barlist__name">India</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 57.89%"></div>
+            </div>
+            <div class="barlist__val">
+                55<span class="barlist__pct">13.0%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Singapore">
+                <span class="barlist__flag">🇸🇬</span>
+                <span class="barlist__name">Singapore</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 42.11%"></div>
+            </div>
+            <div class="barlist__val">
+                40<span class="barlist__pct">9.4%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="France">
+                <span class="barlist__flag">🇫🇷</span>
+                <span class="barlist__name">France</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 35.79%"></div>
+            </div>
+            <div class="barlist__val">
+                34<span class="barlist__pct">8.0%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Netherlands">
+                <span class="barlist__flag">🇳🇱</span>
+                <span class="barlist__name">Netherlands</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 29.47%"></div>
+            </div>
+            <div class="barlist__val">
+                28<span class="barlist__pct">6.6%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="United Kingdom">
+                <span class="barlist__flag">🇬🇧</span>
+                <span class="barlist__name">United Kingdom</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 23.16%"></div>
+            </div>
+            <div class="barlist__val">
+                22<span class="barlist__pct">5.2%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Canada">
+                <span class="barlist__flag">🇨🇦</span>
+                <span class="barlist__name">Canada</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 15.79%"></div>
+            </div>
+            <div class="barlist__val">
+                15<span class="barlist__pct">3.5%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Japan">
+                <span class="barlist__flag">🇯🇵</span>
+                <span class="barlist__name">Japan</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 13.68%"></div>
+            </div>
+            <div class="barlist__val">
+                13<span class="barlist__pct">3.1%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Brazil">
+                <span class="barlist__flag">🇧🇷</span>
+                <span class="barlist__name">Brazil</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 9.47%"></div>
+            </div>
+            <div class="barlist__val">
+                9<span class="barlist__pct">2.1%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Australia">
+                <span class="barlist__flag">🇦🇺</span>
+                <span class="barlist__name">Australia</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 8.42%"></div>
+            </div>
+            <div class="barlist__val">
+                8<span class="barlist__pct">1.9%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Russia">
+                <span class="barlist__flag">🇷🇺</span>
+                <span class="barlist__name">Russia</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 6.32%"></div>
+            </div>
+            <div class="barlist__val">
+                6<span class="barlist__pct">1.4%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="South Africa">
+                <span class="barlist__flag">🇿🇦</span>
+                <span class="barlist__name">South Africa</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 6.32%"></div>
+            </div>
+            <div class="barlist__val">
+                6<span class="barlist__pct">1.4%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="Turkey">
+                <span class="barlist__flag">🇹🇷</span>
+                <span class="barlist__name">Turkey</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 5.26%"></div>
+            </div>
+            <div class="barlist__val">
+                5<span class="barlist__pct">1.2%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="Indonesia">
+                <span class="barlist__flag">🇮🇩</span>
+                <span class="barlist__name">Indonesia</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 4.21%"></div>
+            </div>
+            <div class="barlist__val">
+                4<span class="barlist__pct">0.9%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="Ukraine">
+                <span class="barlist__flag">🇺🇦</span>
+                <span class="barlist__name">Ukraine</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 4.21%"></div>
+            </div>
+            <div class="barlist__val">
+                4<span class="barlist__pct">0.9%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="Mexico">
+                <span class="barlist__flag">🇲🇽</span>
+                <span class="barlist__name">Mexico</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 3.16%"></div>
+            </div>
+            <div class="barlist__val">
+                3<span class="barlist__pct">0.7%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="Poland">
+                <span class="barlist__flag">🇵🇱</span>
+                <span class="barlist__name">Poland</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 3.16%"></div>
+            </div>
+            <div class="barlist__val">
+                3<span class="barlist__pct">0.7%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="Chile">
+                <span class="barlist__flag">🇨🇱</span>
+                <span class="barlist__name">Chile</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 2.11%"></div>
+            </div>
+            <div class="barlist__val">
+                2<span class="barlist__pct">0.5%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="South Korea">
+                <span class="barlist__flag">🇰🇷</span>
+                <span class="barlist__name">South Korea</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 2.11%"></div>
+            </div>
+            <div class="barlist__val">
+                2<span class="barlist__pct">0.5%</span>
+            </div>
+        </li>
+        
+    </ul>
+    
+    <button type="button" class="barlist__more" data-more>+6 more</button>
+    
+
+            
+        </div>
+        <div class="chart-panel">
+            <h2 class="chart-title">Nodes by ASN / provider <span class="chart-sub">18 networks</span></h2>
+            
+                
+    
+    <ul class="barlist">
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="HETZNER · AS24940 Hetzner Online">
+                
+                <span class="barlist__name">HETZNER</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 100.0%"></div>
+            </div>
+            <div class="barlist__val">
+                95<span class="barlist__pct">22.4%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="AMAZON-AES · AS14618 Amazon">
+                
+                <span class="barlist__name">AMAZON-AES</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 73.68%"></div>
+            </div>
+            <div class="barlist__val">
+                70<span class="barlist__pct">16.5%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="TATACOMM · AS4755 TATA Communications">
+                
+                <span class="barlist__name">TATACOMM</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 57.89%"></div>
+            </div>
+            <div class="barlist__val">
+                55<span class="barlist__pct">13.0%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="AMAZON-02 · AS16509 Amazon">
+                
+                <span class="barlist__name">AMAZON-02</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 55.79%"></div>
+            </div>
+            <div class="barlist__val">
+                53<span class="barlist__pct">12.5%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="OVH · AS16276 OVH SAS">
+                
+                <span class="barlist__name">OVH</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 51.58%"></div>
+            </div>
+            <div class="barlist__val">
+                49<span class="barlist__pct">11.6%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="LEASEWEB-NL · AS60781 LeaseWeb">
+                
+                <span class="barlist__name">LEASEWEB-NL</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 29.47%"></div>
+            </div>
+            <div class="barlist__val">
+                28<span class="barlist__pct">6.6%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="AS-VULTR · AS20473 The Constant Company">
+                
+                <span class="barlist__name">AS-VULTR</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 23.16%"></div>
+            </div>
+            <div class="barlist__val">
+                22<span class="barlist__pct">5.2%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="CLARO · AS28573 Claro NXT">
+                
+                <span class="barlist__name">CLARO</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 9.47%"></div>
+            </div>
+            <div class="barlist__val">
+                9<span class="barlist__pct">2.1%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="CLOUDFLARENET · AS13335 Cloudflare">
+                
+                <span class="barlist__name">CLOUDFLARENET</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 8.42%"></div>
+            </div>
+            <div class="barlist__val">
+                8<span class="barlist__pct">1.9%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="AFRIHOST · AS37611 Afrihost">
+                
+                <span class="barlist__name">AFRIHOST</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 6.32%"></div>
+            </div>
+            <div class="barlist__val">
+                6<span class="barlist__pct">1.4%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="M247 · AS9009 M247">
+                
+                <span class="barlist__name">M247</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 6.32%"></div>
+            </div>
+            <div class="barlist__val">
+                6<span class="barlist__pct">1.4%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="TTNET · AS9121 Turk Telekom">
+                
+                <span class="barlist__name">TTNET</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 5.26%"></div>
+            </div>
+            <div class="barlist__val">
+                5<span class="barlist__pct">1.2%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="HOSTPRO · AS200000 Hostpro">
+                
+                <span class="barlist__name">HOSTPRO</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 4.21%"></div>
+            </div>
+            <div class="barlist__val">
+                4<span class="barlist__pct">0.9%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row">
+            <div class="barlist__label" title="TELKOMNET · AS7713 Telkom">
+                
+                <span class="barlist__name">TELKOMNET</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 4.21%"></div>
+            </div>
+            <div class="barlist__val">
+                4<span class="barlist__pct">0.9%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="TMPL · AS12912 T-Mobile">
+                
+                <span class="barlist__name">TMPL</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 3.16%"></div>
+            </div>
+            <div class="barlist__val">
+                3<span class="barlist__pct">0.7%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="UNINET · AS8151 Uninet">
+                
+                <span class="barlist__name">UNINET</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 3.16%"></div>
+            </div>
+            <div class="barlist__val">
+                3<span class="barlist__pct">0.7%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="ENTEL · AS27651 Entel">
+                
+                <span class="barlist__name">ENTEL</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 2.11%"></div>
+            </div>
+            <div class="barlist__val">
+                2<span class="barlist__pct">0.5%</span>
+            </div>
+        </li>
+        
+        <li class="barlist__row is-extra">
+            <div class="barlist__label" title="KIXS-AS-KR · AS4766 Korea Telecom">
+                
+                <span class="barlist__name">KIXS-AS-KR</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: 2.11%"></div>
+            </div>
+            <div class="barlist__val">
+                2<span class="barlist__pct">0.5%</span>
+            </div>
+        </li>
+        
+    </ul>
+    
+    <button type="button" class="barlist__more" data-more>+4 more</button>
+    
+
+            
+        </div>
+    </div>
+
+    <p class="hero-note" style="margin: 18px 0 30px">
+        Locations are looked up from each node's advertised public IP via ip-api.com and cached for a week.
+        IP geolocation is approximate — treat country and provider figures as indicative, not authoritative.
+    </p>
+</div>
+
+<script>
+(function () {
+    var POINTS = [{"active": 2, "awaiting": 0, "count": 2, "country": "Germany", "decommissioned": 0, "lat": 50.86870326188807, "lon": 7.913743311817449}, {"active": 1, "awaiting": 0, "count": 2, "country": "Germany", "decommissioned": 1, "lat": 50.50396529313922, "lon": 7.625606626233327}, {"active": 2, "awaiting": 0, "count": 2, "country": "Germany", "decommissioned": 0, "lat": 50.213613822117075, "lon": 7.544901979413204}, {"active": 2, "awaiting": 0, "count": 2, "country": "Germany", "decommissioned": 0, "lat": 50.152332938184415, "lon": 8.333350104051899}, {"active": 1, "awaiting": 0, "count": 2, "country": "United States", "decommissioned": 1, "lat": 38.46066163550522, "lon": -78.33151692623021}, {"active": 2, "awaiting": 0, "count": 2, "country": "United States", "decommissioned": 0, "lat": 39.805408336820115, "lon": -77.6527737941174}, {"active": 2, "awaiting": 0, "count": 2, "country": "India", "decommissioned": 0, "lat": 18.60060113110216, "lon": 73.04262807488634}, {"active": 1, "awaiting": 1, "count": 2, "country": "India", "decommissioned": 0, "lat": 18.01558643375274, "lon": 72.3250546378942}, {"active": 2, "awaiting": 0, "count": 2, "country": "India", "decommissioned": 0, "lat": 18.94868232716263, "lon": 72.32477737641659}, {"active": 1, "awaiting": 0, "count": 2, "country": "India", "decommissioned": 1, "lat": 18.210177626862876, "lon": 72.93775771013156}, {"active": 2, "awaiting": 0, "count": 2, "country": "India", "decommissioned": 0, "lat": 20.02449366944096, "lon": 72.84673757542515}, {"active": 2, "awaiting": 0, "count": 2, "country": "Singapore", "decommissioned": 0, "lat": 0.35911844192942577, "lon": 102.81884458006053}, {"active": 2, "awaiting": 0, "count": 2, "country": "Singapore", "decommissioned": 0, "lat": 1.691652117210431, "lon": 104.87038598722609}, {"active": 2, "awaiting": 0, "count": 2, "country": "France", "decommissioned": 0, "lat": 49.92380034205911, "lon": 1.2082160918596683}, {"active": 1, "awaiting": 0, "count": 2, "country": "France", "decommissioned": 1, "lat": 48.800453738848645, "lon": 3.4462663614584903}, {"active": 2, "awaiting": 0, "count": 2, "country": "United Kingdom", "decommissioned": 0, "lat": 51.53438699585966, "lon": -1.232159702050955}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.687198635599586, "lon": 7.842038017418805}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.0838470880021, "lon": 8.766116810336054}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.0491974194593, "lon": 8.697845759654609}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.950749640789724, "lon": 7.647653016579085}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.92884605394203, "lon": 9.464445099212892}, {"active": 0, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 1, "lat": 49.445773515056835, "lon": 8.985839733773414}, {"active": 0, "awaiting": 1, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.295047076681996, "lon": 8.432033139161872}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.021798433482616, "lon": 9.540324301716831}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.25621220005785, "lon": 7.762701371388084}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.44339232542284, "lon": 8.373754102541755}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.060693539935976, "lon": 7.623042807918958}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.54295993563628, "lon": 8.506221533606567}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.315348472418336, "lon": 8.56764250328986}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.81651075565398, "lon": 9.15758664095097}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.28861690462081, "lon": 8.740471609147484}, {"active": 0, "awaiting": 1, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.66066869465412, "lon": 8.171050635736448}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.19335786781191, "lon": 8.483494772284544}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.27476288318521, "lon": 8.653511441141934}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.513718055682546, "lon": 9.31497007891075}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.01114674839413, "lon": 8.232994030835432}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.33648770505204, "lon": 8.87174849027798}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.9259226732301, "lon": 9.747234628259049}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.4631092508664, "lon": 9.86343025471992}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.593029277025956, "lon": 8.405899461872107}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 48.964151027333415, "lon": 8.588068687119438}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.19102990675616, "lon": 7.621490606395144}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.220416532844844, "lon": 8.074275600872594}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.00141273790312, "lon": 7.673395122880333}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.22865578194569, "lon": 9.60012118345963}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.983562727276436, "lon": 8.148210554833353}, {"active": 0, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 1, "lat": 49.7710507967959, "lon": 9.60206278527572}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.272210173898664, "lon": 7.902922548376889}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.47000660083407, "lon": 8.643910552819255}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.54059188631649, "lon": 7.489824648124153}, {"active": 0, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 1, "lat": 49.79620857494734, "lon": 8.83921893689534}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.56718477712634, "lon": 8.717179439369868}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.78192677769457, "lon": 9.578831641922744}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.85170937653904, "lon": 8.437549197568655}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.4322949576457, "lon": 7.62939477188485}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.41103164507079, "lon": 7.869527650653033}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.03618144933664, "lon": 7.480559876563255}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.153514483254234, "lon": 8.35266381288297}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.00839770569716, "lon": 8.95376557069235}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.515418615736984, "lon": 8.313734910528883}, {"active": 0, "awaiting": 1, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.20482135382927, "lon": 9.517448623563075}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.02837470198384, "lon": 8.641203175399045}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.1552502801956, "lon": 8.302326011783205}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.19236537489928, "lon": 8.747817748101099}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.25840298252553, "lon": 9.551980072695205}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.53667647335047, "lon": 8.36007950022683}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.76265098016488, "lon": 8.758221753982909}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.70119598811463, "lon": 8.015300015447645}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.27382252141814, "lon": 9.526309116991985}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.8739990639809, "lon": 9.255695248901713}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 48.977048981012956, "lon": 8.15060449371767}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.572052660080296, "lon": 9.775636183219211}, {"active": 0, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 1, "lat": 51.15885088306298, "lon": 9.851291339686863}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.785126124868476, "lon": 8.009109575190969}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.38209479220636, "lon": 7.970496071862935}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.070740010921874, "lon": 9.497045265470295}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.47714730281842, "lon": 9.399144987639184}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.49540556049175, "lon": 9.663465130124134}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.7103371035931, "lon": 8.6272785870256}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.80392503444866, "lon": 8.278041279675064}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.24197749355718, "lon": 8.430012388166675}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.18231281551574, "lon": 9.219516797522116}, {"active": 0, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 1, "lat": 49.214892081514876, "lon": 7.842761680915576}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.84560475687727, "lon": 7.830818340985298}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.26273426427287, "lon": 9.057443902566447}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.22678410556827, "lon": 7.794361244822681}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.240136425370636, "lon": 9.039219207217194}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.15069953213782, "lon": 8.521142648217966}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.89277260435653, "lon": 7.986501609587557}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.613119966408526, "lon": 8.057294542140003}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.5324755086485, "lon": 8.485630126610904}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.09404093515734, "lon": 8.329081657487821}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.31003705290044, "lon": 9.650312258900895}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 51.112530602422396, "lon": 8.683957458688555}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.34945892945328, "lon": 7.489437956381541}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 49.32363210931228, "lon": 8.616383037908696}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.24306049971259, "lon": 9.36225394087714}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.25471072060149, "lon": 8.076386370503416}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.76342663701317, "lon": 8.698513580301569}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.73398354221604, "lon": 9.669971287191549}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.38006692242671, "lon": 8.693327514042931}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.57255440611575, "lon": 8.565629901435782}, {"active": 1, "awaiting": 0, "count": 1, "country": "Germany", "decommissioned": 0, "lat": 50.057287163277, "lon": 9.739602706092402}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.943685156273425, "lon": -76.42876658807141}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.182833135594514, "lon": -76.42615911836764}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.169122646152445, "lon": -78.39810730947796}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.01411063917557, "lon": -78.11246697971215}, {"active": 0, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 1, "lat": 39.446733148743746, "lon": -76.80855355878442}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.21067189704486, "lon": -76.97131228130833}, {"active": 0, "awaiting": 1, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.18314959501817, "lon": -76.57120119922301}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.36701079392461, "lon": -76.40399009059443}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.00942585997811, "lon": -76.3143085086137}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.22751854371411, "lon": -77.65434763680567}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.65387874641317, "lon": -78.22021280127856}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.57316200433885, "lon": -78.64324097267425}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.897099444326486, "lon": -78.6466032460151}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.337424977340476, "lon": -77.4605705172877}, {"active": 0, "awaiting": 1, "count": 1, "country": "United States", "decommissioned": 0, "lat": 40.20419978592184, "lon": -76.7979286653658}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.091471026254794, "lon": -78.05264574637555}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.70959383216294, "lon": -78.04092936594886}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.85341003506639, "lon": -76.50260684115933}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.20942782094381, "lon": -77.00899812828811}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 37.97806362985827, "lon": -77.03830662876348}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.013793827335654, "lon": -76.4379606983036}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.763908619771335, "lon": -78.48901793703715}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 37.999894083698706, "lon": -76.61934007427077}, {"active": 0, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 1, "lat": 38.653964265483125, "lon": -77.36264611570071}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.48286339202589, "lon": -78.37986048025121}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.41224680670725, "lon": -78.42731648380972}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 37.96091132130288, "lon": -78.2057562029556}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.57201295491014, "lon": -76.86720418800344}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.04021263966841, "lon": -78.26304027788896}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 37.883591457506995, "lon": -78.08892298513145}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.59939292023755, "lon": -77.36748209277299}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.97942553244256, "lon": -76.44685718452234}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.49058016565766, "lon": -76.33214270300448}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.837487703834675, "lon": -76.99385903604905}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.81127450089642, "lon": -77.85587476762744}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.15156459476212, "lon": -78.52026524259838}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.859045556441814, "lon": -76.6007092290054}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.51663987753591, "lon": -78.10868895841803}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.94268706414733, "lon": -78.3119209444099}, {"active": 0, "awaiting": 1, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.47178336079374, "lon": -76.38171231992972}, {"active": 0, "awaiting": 1, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.15297609788538, "lon": -78.10332841453945}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.582915002427086, "lon": -77.83419859916643}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.755903855870194, "lon": -77.55085529424674}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.32235213008248, "lon": -77.47863446516564}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.47400484592398, "lon": -78.47459184508564}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 37.94000069845877, "lon": -78.63601404727137}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.39874295981793, "lon": -77.28460011796408}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.64129751244638, "lon": -77.11189518404959}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.949817664561735, "lon": -77.75516046945492}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 40.20334980417831, "lon": -78.33128844229859}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.38372667929087, "lon": -78.5849086399402}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.980661654108424, "lon": -77.18440290160338}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.789325397709746, "lon": -78.3556617359539}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.0504905230131, "lon": -76.68614977575113}, {"active": 0, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 1, "lat": 39.823381891604754, "lon": -77.28825235966502}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.4789488868012, "lon": -77.02601727528173}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 37.91478526309482, "lon": -78.37057632499122}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.09179953056487, "lon": -76.68402912048006}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.34664106045081, "lon": -77.1870564985613}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.01430635566341, "lon": -78.68204561489316}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.63583688853689, "lon": -77.4828694743301}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.42231877433044, "lon": -78.53147914506683}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.445264475510456, "lon": -78.51132000006199}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 39.59040409129455, "lon": -78.197477935003}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 40.18176422584665, "lon": -77.50452293076161}, {"active": 1, "awaiting": 0, "count": 1, "country": "United States", "decommissioned": 0, "lat": 38.9896243937695, "lon": -77.04912824951435}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.350737637867798, "lon": 73.22263114091676}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.223820174904578, "lon": 72.28945667597415}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.531244414169077, "lon": 73.30169837635066}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.10968566570658, "lon": 72.79519084809834}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.154406870483765, "lon": 73.82479102282065}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.217501768216867, "lon": 73.92701041828892}, {"active": 0, "awaiting": 1, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.971529975112635, "lon": 73.64775446247968}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.139409464547683, "lon": 72.18570111408137}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.188252174914464, "lon": 73.64852082547547}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.998469183075624, "lon": 73.36800889310578}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 17.878617132007353, "lon": 72.86007066276528}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.594682499060323, "lon": 72.01769732861842}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.628587308899927, "lon": 73.69655448075517}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.67176169881116, "lon": 73.6938659071611}, {"active": 0, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 1, "lat": 20.093357263727327, "lon": 73.39125655791261}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.56559910154126, "lon": 72.57333279845078}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.267102013885474, "lon": 73.09402397292376}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.114103659122303, "lon": 73.68322238794526}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.115415731947085, "lon": 72.27837931938836}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.096311170737767, "lon": 72.13563771319122}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.164796635408656, "lon": 73.80223973326106}, {"active": 0, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 1, "lat": 19.384149929285794, "lon": 73.87221732990253}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.188147555651113, "lon": 73.40697419668275}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.627645924285996, "lon": 72.76206501510585}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.416777705004435, "lon": 72.3668999687238}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.09426491171315, "lon": 71.98554716892414}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.694790846379032, "lon": 72.39465247730749}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.21311082338365, "lon": 72.30440573107379}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.271597922620863, "lon": 72.06797670737214}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.0443037845819, "lon": 72.87298188478445}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.045022536507265, "lon": 74.07154027269925}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.205030553599332, "lon": 72.14177702982579}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.69069256107582, "lon": 71.89862641547836}, {"active": 0, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 1, "lat": 18.490058163571806, "lon": 73.04708258155837}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.66917825825123, "lon": 72.67067598073788}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.12800354260215, "lon": 72.58447795278262}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.94086723772226, "lon": 72.19831153796788}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.46628875943233, "lon": 72.63941712818965}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 20.159464580631543, "lon": 73.71684082295309}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 17.92234522451008, "lon": 71.75738438412904}, {"active": 0, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 1, "lat": 17.8704288507665, "lon": 72.61965062970349}, {"active": 0, "awaiting": 1, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.8514140950655, "lon": 73.73311041715415}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 18.466316679414042, "lon": 71.94171039743065}, {"active": 0, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 1, "lat": 19.12367745706834, "lon": 73.31698014811677}, {"active": 1, "awaiting": 0, "count": 1, "country": "India", "decommissioned": 0, "lat": 19.602164693492718, "lon": 73.233635487196}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.1875801006258138, "lon": 103.97360219556441}, {"active": 0, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 1, "lat": 1.9675166832027153, "lon": 103.20818438952057}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.6392138632837825, "lon": 103.3790774279076}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.6943054734752144, "lon": 104.17709863372022}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.4889383374160843, "lon": 103.58139667381433}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.5325461530891422, "lon": 102.67510793574111}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.1956575050104317, "lon": 104.95145593255204}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 2.211057669681744, "lon": 103.7907301281621}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.6829401224126966, "lon": 104.95547415158408}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.8277547870035539, "lon": 102.70228972186055}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.7087118288368288, "lon": 103.65803809310958}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.17183381609599802, "lon": 103.46132376882431}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.7281600391213574, "lon": 103.12539113176024}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.8639101322618075, "lon": 103.86170812965808}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 2.417660933740386, "lon": 103.39811778245908}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.6439411508759393, "lon": 103.18146275159755}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.7978388412417423, "lon": 104.93462452215427}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.5395517116154942, "lon": 103.1859779325435}, {"active": 0, "awaiting": 1, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.0343039426986882, "lon": 103.16107777995398}, {"active": 0, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 1, "lat": 1.0339720711048, "lon": 104.80560177645745}, {"active": 0, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 1, "lat": 1.8485370382047692, "lon": 105.04407153271485}, {"active": 0, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 1, "lat": 0.8801826236966285, "lon": 103.09522925589921}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.8811402607133836, "lon": 102.72654485068011}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.9986865992389975, "lon": 103.5473206875023}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.4962262614183004, "lon": 102.65688973805145}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.9335204640659658, "lon": 104.94323559794138}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 2.4042509178901605, "lon": 103.14776583993667}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 2.0617766816979506, "lon": 104.6228191579092}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 0.20821760604244144, "lon": 103.78631372205703}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 2.296815405720725, "lon": 103.11326284986691}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 2.242784075877684, "lon": 102.7226769321858}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 2.0383788661731774, "lon": 104.49000320562313}, {"active": 0, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 1, "lat": 0.1736505257615557, "lon": 102.80019186383494}, {"active": 0, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 1, "lat": 0.7068382858325503, "lon": 104.44348833077284}, {"active": 0, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 1, "lat": 0.9037668793733291, "lon": 103.30355519059248}, {"active": 1, "awaiting": 0, "count": 1, "country": "Singapore", "decommissioned": 0, "lat": 1.5707483561680118, "lon": 103.27921393656321}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.419560714797285, "lon": 1.8115127855075457}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.473565694014454, "lon": 3.3495030487595496}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.587635493096094, "lon": 1.7525123699941152}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.58616397615176, "lon": 2.922371231972839}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.51474251183239, "lon": 2.60741015498893}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.4269170760056, "lon": 2.0184602579563804}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 47.84963569125923, "lon": 1.6235483001175892}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.25353802933258, "lon": 1.3053592619218708}, {"active": 0, "awaiting": 1, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.986227144204676, "lon": 1.9318200497751068}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.78033910343447, "lon": 3.5207771910220096}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 47.86179823413505, "lon": 1.3814141885231783}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.363450810410676, "lon": 2.222711446997974}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.66041751493675, "lon": 2.6387383501159407}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.45514490732964, "lon": 3.182768978605397}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 47.95079536997826, "lon": 3.1680908315287244}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.02052209617494, "lon": 2.0451304898391336}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.138056218136505, "lon": 1.7438299033475475}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.02797327902354, "lon": 3.2720027668637313}, {"active": 0, "awaiting": 1, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.44321100589283, "lon": 2.1005670294461325}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.87757883178548, "lon": 1.7053142663772225}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.22798372502176, "lon": 3.52829356259745}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.79943062215135, "lon": 3.115846494992618}, {"active": 0, "awaiting": 1, "count": 1, "country": "France", "decommissioned": 0, "lat": 47.94611990899547, "lon": 1.6049756336300367}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.05966503728917, "lon": 3.3824169947227816}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.738705588181475, "lon": 2.227873258645097}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.526663062538304, "lon": 3.4196850002945576}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 49.09075295763682, "lon": 2.6378751519268686}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.54490052831203, "lon": 1.4892867632657265}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.27179281541531, "lon": 2.5886160862248264}, {"active": 1, "awaiting": 0, "count": 1, "country": "France", "decommissioned": 0, "lat": 48.14826029565472, "lon": 1.1773116079360206}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.797967376204895, "lon": 4.144348239082345}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.65817865308761, "lon": 5.608674803297971}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.321850588467775, "lon": 3.9433306419106224}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.49033026494775, "lon": 5.234036669743011}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.562854363878465, "lon": 5.368974130234126}, {"active": 0, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 1, "lat": 51.849922866841744, "lon": 4.438229830584145}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.91966852805622, "lon": 5.059648154086379}, {"active": 0, "awaiting": 1, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.169468916980264, "lon": 5.774191297888684}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.043075300058334, "lon": 4.1732838164102635}, {"active": 0, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 1, "lat": 51.65880121008135, "lon": 3.7141038316636843}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.18701153123747, "lon": 5.6688845948664195}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 53.288811071480396, "lon": 4.806174965615055}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.20560249897889, "lon": 5.02371485488111}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 53.35350682967995, "lon": 3.913674668780527}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.060024699042714, "lon": 4.910711351126772}, {"active": 0, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 1, "lat": 51.84990801623728, "lon": 4.950781300755477}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.43110282630446, "lon": 4.87722315943639}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 53.49050257572012, "lon": 4.173620092301642}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 53.43338170248563, "lon": 6.041311798920607}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.298098915952046, "lon": 5.922802751714606}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 53.34013003311712, "lon": 5.18882312217146}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.55466275883301, "lon": 5.585981372414605}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.14076292541139, "lon": 5.731243309905165}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.609117304660565, "lon": 4.223528505117522}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 52.41294204395673, "lon": 4.620583296284813}, {"active": 0, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 1, "lat": 51.7629413551812, "lon": 5.439718457740243}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.26863768012277, "lon": 5.049623844191164}, {"active": 1, "awaiting": 0, "count": 1, "country": "Netherlands", "decommissioned": 0, "lat": 51.26150888325983, "lon": 5.711690223053744}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.748847448630336, "lon": -0.00987559111697156}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.04491394488265, "lon": -0.3218275241575549}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.33177562217495, "lon": 0.25122249902695415}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.36204622469122, "lon": -1.2738993274538264}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.48480383751284, "lon": -0.7653977838727439}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 52.18193973932809, "lon": -0.2301063018462931}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.44572523117677, "lon": -1.073017427913177}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.34343761620519, "lon": -1.109888454634869}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 50.50737846712099, "lon": 0.4303525396655651}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.216870311249714, "lon": 0.9520831498666303}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 52.36696826695884, "lon": 1.0606980385921672}, {"active": 0, "awaiting": 1, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 52.26597467618444, "lon": -0.8651024723359798}, {"active": 0, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 1, "lat": 51.49048791804102, "lon": 0.9659342922746227}, {"active": 0, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 1, "lat": 50.70626764093877, "lon": 0.5621156535341613}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 50.467238903636385, "lon": -0.4878462431947356}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 50.69104187829206, "lon": 0.8216893794572063}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 52.2675039706779, "lon": -0.9854264917225589}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 52.51777874851419, "lon": -0.8300239802857442}, {"active": 1, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 0, "lat": 51.52441673464892, "lon": -0.5642139594745585}, {"active": 0, "awaiting": 0, "count": 1, "country": "United Kingdom", "decommissioned": 1, "lat": 50.74703132993219, "lon": -0.9430495672838969}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 44.08123189201041, "lon": -78.43100855153487}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 44.3336863565029, "lon": -80.30381111797811}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 43.97716482028286, "lon": -79.71653009594401}, {"active": 0, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 1, "lat": 43.78243229129527, "lon": -79.18789515336641}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 42.70106111619529, "lon": -78.19690894003448}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 43.396215386472754, "lon": -78.66559054664135}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 44.82719579402705, "lon": -79.19433477140315}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 44.28513406064604, "lon": -79.51852409309063}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 44.23462732955181, "lon": -80.46410050935059}, {"active": 0, "awaiting": 1, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 43.058766001047, "lon": -79.0458291763194}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 43.85608878007756, "lon": -78.98712352581519}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 42.454298324831484, "lon": -80.49889643272809}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 43.928524922590576, "lon": -79.54264110056721}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 44.59930188145238, "lon": -80.26314409574756}, {"active": 1, "awaiting": 0, "count": 1, "country": "Canada", "decommissioned": 0, "lat": 44.01746022186727, "lon": -80.52650514624608}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.341910179324245, "lon": 138.7452703652934}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.02822150969335, "lon": 139.89061820687928}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 34.980042490355395, "lon": 139.98743094137558}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 34.81339687372646, "lon": 140.7378181982309}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 34.84835139365529, "lon": 138.71993120664956}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 36.58108543989907, "lon": 140.36717472201155}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.12417561591509, "lon": 138.5175904903912}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.83959482358711, "lon": 139.3307984899531}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.55501017097023, "lon": 140.73917708964794}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.08639284309922, "lon": 140.6584083283019}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.765665760491345, "lon": 139.46437293861493}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 34.630110032172354, "lon": 140.35929336973877}, {"active": 1, "awaiting": 0, "count": 1, "country": "Japan", "decommissioned": 0, "lat": 35.81221509796619, "lon": 140.74820945854052}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -24.27115615871683, "lon": -46.370600872468465}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -23.2102320775644, "lon": -45.87788606858521}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -24.007482020906796, "lon": -47.109361201060466}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -22.61555418269087, "lon": -45.95086196879282}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -24.734761434045577, "lon": -45.80336205655371}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -23.63336267923453, "lon": -46.04978812833671}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -24.20772380238872, "lon": -47.57732394347024}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -24.656837848604923, "lon": -47.024761462963696}, {"active": 1, "awaiting": 0, "count": 1, "country": "Brazil", "decommissioned": 0, "lat": -23.081737859078935, "lon": -45.801199930966526}, {"active": 1, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 0, "lat": -34.43162950451614, "lon": 151.33909061931197}, {"active": 1, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 0, "lat": -33.17771995930775, "lon": 151.265787121747}, {"active": 1, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 0, "lat": -33.52919235476427, "lon": 152.3263379471453}, {"active": 1, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 0, "lat": -32.957891515956604, "lon": 150.04654649561232}, {"active": 0, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 1, "lat": -34.503337697236724, "lon": 151.79530879383285}, {"active": 0, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 1, "lat": -33.27923676046803, "lon": 150.7944913516987}, {"active": 0, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 1, "lat": -34.28147105810825, "lon": 150.58400260650126}, {"active": 1, "awaiting": 0, "count": 1, "country": "Australia", "decommissioned": 0, "lat": -33.55632949730734, "lon": 151.67282310453047}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Africa", "decommissioned": 0, "lat": -25.050367816632583, "lon": 27.97678306947006}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Africa", "decommissioned": 0, "lat": -25.725716298704473, "lon": 28.908054614541236}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Africa", "decommissioned": 0, "lat": -25.660904021850314, "lon": 28.218817142571666}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Africa", "decommissioned": 0, "lat": -26.89128134146518, "lon": 28.34429296705721}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Africa", "decommissioned": 0, "lat": -25.2141046493373, "lon": 27.197027797095423}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Africa", "decommissioned": 0, "lat": -27.14397189101036, "lon": 29.079477205785714}, {"active": 1, "awaiting": 0, "count": 1, "country": "Russia", "decommissioned": 0, "lat": 54.89041981161964, "lon": 36.48895830686455}, {"active": 1, "awaiting": 0, "count": 1, "country": "Russia", "decommissioned": 0, "lat": 56.21230051476141, "lon": 37.941307504939665}, {"active": 1, "awaiting": 0, "count": 1, "country": "Russia", "decommissioned": 0, "lat": 56.31828463161032, "lon": 36.57783664327558}, {"active": 1, "awaiting": 0, "count": 1, "country": "Russia", "decommissioned": 0, "lat": 55.422174677836516, "lon": 38.382147902630024}, {"active": 1, "awaiting": 0, "count": 1, "country": "Russia", "decommissioned": 0, "lat": 56.68907251949602, "lon": 36.578276204104085}, {"active": 1, "awaiting": 0, "count": 1, "country": "Russia", "decommissioned": 0, "lat": 56.74458106835925, "lon": 38.686381920287175}, {"active": 1, "awaiting": 0, "count": 1, "country": "Turkey", "decommissioned": 0, "lat": 40.303736193236595, "lon": 28.048727338919534}, {"active": 1, "awaiting": 0, "count": 1, "country": "Turkey", "decommissioned": 0, "lat": 41.84452139337858, "lon": 29.728845644362373}, {"active": 1, "awaiting": 0, "count": 1, "country": "Turkey", "decommissioned": 0, "lat": 41.790144645299186, "lon": 29.295687590222226}, {"active": 1, "awaiting": 0, "count": 1, "country": "Turkey", "decommissioned": 0, "lat": 40.04970501660085, "lon": 28.014868361806286}, {"active": 1, "awaiting": 0, "count": 1, "country": "Turkey", "decommissioned": 0, "lat": 40.301984247466194, "lon": 28.54593331104247}, {"active": 1, "awaiting": 0, "count": 1, "country": "Ukraine", "decommissioned": 0, "lat": 49.30020430715503, "lon": 29.93608543867047}, {"active": 1, "awaiting": 0, "count": 1, "country": "Ukraine", "decommissioned": 0, "lat": 50.96782925295565, "lon": 30.203258364981426}, {"active": 1, "awaiting": 0, "count": 1, "country": "Ukraine", "decommissioned": 0, "lat": 51.563598011768015, "lon": 30.52896956579833}, {"active": 1, "awaiting": 0, "count": 1, "country": "Ukraine", "decommissioned": 0, "lat": 50.73386205576041, "lon": 29.39435526470642}, {"active": 1, "awaiting": 0, "count": 1, "country": "Indonesia", "decommissioned": 0, "lat": -6.362520998979408, "lon": 107.50526212629615}, {"active": 1, "awaiting": 0, "count": 1, "country": "Indonesia", "decommissioned": 0, "lat": -5.718817272517971, "lon": 106.94091330586845}, {"active": 1, "awaiting": 0, "count": 1, "country": "Indonesia", "decommissioned": 0, "lat": -5.340625626543227, "lon": 105.86813489629996}, {"active": 1, "awaiting": 0, "count": 1, "country": "Indonesia", "decommissioned": 0, "lat": -7.001108975957797, "lon": 105.65311773759524}, {"active": 1, "awaiting": 0, "count": 1, "country": "Mexico", "decommissioned": 0, "lat": 20.05923444659445, "lon": -97.98312231086555}, {"active": 1, "awaiting": 0, "count": 1, "country": "Mexico", "decommissioned": 0, "lat": 19.40797518543641, "lon": -99.15043816992268}, {"active": 1, "awaiting": 0, "count": 1, "country": "Mexico", "decommissioned": 0, "lat": 18.67284608305376, "lon": -99.14300400032005}, {"active": 0, "awaiting": 0, "count": 1, "country": "Poland", "decommissioned": 1, "lat": 53.026406016024474, "lon": 20.435380198562278}, {"active": 1, "awaiting": 0, "count": 1, "country": "Poland", "decommissioned": 0, "lat": 51.710951407228244, "lon": 20.325314416973995}, {"active": 1, "awaiting": 0, "count": 1, "country": "Poland", "decommissioned": 0, "lat": 52.225957449062896, "lon": 20.07381578335842}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Korea", "decommissioned": 0, "lat": 36.56411823434159, "lon": 127.67099377973882}, {"active": 1, "awaiting": 0, "count": 1, "country": "South Korea", "decommissioned": 0, "lat": 38.258639517507994, "lon": 127.28703728187044}, {"active": 0, "awaiting": 0, "count": 1, "country": "Chile", "decommissioned": 1, "lat": -33.686950637188474, "lon": -70.92296129777715}, {"active": 1, "awaiting": 0, "count": 1, "country": "Chile", "decommissioned": 0, "lat": -34.443185029826225, "lon": -69.73772291101463}];
+    var TOPO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+    var W = 820, H = 420, MIN_K = 1, MAX_K = 8;
+    var NS = 'http://www.w3.org/2000/svg';
+    var PIN = 'M0,0 C-6,-9 -11,-14 -11,-20 A11,11 0 1,1 11,-20 C11,-14 6,-9 0,0 Z';
+
+    var root = document.querySelector('[data-worldmap]');
+    if (!root) return;
+    var svg = root.querySelector('.worldmap__svg');
+    var tip = root.querySelector('.worldmap__tip');
+    var note = root.querySelector('.worldmap__note');
+
+    /* ---- Natural Earth I projection (same formula d3-geo uses) ---- */
+    function raw(lon, lat) {
+        var l = lon * Math.PI / 180, p = lat * Math.PI / 180;
+        var p2 = p * p, p4 = p2 * p2;
+        return [
+            l * (0.8707 - 0.131979 * p2 + p4 * (-0.013791 + p4 * (0.003971 * p2 - 0.001529 * p4))),
+            p * (1.007226 + p2 * (0.015085 + p4 * (-0.044475 + 0.028874 * p2 - 0.005916 * p4)))
+        ];
+    }
+    var XMAX = raw(180, 0)[0], YMAX = raw(0, 90)[1];
+    var K = Math.min(W / (2 * XMAX), H / (2 * YMAX));
+    function project(lon, lat) {
+        var xy = raw(lon, lat);
+        return [W / 2 + K * xy[0], H / 2 - K * xy[1]];
+    }
+    function ringPath(ring) {
+        var d = '';
+        for (var i = 0; i < ring.length; i++) {
+            var xy = project(ring[i][0], ring[i][1]);
+            d += (i ? 'L' : 'M') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1);
+        }
+        return d ? d + 'Z' : '';
+    }
+
+    /* ---- minimal TopoJSON decoder (Polygon / MultiPolygon only) ---- */
+    function decodeArcs(topo) {
+        var tr = topo.transform;
+        return topo.arcs.map(function (arc) {
+            var x = 0, y = 0;
+            return arc.map(function (d) {
+                if (tr) {
+                    x += d[0]; y += d[1];
+                    return [x * tr.scale[0] + tr.translate[0], y * tr.scale[1] + tr.translate[1]];
+                }
+                return d;
+            });
+        });
+    }
+    function ringOf(arcs, idxs) {
+        var pts = [];
+        for (var i = 0; i < idxs.length; i++) {
+            var k = idxs[i], rev = k < 0;
+            var a = arcs[rev ? ~k : k];
+            if (!a) continue;
+            var seg = rev ? a.slice().reverse() : a;
+            pts = pts.concat(pts.length ? seg.slice(1) : seg);
+        }
+        return pts;
+    }
+    function pathsFor(topo, objectName) {
+        var arcs = decodeArcs(topo);
+        var obj = topo.objects[objectName];
+        var geoms = obj.type === 'GeometryCollection' ? obj.geometries : [obj];
+        return geoms.map(function (g) {
+            var polys = g.type === 'Polygon' ? [g.arcs] : g.type === 'MultiPolygon' ? g.arcs : [];
+            var d = '';
+            polys.forEach(function (rings) {
+                rings.forEach(function (r) { d += ringPath(ringOf(arcs, r)); });
+            });
+            return d;
+        }).filter(Boolean);
+    }
+
+    function el(name, attrs, parent) {
+        var e = document.createElementNS(NS, name);
+        for (var k in attrs) e.setAttribute(k, attrs[k]);
+        if (parent) parent.appendChild(e);
+        return e;
+    }
+
+    /* ---- static layers ---- */
+    var g = el('g', {}, svg);
+
+    // Projection outline (the "sphere").
+    var outline = '';
+    for (var lat = -90; lat <= 90; lat += 2) {
+        var xy = project(180, lat);
+        outline += (outline ? 'L' : 'M') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1);
+    }
+    for (var lat2 = 90; lat2 >= -90; lat2 -= 2) {
+        var xy2 = project(-180, lat2);
+        outline += 'L' + xy2[0].toFixed(1) + ',' + xy2[1].toFixed(1);
+    }
+    el('path', {d: outline + 'Z', class: 'worldmap__sphere', 'vector-effect': 'non-scaling-stroke'}, g);
+
+    // Graticule every 30°.
+    var grat = '';
+    for (var lo = -180; lo <= 180; lo += 30) {
+        for (var la = -90; la <= 90; la += 3) {
+            var p = project(lo, la);
+            grat += (la === -90 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1);
+        }
+    }
+    for (var la2 = -60; la2 <= 60; la2 += 30) {
+        for (var lo2 = -180; lo2 <= 180; lo2 += 3) {
+            var p2 = project(lo2, la2);
+            grat += (lo2 === -180 ? 'M' : 'L') + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+        }
+    }
+    el('path', {d: grat, class: 'worldmap__grat', 'vector-effect': 'non-scaling-stroke'}, g);
+
+    var landLayer = el('g', {}, g);
+    var pinLayer = el('g', {}, g);
+
+    fetch(TOPO_URL)
+        .then(function (r) { return r.json(); })
+        .then(function (topo) {
+            pathsFor(topo, 'countries').forEach(function (d) {
+                el('path', {d: d, class: 'worldmap__land', 'vector-effect': 'non-scaling-stroke'}, landLayer);
+            });
+        })
+        .catch(function () {
+            note.textContent = 'Country outlines unavailable — showing node locations only.';
+            note.hidden = false;
+        });
+
+    /* ---- pins ---- */
+    var selected = {active: true, decommissioned: true, awaiting: true};
+
+    function drawPins() {
+        while (pinLayer.firstChild) pinLayer.removeChild(pinLayer.firstChild);
+        var visible = [];
+        POINTS.forEach(function (p) {
+            var n = (selected.active ? (p.active || 0) : 0) +
+                    (selected.decommissioned ? (p.decommissioned || 0) : 0) +
+                    (selected.awaiting ? (p.awaiting || 0) : 0);
+            if (n > 0) visible.push({p: p, n: n});
+        });
+        var max = visible.reduce(function (m, v) { return Math.max(m, v.n); }, 1);
+        visible.map(function (v) {
+            var xy = project(v.p.lon, v.p.lat);
+            var cands = [];
+            if (selected.active) cands.push(['active', v.p.active || 0]);
+            if (selected.decommissioned) cands.push(['decommissioned', v.p.decommissioned || 0]);
+            if (selected.awaiting) cands.push(['awaiting', v.p.awaiting || 0]);
+            cands.sort(function (a, b) { return b[1] - a[1]; });
+            return {
+                x: xy[0], y: xy[1], p: v.p, n: v.n,
+                s: 0.55 + Math.sqrt(v.n / max) * 0.85,
+                status: cands.length ? cands[0][0] : 'active'
+            };
+        }).sort(function (a, b) { return a.y - b.y; }).forEach(function (m) {
+            var pin = el('g', {class: 'worldmap__pin',
+                transform: 'translate(' + m.x.toFixed(1) + ' ' + m.y.toFixed(1) + ') scale(' + m.s.toFixed(3) + ')'}, pinLayer);
+            el('ellipse', {class: 'worldmap__pinshadow', cx: 0, cy: 0.5, rx: 4.5, ry: 1.6}, pin);
+            el('path', {class: 'worldmap__pinbody worldmap__pinbody--' + m.status, d: PIN}, pin);
+            el('circle', {class: 'worldmap__pinhole', cx: 0, cy: -20, r: 4}, pin);
+            pin.addEventListener('mouseenter', function () { showTip(m); });
+            pin.addEventListener('mouseleave', hideTip);
+        });
+    }
+
+    function showTip(m) {
+        var p = m.p;
+        var parts = [];
+        if (p.active) parts.push(p.active + ' active');
+        if (p.decommissioned) parts.push(p.decommissioned + ' decomm');
+        if (p.awaiting) parts.push(p.awaiting + ' awaiting');
+        tip.innerHTML = '';
+        var strong = document.createElement('strong');
+        strong.textContent = p.country || 'Unknown';
+        tip.appendChild(strong);
+        var count = document.createElement('span');
+        count.textContent = p.count + (p.count === 1 ? ' node' : ' nodes');
+        tip.appendChild(count);
+        if (parts.length) {
+            var br = document.createElement('span');
+            br.className = 'worldmap__tipbreak';
+            br.textContent = parts.join(' · ');
+            tip.appendChild(br);
+        }
+        tip.style.left = ((view.x + view.k * m.x) / W * 100) + '%';
+        tip.style.top = ((view.y + view.k * m.y) / H * 100) + '%';
+        tip.hidden = false;
+    }
+    function hideTip() { tip.hidden = true; }
+
+    root.querySelectorAll('[data-status]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var key = btn.getAttribute('data-status');
+            var next = Object.assign({}, selected);
+            next[key] = !next[key];
+            if (!next.active && !next.decommissioned && !next.awaiting) return; // keep one on
+            selected = next;
+            btn.classList.toggle('is-off', !selected[key]);
+            hideTip();
+            drawPins();
+        });
+    });
+
+    /* ---- pan & zoom ---- */
+    var view = {k: 1, x: 0, y: 0}, drag = null;
+
+    function clamp(v) {
+        var k = Math.min(MAX_K, Math.max(MIN_K, v.k));
+        return {k: k,
+            x: Math.min(0, Math.max(W - k * W, v.x)),
+            y: Math.min(0, Math.max(H - k * H, v.y))};
+    }
+    function apply() {
+        g.setAttribute('transform', 'translate(' + view.x.toFixed(2) + ' ' + view.y.toFixed(2) + ') scale(' + view.k.toFixed(4) + ')');
+    }
+    function toSvg(cx, cy) {
+        var r = svg.getBoundingClientRect();
+        return [(cx - r.left) / r.width * W, (cy - r.top) / r.height * H];
+    }
+    function zoomAt(factor, sx, sy) {
+        var k = Math.min(MAX_K, Math.max(MIN_K, view.k * factor));
+        var px = (sx - view.x) / view.k, py = (sy - view.y) / view.k;
+        view = clamp({k: k, x: sx - k * px, y: sy - k * py});
+        hideTip();
+        apply();
+    }
+
+    svg.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        var s = toSvg(e.clientX, e.clientY);
+        zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, s[0], s[1]);
+    }, {passive: false});
+
+    svg.addEventListener('pointerdown', function (e) {
+        drag = {x: e.clientX, y: e.clientY, vx: view.x, vy: view.y};
+        svg.classList.add('is-panning');
+        svg.setPointerCapture(e.pointerId);
+    });
+    svg.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        var r = svg.getBoundingClientRect();
+        view = clamp({k: view.k,
+            x: drag.vx + (e.clientX - drag.x) / r.width * W,
+            y: drag.vy + (e.clientY - drag.y) / r.height * H});
+        apply();
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+        svg.addEventListener(ev, function () { drag = null; svg.classList.remove('is-panning'); });
+    });
+
+    root.querySelector('[data-zoom="in"]').addEventListener('click', function () { zoomAt(1.4, W / 2, H / 2); });
+    root.querySelector('[data-zoom="out"]').addEventListener('click', function () { zoomAt(1 / 1.4, W / 2, H / 2); });
+    root.querySelector('[data-zoom="reset"]').addEventListener('click', function () { view = {k: 1, x: 0, y: 0}; hideTip(); apply(); });
+
+    drawPins();
+    apply();
+})();
+
+/* Expand / collapse the long breakdown lists. */
+document.querySelectorAll('[data-more]').forEach(function (btn) {
+    var collapsedLabel = btn.textContent;
+    btn.addEventListener('click', function () {
+        var open = btn.previousElementSibling.classList.toggle('is-expanded');
+        btn.textContent = open ? 'Show less' : collapsedLabel;
+    });
+});
+</script>
+
+
+<div id="footer" class="Wrapper">
+    
+    <div class="TitleDivider" style="margin-top: 1em" ></div>
+    <p style="margin-top:10px" class="bel-footer">
+        <a href="https://github.com/Beldex-Coin/beldex-explorer">Source Code</a>
+        | Explorer Revision: fdc83b8f6
+        | Beldex Version: 5.1.2
+    </p>
+    
+</div>
+
+</body>
+</html>

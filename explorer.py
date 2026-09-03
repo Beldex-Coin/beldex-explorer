@@ -21,6 +21,7 @@ from jinja2 import Environment
 
 import config
 import local_config
+import geoip
 from lmq import FutureJSON, lmq_connection
 
 import base64
@@ -153,6 +154,14 @@ def format_beldex(atomic, tag=True, fixed=False, decimals=9, zero=None):
 
 # For some inexplicable reason some hex fields are provided as array of byte integer values rather
 # than hex.  This converts such a monstrosity to hex.
+@app.template_filter('flag')
+def country_flag(code):
+    """Regional-indicator flag emoji for a 2-letter ISO country code."""
+    if not code or len(code) != 2 or not code.isalpha():
+        return '\N{WAVING WHITE FLAG}'
+    return ''.join(chr(0x1F1E6 + ord(c) - ord('A')) for c in code.upper())
+
+
 @app.template_filter('bytes_to_hex')
 def bytes_to_hex(b):
     return "".join("{:02x}".format(x) for x in b)
@@ -264,7 +273,7 @@ def get_mns_future(lmq, beldexd):
                     'last_reward_transaction_index', 'active', 'funded', 'earned_downtime_blocks',
                     'master_node_version', 'contributors', 'total_contributed', 'total_reserved',
                     'staking_requirement', 'portions_for_operator', 'operator_address', 'pubkey_ed25519',
-                    'last_uptime_proof', 'state_height', 'swarm_id') } })
+                    'last_uptime_proof', 'state_height', 'swarm_id', 'public_ip') } })
 
 def get_mns(mns_future, info_future):
     info = info_future.get()
@@ -520,6 +529,106 @@ def mns():
         awaiting_mns=awaiting,
         inactive_mns=inactive,
         )
+
+def _mn_status(mn):
+    if mn.get('active'):
+        return 'active'
+    if mn.get('funded'):
+        return 'decommissioned'
+    return 'awaiting'
+
+
+def _distribution(mns):
+    """Aggregates master nodes by country, ASN and map point using whatever
+    geolocation data is already cached (see geoip.py)."""
+    ips = [mn.get('public_ip') for mn in mns if mn.get('public_ip')]
+    geo = geoip.lookup(ips)
+
+    by_country, by_asn, points = {}, {}, {}
+    located = 0
+    for mn in mns:
+        g = geo.get(mn.get('public_ip'))
+        if not g:
+            continue
+        located += 1
+        status = _mn_status(mn)
+
+        cc = g.get('countryCode') or 'XX'
+        country = g.get('country') or 'Unknown'
+        c = by_country.setdefault(cc, {'country': country, 'code': cc, 'count': 0})
+        c['count'] += 1
+
+        asn_key = g.get('as') or g.get('asname') or 'Unknown'
+        a = by_asn.setdefault(asn_key, {
+            'asn': g.get('as'),
+            'name': g.get('asname') or g.get('isp') or g.get('as') or 'Unknown',
+            'count': 0})
+        a['count'] += 1
+
+        lat, lon = g.get('lat'), g.get('lon')
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            key = '{:.1f},{:.1f}'.format(lat, lon)
+            p = points.setdefault(key, {'lat': lat, 'lon': lon, 'country': country,
+                'count': 0, 'active': 0, 'decommissioned': 0, 'awaiting': 0})
+            p['count'] += 1
+            p[status] += 1
+
+    by_count = lambda d: sorted(d.values(), key=lambda x: (-x['count'], x.get('name') or x.get('country')))
+    return {
+        'total': len(mns),
+        'with_ip': len(ips),
+        'located': located,
+        'unresolved': len(mns) - located,
+        'countries': len(by_country),
+        'providers': len(by_asn),
+        'by_country': by_count(by_country),
+        'by_asn': by_count(by_asn),
+        'points': sorted(points.values(), key=lambda p: -p['count']),
+    }
+
+
+@app.route('/distribution')
+def distribution():
+    lmq, beldexd = lmq_connection()
+    inforeq = _CachedInfoFuture(lmq, beldexd)
+    mns_future = get_mns_future(lmq, beldexd)
+
+    info, stale_info = get_info_or_stale(inforeq)
+    if info is None:
+        print("daemon-busy page served for /distribution: get_info timed out", file=sys.stderr)
+        return flask.render_template('daemon_unavailable.html', info=None), 503
+    info['testnet'] = info['nettype'] == 'testnet'
+    info['devnet'] = info['nettype'] == 'devnet'
+
+    awaiting, active, inactive = get_mns(mns_future, inforeq)
+    mns = active + inactive + awaiting
+
+    # Queue any missing/stale lookups in the background, then build the page
+    # from whatever is cached right now. The first ever load therefore renders
+    # immediately (mostly empty) and fills in over the next refreshes.
+    ips = [mn['public_ip'] for mn in mns if mn.get('public_ip')]
+    try:
+        geoip.refresh(ips)
+    except Exception as e:
+        print("geoip refresh failed: {}".format(e), file=sys.stderr)
+    geo_status = geoip.status()
+
+    dist = _distribution(mns)
+    dist['status_counts'] = {
+        'active': len(active),
+        'decommissioned': len(inactive),
+        'awaiting': len(awaiting),
+    }
+
+    return flask.render_template('distribution.html',
+            info=info,
+            stale_info=stale_info,
+            dist=dist,
+            geo_status=geo_status,
+            # Refresh while lookups are still in flight so the map fills in.
+            refresh=20 if (geo_status.get('running') or dist['located'] == 0) else None,
+            )
+
 
 def tx_req(lmq, beldexd, txids, cache_key='single', **kwargs):
     return FutureJSON(lmq, beldexd, 'rpc.get_transactions', cache_seconds=10, cache_key=cache_key,

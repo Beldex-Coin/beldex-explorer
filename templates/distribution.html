@@ -1,0 +1,396 @@
+{% extends "_basic.html" %}
+
+{% block title %}Distribution — {% endblock %}
+
+{% macro barlist(items, total, limit=14, flags=False) %}
+    {% set max = items[0].count if items else 1 %}
+    <ul class="barlist">
+        {% for it in items %}
+        <li class="barlist__row{{ ' is-extra' if loop.index0 >= limit else '' }}">
+            <div class="barlist__label" title="{{ it.country if flags else it.name }}{{ ' · ' ~ it.asn if it.asn }}">
+                {% if flags %}<span class="barlist__flag">{{ it.code | flag }}</span>{% endif %}
+                <span class="barlist__name">{{ it.country if flags else it.name }}</span>
+            </div>
+            <div class="barlist__track">
+                <div class="barlist__fill" style="width: {{ (it.count / max * 100) | round(2) }}%"></div>
+            </div>
+            <div class="barlist__val">
+                {{ it.count }}<span class="barlist__pct">{{ (it.count / total * 100) | round(1) if total else 0 }}%</span>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% if items | length > limit %}
+    <button type="button" class="barlist__more" data-more>+{{ items | length - limit }} more</button>
+    {% endif %}
+{% endmacro %}
+
+{% block content %}
+{% if stale_info %}
+<div class="stale-banner">Daemon busy — showing recently cached data; refreshes automatically once it responds.</div>
+{% endif %}
+<div class="Wrapper">
+
+    <div class="hero" style="padding: 24px 0 8px">
+        <div class="eyebrow">Network Analytics</div>
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Master Node Distribution</h1>
+        <p class="hero-note">Where the master node set lives — geographic and hosting-provider spread of every node's public IP</p>
+    </div>
+
+    {% if geo_status.running %}
+    <div class="stale-banner">Locating nodes — {{ geo_status.pending }} address{{ '' if geo_status.pending == 1 else 'es' }} still queued. This page refreshes itself as results arrive.</div>
+    {% elif dist.located == 0 %}
+    <div class="stale-banner">No location data yet{% if geo_status.error %} — last lookup failed: {{ geo_status.error }}{% endif %}. Lookups run in the background and the page refreshes automatically.</div>
+    {% endif %}
+
+    {# ---------------- headline tiles ---------------- #}
+    <div class="stat-grid">
+        <div class="stat-card">
+            <span class="label">Master nodes</span>
+            <span class="value">{{ dist.total }}</span>
+            <span class="note">{{ dist.with_ip }} with a public IP</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Located</span>
+            <span class="value" style="color: var(--green)">{{ dist.located }}</span>
+            <span class="note">{{ dist.unresolved }} unresolved</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Countries</span>
+            <span class="value">{{ dist.countries }}</span>
+            {% if dist.by_country %}<span class="note">top: {{ dist.by_country[0].country }} ({{ dist.by_country[0].count }})</span>{% endif %}
+        </div>
+        <div class="stat-card">
+            <span class="label">Providers / ASNs</span>
+            <span class="value">{{ dist.providers }}</span>
+            {% if dist.by_asn %}<span class="note" title="{{ dist.by_asn[0].name }}">top: {{ dist.by_asn[0].name | ellipsize(22, 0, '…') }}</span>{% endif %}
+        </div>
+        <div class="stat-card">
+            <span class="label">Active</span>
+            <span class="value" style="color: var(--green)">{{ dist.status_counts.active }}</span>
+            <span class="note">{{ dist.status_counts.awaiting }} awaiting · {{ dist.status_counts.decommissioned }} decommissioned</span>
+        </div>
+        <div class="stat-card" title="Share of located nodes sitting in the single largest country">
+            <span class="label">Top country share</span>
+            <span class="value">{{ (dist.by_country[0].count / dist.located * 100) | round(1) if dist.located and dist.by_country else 0 }}<span class="unit">%</span></span>
+            <span class="note">concentration indicator</span>
+        </div>
+    </div>
+
+    {# ---------------- world map ---------------- #}
+    <div class="chart-panel" style="margin-top: 22px">
+        <h2 class="chart-title">Node map
+            <span class="chart-sub">{{ dist.located }} located{% if dist.unresolved %} · {{ dist.unresolved }} unknown{% endif %} · scroll or drag to explore</span>
+        </h2>
+        <div class="worldmap" data-worldmap>
+            <svg class="worldmap__svg" viewBox="0 0 820 420" preserveAspectRatio="xMidYMid meet"></svg>
+            <div class="worldmap__zoom">
+                <button type="button" class="worldmap__zbtn" data-zoom="in" title="Zoom in" aria-label="Zoom in">+</button>
+                <button type="button" class="worldmap__zbtn" data-zoom="out" title="Zoom out" aria-label="Zoom out">&minus;</button>
+                <button type="button" class="worldmap__zbtn" data-zoom="reset" title="Reset view" aria-label="Reset view">&#8634;</button>
+            </div>
+            <div class="worldmap__legend">
+                <button type="button" class="worldmap__lg worldmap__lg--active" data-status="active">Active</button>
+                <button type="button" class="worldmap__lg worldmap__lg--decommissioned" data-status="decommissioned">Decommissioned</button>
+                <button type="button" class="worldmap__lg worldmap__lg--awaiting" data-status="awaiting">Awaiting</button>
+            </div>
+            <div class="worldmap__tip" hidden></div>
+            <div class="worldmap__note" hidden></div>
+        </div>
+    </div>
+
+    {# ---------------- breakdowns ---------------- #}
+    <div class="chart-grid" style="margin-top: 18px">
+        <div class="chart-panel">
+            <h2 class="chart-title">Nodes by country <span class="chart-sub">{{ dist.countries }} countries</span></h2>
+            {% if dist.by_country %}
+                {{ barlist(dist.by_country, dist.located, 14, True) }}
+            {% else %}
+                <p class="chart-pending">No location data yet.</p>
+            {% endif %}
+        </div>
+        <div class="chart-panel">
+            <h2 class="chart-title">Nodes by ASN / provider <span class="chart-sub">{{ dist.providers }} networks</span></h2>
+            {% if dist.by_asn %}
+                {{ barlist(dist.by_asn, dist.located, 14, False) }}
+            {% else %}
+                <p class="chart-pending">No provider data yet.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <p class="hero-note" style="margin: 18px 0 30px">
+        Locations are looked up from each node's advertised public IP via ip-api.com and cached for a week.
+        IP geolocation is approximate — treat country and provider figures as indicative, not authoritative.
+    </p>
+</div>
+
+<script>
+(function () {
+    var POINTS = {{ dist.points | tojson }};
+    var TOPO_URL = 'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
+    var W = 820, H = 420, MIN_K = 1, MAX_K = 8;
+    var NS = 'http://www.w3.org/2000/svg';
+    var PIN = 'M0,0 C-6,-9 -11,-14 -11,-20 A11,11 0 1,1 11,-20 C11,-14 6,-9 0,0 Z';
+
+    var root = document.querySelector('[data-worldmap]');
+    if (!root) return;
+    var svg = root.querySelector('.worldmap__svg');
+    var tip = root.querySelector('.worldmap__tip');
+    var note = root.querySelector('.worldmap__note');
+
+    /* ---- Natural Earth I projection (same formula d3-geo uses) ---- */
+    function raw(lon, lat) {
+        var l = lon * Math.PI / 180, p = lat * Math.PI / 180;
+        var p2 = p * p, p4 = p2 * p2;
+        return [
+            l * (0.8707 - 0.131979 * p2 + p4 * (-0.013791 + p4 * (0.003971 * p2 - 0.001529 * p4))),
+            p * (1.007226 + p2 * (0.015085 + p4 * (-0.044475 + 0.028874 * p2 - 0.005916 * p4)))
+        ];
+    }
+    var XMAX = raw(180, 0)[0], YMAX = raw(0, 90)[1];
+    var K = Math.min(W / (2 * XMAX), H / (2 * YMAX));
+    function project(lon, lat) {
+        var xy = raw(lon, lat);
+        return [W / 2 + K * xy[0], H / 2 - K * xy[1]];
+    }
+    function ringPath(ring) {
+        var d = '';
+        for (var i = 0; i < ring.length; i++) {
+            var xy = project(ring[i][0], ring[i][1]);
+            d += (i ? 'L' : 'M') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1);
+        }
+        return d ? d + 'Z' : '';
+    }
+
+    /* ---- minimal TopoJSON decoder (Polygon / MultiPolygon only) ---- */
+    function decodeArcs(topo) {
+        var tr = topo.transform;
+        return topo.arcs.map(function (arc) {
+            var x = 0, y = 0;
+            return arc.map(function (d) {
+                if (tr) {
+                    x += d[0]; y += d[1];
+                    return [x * tr.scale[0] + tr.translate[0], y * tr.scale[1] + tr.translate[1]];
+                }
+                return d;
+            });
+        });
+    }
+    function ringOf(arcs, idxs) {
+        var pts = [];
+        for (var i = 0; i < idxs.length; i++) {
+            var k = idxs[i], rev = k < 0;
+            var a = arcs[rev ? ~k : k];
+            if (!a) continue;
+            var seg = rev ? a.slice().reverse() : a;
+            pts = pts.concat(pts.length ? seg.slice(1) : seg);
+        }
+        return pts;
+    }
+    function pathsFor(topo, objectName) {
+        var arcs = decodeArcs(topo);
+        var obj = topo.objects[objectName];
+        var geoms = obj.type === 'GeometryCollection' ? obj.geometries : [obj];
+        return geoms.map(function (g) {
+            var polys = g.type === 'Polygon' ? [g.arcs] : g.type === 'MultiPolygon' ? g.arcs : [];
+            var d = '';
+            polys.forEach(function (rings) {
+                rings.forEach(function (r) { d += ringPath(ringOf(arcs, r)); });
+            });
+            return d;
+        }).filter(Boolean);
+    }
+
+    function el(name, attrs, parent) {
+        var e = document.createElementNS(NS, name);
+        for (var k in attrs) e.setAttribute(k, attrs[k]);
+        if (parent) parent.appendChild(e);
+        return e;
+    }
+
+    /* ---- static layers ---- */
+    var g = el('g', {}, svg);
+
+    // Projection outline (the "sphere").
+    var outline = '';
+    for (var lat = -90; lat <= 90; lat += 2) {
+        var xy = project(180, lat);
+        outline += (outline ? 'L' : 'M') + xy[0].toFixed(1) + ',' + xy[1].toFixed(1);
+    }
+    for (var lat2 = 90; lat2 >= -90; lat2 -= 2) {
+        var xy2 = project(-180, lat2);
+        outline += 'L' + xy2[0].toFixed(1) + ',' + xy2[1].toFixed(1);
+    }
+    el('path', {d: outline + 'Z', class: 'worldmap__sphere', 'vector-effect': 'non-scaling-stroke'}, g);
+
+    // Graticule every 30°.
+    var grat = '';
+    for (var lo = -180; lo <= 180; lo += 30) {
+        for (var la = -90; la <= 90; la += 3) {
+            var p = project(lo, la);
+            grat += (la === -90 ? 'M' : 'L') + p[0].toFixed(1) + ',' + p[1].toFixed(1);
+        }
+    }
+    for (var la2 = -60; la2 <= 60; la2 += 30) {
+        for (var lo2 = -180; lo2 <= 180; lo2 += 3) {
+            var p2 = project(lo2, la2);
+            grat += (lo2 === -180 ? 'M' : 'L') + p2[0].toFixed(1) + ',' + p2[1].toFixed(1);
+        }
+    }
+    el('path', {d: grat, class: 'worldmap__grat', 'vector-effect': 'non-scaling-stroke'}, g);
+
+    var landLayer = el('g', {}, g);
+    var pinLayer = el('g', {}, g);
+
+    fetch(TOPO_URL)
+        .then(function (r) { return r.json(); })
+        .then(function (topo) {
+            pathsFor(topo, 'countries').forEach(function (d) {
+                el('path', {d: d, class: 'worldmap__land', 'vector-effect': 'non-scaling-stroke'}, landLayer);
+            });
+        })
+        .catch(function () {
+            note.textContent = 'Country outlines unavailable — showing node locations only.';
+            note.hidden = false;
+        });
+
+    /* ---- pins ---- */
+    var selected = {active: true, decommissioned: true, awaiting: true};
+
+    function drawPins() {
+        while (pinLayer.firstChild) pinLayer.removeChild(pinLayer.firstChild);
+        var visible = [];
+        POINTS.forEach(function (p) {
+            var n = (selected.active ? (p.active || 0) : 0) +
+                    (selected.decommissioned ? (p.decommissioned || 0) : 0) +
+                    (selected.awaiting ? (p.awaiting || 0) : 0);
+            if (n > 0) visible.push({p: p, n: n});
+        });
+        var max = visible.reduce(function (m, v) { return Math.max(m, v.n); }, 1);
+        visible.map(function (v) {
+            var xy = project(v.p.lon, v.p.lat);
+            var cands = [];
+            if (selected.active) cands.push(['active', v.p.active || 0]);
+            if (selected.decommissioned) cands.push(['decommissioned', v.p.decommissioned || 0]);
+            if (selected.awaiting) cands.push(['awaiting', v.p.awaiting || 0]);
+            cands.sort(function (a, b) { return b[1] - a[1]; });
+            return {
+                x: xy[0], y: xy[1], p: v.p, n: v.n,
+                s: 0.55 + Math.sqrt(v.n / max) * 0.85,
+                status: cands.length ? cands[0][0] : 'active'
+            };
+        }).sort(function (a, b) { return a.y - b.y; }).forEach(function (m) {
+            var pin = el('g', {class: 'worldmap__pin',
+                transform: 'translate(' + m.x.toFixed(1) + ' ' + m.y.toFixed(1) + ') scale(' + m.s.toFixed(3) + ')'}, pinLayer);
+            el('ellipse', {class: 'worldmap__pinshadow', cx: 0, cy: 0.5, rx: 4.5, ry: 1.6}, pin);
+            el('path', {class: 'worldmap__pinbody worldmap__pinbody--' + m.status, d: PIN}, pin);
+            el('circle', {class: 'worldmap__pinhole', cx: 0, cy: -20, r: 4}, pin);
+            pin.addEventListener('mouseenter', function () { showTip(m); });
+            pin.addEventListener('mouseleave', hideTip);
+        });
+    }
+
+    function showTip(m) {
+        var p = m.p;
+        var parts = [];
+        if (p.active) parts.push(p.active + ' active');
+        if (p.decommissioned) parts.push(p.decommissioned + ' decomm');
+        if (p.awaiting) parts.push(p.awaiting + ' awaiting');
+        tip.innerHTML = '';
+        var strong = document.createElement('strong');
+        strong.textContent = p.country || 'Unknown';
+        tip.appendChild(strong);
+        var count = document.createElement('span');
+        count.textContent = p.count + (p.count === 1 ? ' node' : ' nodes');
+        tip.appendChild(count);
+        if (parts.length) {
+            var br = document.createElement('span');
+            br.className = 'worldmap__tipbreak';
+            br.textContent = parts.join(' · ');
+            tip.appendChild(br);
+        }
+        tip.style.left = ((view.x + view.k * m.x) / W * 100) + '%';
+        tip.style.top = ((view.y + view.k * m.y) / H * 100) + '%';
+        tip.hidden = false;
+    }
+    function hideTip() { tip.hidden = true; }
+
+    root.querySelectorAll('[data-status]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var key = btn.getAttribute('data-status');
+            var next = Object.assign({}, selected);
+            next[key] = !next[key];
+            if (!next.active && !next.decommissioned && !next.awaiting) return; // keep one on
+            selected = next;
+            btn.classList.toggle('is-off', !selected[key]);
+            hideTip();
+            drawPins();
+        });
+    });
+
+    /* ---- pan & zoom ---- */
+    var view = {k: 1, x: 0, y: 0}, drag = null;
+
+    function clamp(v) {
+        var k = Math.min(MAX_K, Math.max(MIN_K, v.k));
+        return {k: k,
+            x: Math.min(0, Math.max(W - k * W, v.x)),
+            y: Math.min(0, Math.max(H - k * H, v.y))};
+    }
+    function apply() {
+        g.setAttribute('transform', 'translate(' + view.x.toFixed(2) + ' ' + view.y.toFixed(2) + ') scale(' + view.k.toFixed(4) + ')');
+    }
+    function toSvg(cx, cy) {
+        var r = svg.getBoundingClientRect();
+        return [(cx - r.left) / r.width * W, (cy - r.top) / r.height * H];
+    }
+    function zoomAt(factor, sx, sy) {
+        var k = Math.min(MAX_K, Math.max(MIN_K, view.k * factor));
+        var px = (sx - view.x) / view.k, py = (sy - view.y) / view.k;
+        view = clamp({k: k, x: sx - k * px, y: sy - k * py});
+        hideTip();
+        apply();
+    }
+
+    svg.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        var s = toSvg(e.clientX, e.clientY);
+        zoomAt(e.deltaY < 0 ? 1.2 : 1 / 1.2, s[0], s[1]);
+    }, {passive: false});
+
+    svg.addEventListener('pointerdown', function (e) {
+        drag = {x: e.clientX, y: e.clientY, vx: view.x, vy: view.y};
+        svg.classList.add('is-panning');
+        svg.setPointerCapture(e.pointerId);
+    });
+    svg.addEventListener('pointermove', function (e) {
+        if (!drag) return;
+        var r = svg.getBoundingClientRect();
+        view = clamp({k: view.k,
+            x: drag.vx + (e.clientX - drag.x) / r.width * W,
+            y: drag.vy + (e.clientY - drag.y) / r.height * H});
+        apply();
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (ev) {
+        svg.addEventListener(ev, function () { drag = null; svg.classList.remove('is-panning'); });
+    });
+
+    root.querySelector('[data-zoom="in"]').addEventListener('click', function () { zoomAt(1.4, W / 2, H / 2); });
+    root.querySelector('[data-zoom="out"]').addEventListener('click', function () { zoomAt(1 / 1.4, W / 2, H / 2); });
+    root.querySelector('[data-zoom="reset"]').addEventListener('click', function () { view = {k: 1, x: 0, y: 0}; hideTip(); apply(); });
+
+    drawPins();
+    apply();
+})();
+
+/* Expand / collapse the long breakdown lists. */
+document.querySelectorAll('[data-more]').forEach(function (btn) {
+    var collapsedLabel = btn.textContent;
+    btn.addEventListener('click', function () {
+        var open = btn.previousElementSibling.classList.toggle('is-expanded');
+        btn.textContent = open ? 'Show less' : collapsedLabel;
+    });
+});
+</script>
+{% endblock %}
