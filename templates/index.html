@@ -92,11 +92,6 @@
                 <span class="value">{{bns}}</span>
             </div>
             <div class="stat-card">
-                <span class="label">BDX price</span>
-                <span class="value"><span id="bdxPriceLabel">…</span></span>
-                <span class="note" id="lblPrice">via CoinGecko</span>
-            </div>
-            <div class="stat-card">
                 <span class="label">Blockchain size</span>
                 <span class="value">{{info.database_size | si}}B</span>
             </div>
@@ -138,17 +133,6 @@
             {% endif %}
         </div>
 
-        <script>
-            fetch('https://api.coingecko.com/api/v3/simple/price?ids=beldex&vs_currencies=usd')
-                .then(response => response.json())
-                .then(data => {
-                    document.getElementById('bdxPriceLabel').textContent = '$' + data.beldex.usd;
-                })
-                .catch(error => {
-                    console.error('Error fetching BDX price:', error);
-                    document.getElementById('bdxPriceLabel').textContent = '—';
-                });
-        </script>
     </div>
 
     {% include 'include/mempool.html' %}

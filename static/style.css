@@ -261,7 +261,7 @@ a.net-item:hover { color: var(--green) !important; background: rgba(255, 255, 25
     align-items: center;
 }
 
-#header h1.Header img { height: 40px; display: block; }
+#header h1.Header img { height: 28px; display: block; }
 
 /* logo.svg already carries the BELDEX wordmark */
 #header h1.Header a { display: flex; align-items: center; }
