@@ -24,6 +24,14 @@
         <span class="topbar-item">BDX Price: <span class="topbar-price" id="topbarPrice">…</span> <span id="topbarChange"></span></span>
         <span class="topbar-item dim-item" title="Current chain height">Height: <span class="topbar-price">{{ info.height if info else '…' }}</span></span>
         <span class="topbar-spacer"></span>
+        {% if request.endpoint != 'main' %}
+        <form action="/search" method="get" class="topbar-search">
+            <span class="ts-icon">⌕</span>
+            <input type="text" name="value" id="topbarSearchInput"
+                   placeholder="Search by Height / Block hash / TX ID / MN pubkey / BNS" spellcheck="false">
+            <span class="ts-key" title="Press / to search">/</span>
+        </form>
+        {% endif %}
         <details class="net-switch">
             <summary>◈ Beldex {{ net | capitalize }}</summary>
             <div class="net-menu">
@@ -50,6 +58,19 @@
             }
         })
         .catch(function() { document.getElementById('topbarPrice').textContent = '—'; });
+
+    // "/" focuses the topbar search (like BscScan); Esc blurs it
+    document.addEventListener('keydown', function(e) {
+        var input = document.getElementById('topbarSearchInput');
+        if (!input) return;
+        var tag = (document.activeElement && document.activeElement.tagName) || '';
+        if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA' && tag !== 'SELECT') {
+            e.preventDefault();
+            input.focus();
+        } else if (e.key === 'Escape' && document.activeElement === input) {
+            input.blur();
+        }
+    });
 </script>
 <div id="header" class="Wrapper">
     {% block header %}
@@ -64,12 +85,6 @@
                 <h1 class="Header">
                    <a href="/"><img src="{{ url_for('static', filename='logo.svg') }}"></a>
                 </h1>
-            {% if request.endpoint != 'main' %}
-            <form action="/search" method="get" class="top-search">
-                <input type="text" name="value" placeholder="Block height / Block hash / TX ID / MN pubkey / BNS">
-                <input type="submit" value="Search">
-            </form>
-            {% endif %}
             <nav class="site-nav">
                 <a href="/" class="{% if request.path == '/' %}active{% endif %}">Explorer</a>
                 <a href="/master_nodes" class="{% if request.path == '/master_nodes' %}active{% endif %}">Master Nodes</a>

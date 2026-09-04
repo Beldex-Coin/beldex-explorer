@@ -140,6 +140,51 @@ code {
 .topbar-spacer { margin-left: auto; }
 @media (max-width: 640px) { .dim-item { display: none; } }
 
+/* topbar search (all pages except home) */
+.topbar-search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 0 1 440px;
+    min-width: 220px;
+    background: var(--bg-panel);
+    border: 1px solid var(--border-strong);
+    padding: 0 10px;
+}
+.topbar-search:focus-within {
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px var(--green);
+}
+.topbar-search .ts-icon {
+    color: var(--text-faint);
+    font-size: 16px;
+    line-height: 1;
+}
+.topbar-search input {
+    flex: 1;
+    min-width: 0;
+    background: transparent;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+    color: var(--text);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 8px 0;
+}
+.topbar-search input::placeholder { color: var(--text-faint); }
+.topbar-search .ts-key {
+    color: var(--text-faint);
+    font-size: 10px;
+    border: 1px solid var(--border-strong);
+    padding: 1px 7px;
+    border-radius: 2px;
+}
+@media (max-width: 900px) {
+    .topbar-inner { flex-wrap: wrap; }
+    .topbar-search { order: 10; flex: 1 1 100%; }
+}
+
 .net-switch { position: relative; }
 .net-switch summary {
     list-style: none;
