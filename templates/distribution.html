@@ -73,11 +73,6 @@
             <span class="value" style="color: var(--green)">{{ dist.status_counts.active }}</span>
             <span class="note">{{ dist.status_counts.awaiting }} awaiting · {{ dist.status_counts.decommissioned }} decommissioned</span>
         </div>
-        <div class="stat-card" title="Share of located nodes sitting in the single largest country">
-            <span class="label">Top country share</span>
-            <span class="value">{{ (dist.by_country[0].count / dist.located * 100) | round(1) if dist.located and dist.by_country else 0 }}<span class="unit">%</span></span>
-            <span class="note">concentration indicator</span>
-        </div>
     </div>
 
     {# ---------------- world map ---------------- #}
