@@ -25,6 +25,8 @@
 
         {# ---------- Testing (obligation) quorums ---------- #}
         <div class="tabpanel" id="qpanel-testing">
+            <p class="quorum-desc">Randomly selected master nodes that test other nodes for uptime and network
+            obligations. Nodes failing these tests collect votes toward decommission or deregistration.</p>
             <div class="obligations quorums">
                 {%for q in quorums.obligation[-18:] | reverse%}
                     <div{%if q.height + 13 == info.height%} class="now"{%endif%}>
@@ -62,6 +64,9 @@
 
         {# ---------- POS quorums ---------- #}
         <div class="tabpanel" id="qpanel-pos">
+            <p class="quorum-desc">Proof-of-Stake block production: each quorum names one master node as the
+            block producer and a set of validators who sign the block it creates. A backup quorum steps in
+            if the primary takes too long.</p>
             {%if quorums.POS%}
                 <div class="POS quorums">
                     {%for q in quorums.POS[-24:] | reverse%}
@@ -95,6 +100,8 @@
 
         {# ---------- Checkpoint quorums ---------- #}
         <div class="tabpanel" id="qpanel-checkpoint">
+            <p class="quorum-desc">Master nodes that vote to checkpoint recent blocks into the chain. Once a
+            block is checkpointed the chain cannot reorganize past it, protecting finalized history.</p>
             <div class="checkpoint quorums">
                 {%for q in quorums.checkpoint[-12:] | reverse%}
                     <div>
@@ -115,6 +122,9 @@ Validator {{loop.index}}/{{q.quorum.validators | length}}">{{v | ellipsize(6,6,'
 
         {# ---------- Flash quorums ---------- #}
         <div class="tabpanel" id="qpanel-flash">
+            <p class="quorum-desc">Instant-payment approval: a flash transaction is locked as soon as at least
+            7 master nodes from each of two subquorums (Q₀ and Q₁) approve it, well before it is mined into
+            a block.</p>
             <div class="flash quorums">
                 {# Flash quorums are not fully independent: a flash quorum at height H is subquorum 0 for txes submitted at blockchain height
                 [H+35, H+39], and subquorum 1 for txes submitted at height [H+30, H+34]. We want to show the full quorum here for each 5-block
