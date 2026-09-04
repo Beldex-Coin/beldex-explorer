@@ -112,14 +112,6 @@
                 <p class="chart-pending">No location data yet.</p>
             {% endif %}
         </div>
-        <div class="chart-panel">
-            <h2 class="chart-title">Nodes by ASN / provider <span class="chart-sub">{{ dist.providers }} networks</span></h2>
-            {% if dist.by_asn %}
-                {{ barlist(dist.by_asn, dist.located, 14, False) }}
-            {% else %}
-                <p class="chart-pending">No provider data yet.</p>
-            {% endif %}
-        </div>
     </div>
 
     <p class="hero-note" style="margin: 18px 0 30px">
