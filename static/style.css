@@ -1270,6 +1270,8 @@ div.bns { word-break: break-all; }
 
 .worldmap__tip {
     position: absolute;
+    /* Sits above the pin by default, and flips below when there isn't room -
+       the map clips its overflow, and most nodes sit high on the projection. */
     transform: translate(-50%, calc(-100% - 16px));
     background: rgba(5, 5, 5, 0.96);
     border: 1px solid var(--border-strong);
@@ -1289,6 +1291,11 @@ div.bns { word-break: break-all; }
 }
 .worldmap__tip span { font-size: 11px; color: var(--text-dim); }
 .worldmap__tipbreak { color: var(--text-faint) !important; font-size: 10px !important; }
+
+/* display:flex above would otherwise beat the UA's [hidden] rule, leaving an
+   empty tooltip box permanently on the map. */
+.worldmap__tip[hidden] { display: none; }
+.worldmap__tip.is-below { transform: translate(-50%, 16px); }
 
 .worldmap__note {
     position: absolute;

@@ -265,8 +265,8 @@ def get_info_or_stale(inforeq):
     return info, (info is not None and getattr(inforeq, 'stale', False))
 
 
-def get_mns_future(lmq, beldexd):
-    return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 5,
+def get_mns_future(lmq, beldexd, cache_seconds=5, cache_key=''):
+    return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', cache_seconds, cache_key=cache_key,
             args={
                 'all': False,
                 'fields': { x: True for x in ('master_node_pubkey', 'requested_unlock_height', 'last_reward_block_height',
@@ -586,24 +586,30 @@ def _distribution(mns, geo):
     }
 
 
-@app.route('/distribution')
-def distribution():
-    lmq, beldexd = lmq_connection()
-    inforeq = _CachedInfoFuture(lmq, beldexd)
-    mns_future = get_mns_future(lmq, beldexd)
+# The distribution page is expensive on both sides: get_master_nodes returns
+# the full node list, and geolocation may hit ip-api. mn-dashboard caches its
+# equivalent endpoint for 60s; do the same here so repeated reloads cost the
+# daemon nothing between rebuilds. Like every other page in the explorer this
+# one never refreshes itself - the user reloads when they want fresher data.
+_DIST_CACHE_SECONDS = 60
+_dist_cache = {'at': 0, 'dist': None, 'geo': None}
 
-    info, stale_info = get_info_or_stale(inforeq)
-    if info is None:
-        print("daemon-busy page served for /distribution: get_info timed out", file=sys.stderr)
-        return flask.render_template('daemon_unavailable.html', info=None), 503
-    info['testnet'] = info['nettype'] == 'testnet'
-    info['devnet'] = info['nettype'] == 'devnet'
 
+def _build_distribution(lmq, beldexd, inforeq):
+    """(dist, geo_info), rebuilt at most once per _DIST_CACHE_SECONDS."""
+    now = time.time()
+    if (_dist_cache['dist'] is not None
+            and now - _dist_cache['at'] < _DIST_CACHE_SECONDS
+            and not _dist_cache['geo'].get('remaining')):
+        return _dist_cache['dist'], _dist_cache['geo']
+
+    # Cached separately from /master_nodes (which wants fresher data) so this
+    # page's refreshes don't shorten that cache or duplicate its work.
+    mns_future = get_mns_future(lmq, beldexd, cache_seconds=_DIST_CACHE_SECONDS,
+                                cache_key='dist')
     awaiting, active, inactive = get_mns(mns_future, inforeq)
     mns = active + inactive + awaiting
 
-    # Resolve locations in-line so the page always renders with data. Anything
-    # not covered by the time/rate budget is picked up on the next request.
     ips = [mn['public_ip'] for mn in mns if mn.get('public_ip')]
     try:
         geo, geo_info = geoip.geolocate(ips)
@@ -618,14 +624,29 @@ def distribution():
         'decommissioned': len(inactive),
         'awaiting': len(awaiting),
     }
+    _dist_cache.update(at=time.time(), dist=dist, geo=geo_info)
+    return dist, geo_info
+
+
+@app.route('/distribution')
+def distribution():
+    lmq, beldexd = lmq_connection()
+    inforeq = _CachedInfoFuture(lmq, beldexd)
+
+    info, stale_info = get_info_or_stale(inforeq)
+    if info is None:
+        print("daemon-busy page served for /distribution: get_info timed out", file=sys.stderr)
+        return flask.render_template('daemon_unavailable.html', info=None), 503
+    info['testnet'] = info['nettype'] == 'testnet'
+    info['devnet'] = info['nettype'] == 'devnet'
+
+    dist, geo_info = _build_distribution(lmq, beldexd, inforeq)
 
     return flask.render_template('distribution.html',
             info=info,
             stale_info=stale_info,
             dist=dist,
             geo_status=geo_info,
-            # Only auto-refresh while addresses are still outstanding.
-            refresh=30 if geo_info.get('remaining') else None,
             )
 
 
