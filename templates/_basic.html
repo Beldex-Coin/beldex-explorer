@@ -33,14 +33,14 @@
         </form>
         {% endif %}
         <details class="net-switch">
-            <summary>◈ Beldex {{ net | capitalize }}</summary>
+            <summary>◈ {{ net | capitalize }}</summary>
             <div class="net-menu">
-                {% if net == 'mainnet' %}<span class="net-item current">Beldex Mainnet</span>
-                {% elif config.mainnet_url %}<a class="net-item" href="{{config.mainnet_url}}">Beldex Mainnet</a>{% endif %}
-                {% if net == 'testnet' %}<span class="net-item current">Beldex Testnet</span>
-                {% elif config.testnet_url %}<a class="net-item" href="{{config.testnet_url}}">Beldex Testnet</a>{% endif %}
-                {% if net == 'devnet' %}<span class="net-item current">Beldex Devnet</span>
-                {% elif config.devnet_url %}<a class="net-item" href="{{config.devnet_url}}">Beldex Devnet</a>{% endif %}
+                {% if net == 'mainnet' %}<span class="net-item current">Mainnet</span>
+                {% elif config.mainnet_url %}<a class="net-item" href="{{config.mainnet_url}}">Mainnet</a>{% endif %}
+                {% if net == 'testnet' %}<span class="net-item current">Testnet</span>
+                {% elif config.testnet_url %}<a class="net-item" href="{{config.testnet_url}}">Testnet</a>{% endif %}
+                {% if net == 'devnet' %}<span class="net-item current">Devnet</span>
+                {% elif config.devnet_url %}<a class="net-item" href="{{config.devnet_url}}">Devnet</a>{% endif %}
             </div>
         </details>
     </div>
@@ -58,6 +58,13 @@
             }
         })
         .catch(function() { document.getElementById('topbarPrice').textContent = '—'; });
+
+    // Close the network dropdown when clicking anywhere outside it
+    document.addEventListener('click', function(e) {
+        document.querySelectorAll('details.net-switch[open]').forEach(function(d) {
+            if (!d.contains(e.target)) d.removeAttribute('open');
+        });
+    });
 
     // "/" focuses the topbar search (like BscScan); Esc blurs it
     document.addEventListener('keydown', function(e) {
