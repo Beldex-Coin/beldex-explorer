@@ -102,18 +102,6 @@
         </div>
     </div>
 
-    {# ---------------- breakdowns ---------------- #}
-    <div class="chart-grid" style="margin-top: 18px">
-        <div class="chart-panel">
-            <h2 class="chart-title">Nodes by country <span class="chart-sub">{{ dist.countries }} countries</span></h2>
-            {% if dist.by_country %}
-                {{ barlist(dist.by_country, dist.located, 14, True) }}
-            {% else %}
-                <p class="chart-pending">No location data yet.</p>
-            {% endif %}
-        </div>
-    </div>
-
     <p class="hero-note" style="margin: 18px 0 30px">
         Locations are looked up from each node's advertised public IP via ip-api.com and cached for a week.
         IP geolocation is approximate — treat country and provider figures as indicative, not authoritative.
