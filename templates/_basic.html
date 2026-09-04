@@ -18,6 +18,39 @@
 </head>
 
 <body>
+{% set net = 'testnet' if info and info.testnet else 'devnet' if info and info.devnet else 'mainnet' %}
+<div id="topbar">
+    <div class="topbar-inner">
+        <span class="topbar-item">BDX Price: <span class="topbar-price" id="topbarPrice">…</span> <span id="topbarChange"></span></span>
+        <span class="topbar-item dim-item" title="Current chain height">Height: <span class="topbar-price">{{ info.height if info else '…' }}</span></span>
+        <span class="topbar-spacer"></span>
+        <details class="net-switch">
+            <summary>◈ Beldex {{ net | capitalize }}</summary>
+            <div class="net-menu">
+                {% if net == 'mainnet' %}<span class="net-item current">Beldex Mainnet</span>
+                {% elif config.mainnet_url %}<a class="net-item" href="{{config.mainnet_url}}">Beldex Mainnet</a>{% endif %}
+                {% if net == 'testnet' %}<span class="net-item current">Beldex Testnet</span>
+                {% elif config.testnet_url %}<a class="net-item" href="{{config.testnet_url}}">Beldex Testnet</a>{% endif %}
+                {% if net == 'devnet' %}<span class="net-item current">Beldex Devnet</span>
+                {% elif config.devnet_url %}<a class="net-item" href="{{config.devnet_url}}">Beldex Devnet</a>{% endif %}
+            </div>
+        </details>
+    </div>
+</div>
+<script>
+    fetch('https://api.coingecko.com/api/v3/simple/price?ids=beldex&vs_currencies=usd&include_24hr_change=true')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+            var p = d.beldex.usd, c = d.beldex.usd_24h_change;
+            document.getElementById('topbarPrice').textContent = '$' + p;
+            if (c !== undefined && c !== null) {
+                var el = document.getElementById('topbarChange');
+                el.textContent = '(' + (c >= 0 ? '+' : '') + c.toFixed(2) + '%)';
+                el.className = c >= 0 ? 'topbar-up' : 'topbar-down';
+            }
+        })
+        .catch(function() { document.getElementById('topbarPrice').textContent = '—'; });
+</script>
 <div id="header" class="Wrapper">
     {% block header %}
     <div id="header-content">
@@ -31,6 +64,12 @@
                 <h1 class="Header">
                    <a href="/"><img src="{{ url_for('static', filename='logo.svg') }}"></a>
                 </h1>
+            {% if request.endpoint != 'main' %}
+            <form action="/search" method="get" class="top-search">
+                <input type="text" name="value" placeholder="Block height / Block hash / TX ID / MN pubkey / BNS">
+                <input type="submit" value="Search">
+            </form>
+            {% endif %}
             <nav class="site-nav">
                 <a href="/" class="{% if request.path == '/' %}active{% endif %}">Explorer</a>
                 <a href="/master_nodes" class="{% if request.path == '/master_nodes' %}active{% endif %}">Master Nodes</a>
