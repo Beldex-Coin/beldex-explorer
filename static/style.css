@@ -119,9 +119,13 @@ code {
 /* ---------- topbar (price + network switcher) ---------- */
 
 #topbar {
-    background: #030303;
+    background: rgba(3, 3, 3, 0.94);
     border-bottom: 1px solid var(--border);
     font-size: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    backdrop-filter: blur(12px);
 }
 
 .topbar-inner {
@@ -237,12 +241,8 @@ a.net-item:hover { color: var(--green) !important; background: rgba(255, 255, 25
 #header {
     max-width: none;
     padding: 0;
-    background: rgba(5, 5, 5, 0.92);
+    background: #050505;
     border-bottom: 1px solid var(--border);
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    backdrop-filter: blur(12px);
 }
 
 #header > #header-content {
