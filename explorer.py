@@ -379,22 +379,6 @@ def template_globals():
 def main(refresh=None, page=0, per_page=None, first=None, last=None):
     lmq, beldexd = lmq_connection()
     inforeq = _CachedInfoFuture(lmq, beldexd)
-    stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
-    base_fee = FutureJSON(lmq, beldexd, 'rpc.get_fee_estimate', 10)
-    hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
-    mempool = get_mempool_future(lmq, beldexd)
-    # Master node lists moved to /master_nodes; the home page only shows counts,
-    # so request just two booleans per node instead of the full states.
-    mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
-            args={'all': False, 'fields': {'active': True, 'funded': True}})
-    checkpoints = FutureJSON(lmq, beldexd, 'rpc.get_checkpoints', args={"count": 3})
-
-    # This call is slow the first time it gets called in beldexd but will be fast after that, so call
-    # it with a very short timeout.  It's also an admin-only command, so will always fail if we're
-    # using a restricted RPC interface.
-    coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
-            args={"height":0, "count":2**31-1})
-
     custom_per_page = ''
     if per_page is None or per_page <= 0 or per_page > config.max_blocks_per_page:
         per_page = config.blocks_per_page
@@ -414,6 +398,23 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     if stale_info:
         print("serving {} with cached get_info (daemon busy)".format(flask.request.path),
                 file=sys.stderr)
+
+    # get_info answered (or we have a snapshot): NOW dispatch the secondary
+    # requests, in parallel. Firing these before the info gate meant every
+    # busy-page auto-refresh still hurled ~8 RPCs at a struggling daemon.
+    stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
+    base_fee = FutureJSON(lmq, beldexd, 'rpc.get_fee_estimate', 10)
+    hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
+    mempool = get_mempool_future(lmq, beldexd)
+    # Only counts are shown on the home page: request two booleans per node.
+    mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
+            args={'all': False, 'fields': {'active': True, 'funded': True}})
+    checkpoints = FutureJSON(lmq, beldexd, 'rpc.get_checkpoints', args={"count": 3})
+    # Slow the first time beldexd computes it and admin-only (fails on
+    # restricted RPC), hence the short timeout + fail_okay.
+    coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
+            args={"height":0, "count":2**31-1})
+
     height = info['height']
     info['testnet']  = info['nettype'] == 'testnet'
     info['devnet']   = info['nettype'] == 'devnet'
@@ -1677,17 +1678,19 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
 def stats():
     lmq, beldexd = lmq_connection()
     inforeq = _CachedInfoFuture(lmq, beldexd)
+
+    info, stale_info = get_info_or_stale(inforeq)
+    if info is None:
+        print("daemon-busy page served for /stats: get_info timed out", file=sys.stderr)
+        return flask.render_template('daemon_unavailable.html', info=None), 503
+
+    # Secondary requests only once the daemon is known to be responsive
     stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
     mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
             args={'all': False, 'fields': {'active': True, 'funded': True}})
     mempool = get_mempool_future(lmq, beldexd)
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 120, timeout=1, fail_okay=True,
             args={"height": 0, "count": 2**31-1})
-
-    info, stale_info = get_info_or_stale(inforeq)
-    if info is None:
-        print("daemon-busy page served for /stats: get_info timed out", file=sys.stderr)
-        return flask.render_template('daemon_unavailable.html', info=None), 503
     info['testnet'] = info['nettype'] == 'testnet'
     info['devnet'] = info['nettype'] == 'devnet'
     height = info['height']
