@@ -52,7 +52,9 @@ TTL_JITTER = 0.3         # +/-30%, so a batch resolved together doesn't expire t
 NEGATIVE_TTL = 6 * 3600  # ip-api answered "fail" (reserved/bogon address)
 ERROR_TTL = 5 * 60       # the request itself failed; retry soon, but don't spin
 BATCH_SIZE = 100         # ip-api's per-request maximum
-BUDGET = 20              # seconds we are willing to spend inside one page request
+BUDGET = int(os.environ.get('GEO_BUDGET', 12))   # seconds spent inside one page
+                         # request; ip-api's per-minute quota caps useful work at
+                         # ~15 batches anyway, so this rarely truncates anything
 ENDPOINT = ('http://ip-api.com/batch'
             '?fields=status,message,query,country,countryCode,lat,lon,as,asname,isp')
 

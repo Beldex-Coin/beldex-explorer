@@ -27,7 +27,7 @@
 
 {% block content %}
 {% if stale_info %}
-<div class="stale-banner">Daemon busy — showing recently cached data; refreshes automatically once it responds.</div>
+<div class="stale-banner">Daemon busy — showing recently cached data; reload once it responds.</div>
 {% endif %}
 <div class="Wrapper">
 
@@ -39,9 +39,9 @@
 
     {% set _left = geo_status.remaining | default(0, true) %}
     {% if _left and dist.located %}
-    <div class="stale-banner">Showing {{ dist.located }} located nodes — {{ _left }} address{{ '' if _left == 1 else 'es' }} still to look up{{ ' (ip-api rate limit reached; resuming shortly)' if geo_status.rate_limited else '' }}. This page refreshes automatically.</div>
+    <div class="stale-banner">Showing {{ dist.located }} located nodes — {{ _left }} address{{ '' if _left == 1 else 'es' }} still to look up{{ ' (ip-api rate limit reached)' if geo_status.rate_limited else '' }}. Reload to continue looking them up.</div>
     {% elif _left %}
-    <div class="stale-banner">Looking up node locations — {{ _left }} address{{ '' if _left == 1 else 'es' }} to go{% if geo_status.error %} · last attempt failed: {{ geo_status.error }}{% endif %}. This page refreshes automatically.</div>
+    <div class="stale-banner">Looking up node locations — {{ _left }} address{{ '' if _left == 1 else 'es' }} to go{% if geo_status.error %} · last attempt failed: {{ geo_status.error }}{% endif %}. Reload to continue.</div>
     {% elif dist.located == 0 %}
     <div class="stale-banner">No location data available{% if geo_status.error %} — {{ geo_status.error }}{% endif %}.</div>
     {% endif %}
@@ -96,6 +96,26 @@
             <div class="worldmap__note" hidden></div>
         </div>
     </div>
+
+    <!-- {# ---------------- breakdowns ---------------- #}
+    <div class="chart-grid" style="margin-top: 18px">
+        <div class="chart-panel">
+            <h2 class="chart-title">Nodes by country <span class="chart-sub">{{ dist.countries }} countries</span></h2>
+            {% if dist.by_country %}
+                {{ barlist(dist.by_country, dist.located, 14, True) }}
+            {% else %}
+                <p class="chart-pending">No location data yet.</p>
+            {% endif %}
+        </div>
+        <div class="chart-panel">
+            <h2 class="chart-title">Nodes by ASN / provider <span class="chart-sub">{{ dist.providers }} networks</span></h2>
+            {% if dist.by_asn %}
+                {{ barlist(dist.by_asn, dist.located, 14, False) }}
+            {% else %}
+                <p class="chart-pending">No provider data yet.</p>
+            {% endif %}
+        </div>
+    </div> -->
 
     <p class="hero-note" style="margin: 18px 0 30px">
         Locations are looked up from each node's advertised public IP via ip-api.com and cached for a week.
@@ -279,18 +299,23 @@
         var strong = document.createElement('strong');
         strong.textContent = p.country || 'Unknown';
         tip.appendChild(strong);
-        var count = document.createElement('span');
-        count.textContent = p.count + (p.count === 1 ? ' node' : ' nodes');
-        tip.appendChild(count);
-        if (parts.length) {
-            var br = document.createElement('span');
-            br.className = 'worldmap__tipbreak';
-            br.textContent = parts.join(' · ');
-            tip.appendChild(br);
-        }
-        tip.style.left = ((view.x + view.k * m.x) / W * 100) + '%';
+        // var count = document.createElement('span');
+        // count.textContent = p.count + (p.count === 1 ? ' node' : ' nodes');
+        // tip.appendChild(count);
+        // if (parts.length) {
+        //     var br = document.createElement('span');
+        //     br.className = 'worldmap__tipbreak';
+        //     br.textContent = parts.join(' · ');
+        //     tip.appendChild(br);
+        // }
+        // Keep the tooltip inside the map: it is clipped by overflow:hidden,
+        // and pins in the northern half would otherwise push it off the top.
+        var left = (view.x + view.k * m.x) / W * 100;
+        tip.style.left = Math.min(88, Math.max(12, left)) + '%';
         tip.style.top = ((view.y + view.k * m.y) / H * 100) + '%';
         tip.hidden = false;
+        var tr = tip.getBoundingClientRect(), rr = root.getBoundingClientRect();
+        if (tr.top < rr.top) tip.classList.add('is-below');
     }
     function hideTip() { tip.hidden = true; }
 

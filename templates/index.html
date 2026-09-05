@@ -141,12 +141,18 @@
         <div class="panel">
             <div class="panel-head">
                 <h2 class="title">Transactions in
-                    {% if page == 0 %}
+                    {# blocks can come back empty when the daemon is busy or still
+                       syncing; don't index into it before checking. #}
+                    {% if not blocks %}
+                        recent blocks
+                    {% elif page == 0 %}
                         the last {{blocks|length}} blocks
                     {% else %}
                         blocks {{blocks[0].height}}–{{blocks[-1].height}}
                     {% endif %}
+                    {% if blocks %}
                     <a class="linked-icon" href="/range/{{blocks[0].height}}/{{blocks[-1].height}}" title="Permanent link to this block range">🔗</a>
+                    {% endif %}
                 </h2>
                 <span class="spacer"></span>
                 {% set block_weights = blocks | map(attribute='block_weight') | sort %}
