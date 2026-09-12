@@ -1552,7 +1552,7 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
     """Yearly series (estimates from sampled headers + real per-year burn from
     the admin coinbase RPC), cached for 6h. Returns None if the daemon cannot
     answer."""
-    if _stats_history_cache['data'] is not None and _stats_history_cache['expiry'] > now_ts:
+    if _stats_history_cache['expiry'] > now_ts:
         return _stats_history_cache['data']
 
     try:
@@ -1692,7 +1692,12 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
             print("stats: newest year missing from series; will rebuild in 10 min",
                     file=sys.stderr)
         _stats_history_cache['expiry'] = now_ts + (600 if (burn_pending or newest_missing) else 6 * 3600)
-    return data
+    else:
+        # The daemon couldn't answer. Keep serving the last good series and
+        # don't rebuild on every reload - that only piles more requests onto
+        # a daemon that is already struggling.
+        _stats_history_cache['expiry'] = now_ts + 300
+    return _stats_history_cache['data']
 
 
 @app.route('/stats')
@@ -1735,8 +1740,11 @@ def stats():
         mp = {}
 
     emission = coinbase.get()
-    history = _stats_history(lmq, beldexd, height, now_ts,
-            include_burn=bool(emission and emission.get('status') == 'OK'))
+    # Per-year burn sums are off: they start at a non-zero height, so beldexd
+    # can't answer them from its running total and doesn't serialise them -
+    # each rescans a year of blocks, and several at once tie up its whole RPC
+    # worker pool. That is what left every page on the "daemon busy" screen.
+    history = _stats_history(lmq, beldexd, height, now_ts, include_burn=False)
 
     bns_counts = info.get('bns_counts', 0)
 
