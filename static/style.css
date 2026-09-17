@@ -359,6 +359,10 @@ a.net-item:hover { color: var(--green) !important; background: rgba(255, 255, 25
     margin: 24px 0;
 }
 
+.mn-stat-grid {
+    grid-template-columns: repeat(auto-fit, minmax(min(210px, 100%), 1fr));
+}
+
 .stat-card {
     background: var(--bg-panel);
     padding: 20px 18px 16px;
@@ -1228,6 +1232,17 @@ div.quorums h5 {
 .POS.quorums .validators .mn,
 .POS.quorums .validators label {
     color: #fff;
+}
+
+.checkpoint.quorums .validators .mn,
+.flash.quorums .validators .mn,
+.flash.quorums .validators label {
+    color: #fff;
+}
+
+.flash.quorums > .now .validators .mn,
+.flash.quorums > .now .validators label {
+    color: var(--green);
 }
 
 div.tx-state-change-quorum div.workers .mn.testee {
