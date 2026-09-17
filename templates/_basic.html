@@ -17,7 +17,7 @@
   {% endblock %}
 </head>
 
-<body>
+<body class="{% block body_class %}{% endblock %}">
 {% set net = 'testnet' if info and info.testnet else 'devnet' if info and info.devnet else 'mainnet' %}
 <div id="topbar">
     <div class="topbar-inner">

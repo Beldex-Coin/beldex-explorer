@@ -350,6 +350,10 @@ a.net-item:hover { color: var(--green) !important; background: rgba(255, 255, 25
 
 /* ---------- stat cards ---------- */
 
+.explorer-index a[href^="/tx/"] { color: #fff; }
+.explorer-index a.miner-tx-hash { color: var(--green); }
+.explorer-index a[href^="/block/"] { color: var(--green); }
+
 .stat-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));

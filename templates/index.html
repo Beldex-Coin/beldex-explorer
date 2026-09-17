@@ -1,5 +1,7 @@
 {% extends "_basic.html" %}
 
+{% block body_class %}explorer-index{% endblock %}
+
 {% block content %}
     {% if stale_info %}
     <div class="stale-banner">Daemon busy — showing recently cached data; refreshes automatically once it responds.</div>
@@ -190,7 +192,7 @@
                     <td title="{{b.timestamp | from_timestamp | format_datetime}}">{{b.timestamp | from_timestamp | ago}}</td>
                     <td>{{b.block_size | si}}</td>
                     <td title="Block reward" style="cursor: help">🎁</td>
-                    <td><a href="/tx/{{b.miner_tx_hash}}">{{b.miner_tx_hash}}</a></td>
+                    <td><a class="miner-tx-hash" href="/tx/{{b.miner_tx_hash}}">{{b.miner_tx_hash}}</a></td>
                     <td>{% if b.txs and b.txs[0] is defined %}{{fee.display(b.txs[0])}}{% else %}-{% endif %}</td>
                     <td>{{b.reward | beldex(tag=False, fixed=True, decimals=2)}}</td>
                     <td>
@@ -238,11 +240,11 @@
         {% include 'include/checkpoints.html' %}
     {% endif %}
 
-    <div class="Wrapper" style="margin-bottom: 40px">
+    <!-- <div class="Wrapper" style="margin-bottom: 40px">
         <div class="chips">
             <a href="/master_nodes">Master node list →</a>
             <a href="/quorums">View recent testing / checkpoint / flash / POS quorums →</a>
         </div>
-    </div>
+    </div> -->
 
 {% endblock %}
