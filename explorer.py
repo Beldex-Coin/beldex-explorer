@@ -480,7 +480,8 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
         else:
             mn_counts['awaiting'] += 1
 
-    supply = fetch_circulating_supply()
+    # Render immediately; the browser refreshes supply through the API.
+    supply = circulating_supply_cache
     circulating_supply = supply * 1_000_000_000 if supply is not None else None
 
     # Fall back to safe defaults for any RPC that failed/timed out so a busy
@@ -1090,9 +1091,12 @@ base32z_map = {base32z_dict[i]: i for i in range(len(base32z_dict))}
 
 @app.route('/search')
 def search():
+    val = (flask.request.args.get('value') or '').strip()
+    if not val:
+        return flask.redirect(flask.url_for('main'))
+
     lmq, beldexd = lmq_connection()
     info = _CachedInfoFuture(lmq, beldexd)
-    val = (flask.request.args.get('value') or '').strip()
 
     if val and len(val) < 10 and val.isdigit(): # Block height
         return flask.redirect(flask.url_for('show_block', height=val), code=301)
@@ -1109,7 +1113,7 @@ def search():
 
     # BNS can be of length 64 however with txids, and sn pubkey's being of length 64 
     # I have removed it from the possible searches.
-    if len(val) < 64 and all(c.isalnum() or c in '_-' for c in val):
+    if val and len(val) < 64 and all(c.isalnum() or c in '_-' for c in val):
         return flask.redirect(flask.url_for('show_bns', name=val), code=301) 
     elif not val or len(val) != 64 or any(c not in string.hexdigits for c in val):
         return flask.render_template('not_found.html',
@@ -1748,7 +1752,8 @@ def stats():
 
     bns_counts = info.get('bns_counts', 0)
 
-    supply = fetch_circulating_supply()
+    # Render immediately; the browser refreshes supply through the API.
+    supply = circulating_supply_cache
     circulating_supply = supply * 1_000_000_000 if supply is not None else None
 
     # ---- derived insights ------------------------------------------------

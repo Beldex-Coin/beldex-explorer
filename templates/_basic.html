@@ -26,10 +26,15 @@
         <span class="topbar-spacer"></span>
         {% if request.endpoint != 'main' %}
         <form action="/search" method="get" class="topbar-search">
-            <span class="ts-icon">⌕</span>
-            <input type="text" name="value" id="topbarSearchInput"
-                   placeholder="Search by Height / Block hash / TX ID / MN pubkey / BNS" spellcheck="false">
-            <span class="ts-key" title="Press / to search">/</span>
+            <span class="ts-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+                    <circle cx="10.5" cy="10.5" r="6.5"></circle>
+                    <path d="m16 16 4.5 4.5"></path>
+                </svg>
+            </span>
+            <input type="text" name="value" id="topbarSearchInput" required pattern=".*\S.*" title="Enter a search value."
+                   aria-label="Search by block height, block hash, transaction ID, master node public key or BNS"
+                   placeholder="Search blocks, transactions, nodes, BNS" spellcheck="false">
         </form>
         {% endif %}
         <details class="net-switch">
@@ -116,5 +121,6 @@
     {% endblock %}
 </div>
 
+<script src="{{ url_for('static', filename='circulating-supply.js') }}" defer></script>
 </body>
 </html>

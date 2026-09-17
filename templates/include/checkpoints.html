@@ -19,19 +19,17 @@
           <td><a href="/block/{{cp.block_hash}}">{{cp.block_hash}}</a></td>
           <td>
             {{cp.signatures|length}}/20 signatures:
-            {%for sig in cp.signatures%}
-              {%set prev_ind = 0 if loop.index0 == 0 else cp.signatures[loop.index0 - 1].voter_index%}
-              {%for missing in range(prev_ind + 1, sig.voter_index)%}
-                <span title="Missing signature from checkpoint quorum voter {{missing}}" class="checkpoint-not-signed">✕</span>
-              {%endfor%}
-              <span title="Signed by checkpoint quorum voter {{sig.voter_index}}" class="checkpoint-signed">✓</span>
-              {%endfor%}
-              {%for missing in range(cp.signatures[-1].voter_index + 1, 10)%}
-                <span title="Missing signature from checkpoint quorum voter {{missing}}" class="checkpoint-not-signed">✕</span>
-              {%endfor%}
+            {%set signed_voters = cp.signatures | map(attribute='voter_index') | list%}
+            {%for voter in range(20)%}
+              {%if voter in signed_voters%}
+                <span title="Signed by checkpoint quorum voter {{voter}}" class="checkpoint-signed">✓</span>
+              {%else%}
+                <span title="Missing signature from checkpoint quorum voter {{voter}}" class="checkpoint-not-signed">✕</span>
+              {%endif%}
             {%endfor%}
           </td>
         </tr>
+      {%endfor%}
     </tbody>
   </table>
 </div>

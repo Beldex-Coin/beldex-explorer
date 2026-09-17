@@ -163,8 +163,12 @@ code {
     color: var(--text-faint);
     font-size: 16px;
     line-height: 1;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
 }
-.topbar-search input {
+.topbar-search input[type="text"],
+.topbar-search input[type="text"]:focus {
     flex: 1;
     min-width: 0;
     background: transparent;
@@ -175,15 +179,11 @@ code {
     font-family: var(--font-mono);
     font-size: 12px;
     padding: 8px 0;
+    margin: 0;
+    border-radius: 0;
+    text-overflow: ellipsis;
 }
 .topbar-search input::placeholder { color: var(--text-faint); }
-.topbar-search .ts-key {
-    color: var(--text-faint);
-    font-size: 10px;
-    border: 1px solid var(--border-strong);
-    padding: 1px 7px;
-    border-radius: 2px;
-}
 @media (max-width: 900px) {
     .topbar-inner { flex-wrap: wrap; }
     .topbar-search { order: 10; flex: 1 1 100%; }
@@ -545,6 +545,25 @@ a.pager-btn:hover { color: var(--green); border-color: var(--green); }
 
 /* ---------- page search (hero) ---------- */
 
+.home-hero form.page-search {
+    width: 100%;
+    max-width: 700px;
+    margin: 20px 0 0;
+}
+.home-hero form.page-search input[type="text"] {
+    min-width: 0;
+    text-overflow: ellipsis;
+}
+.home-hero form.page-search input[type="submit"] { flex-shrink: 0; }
+.home-hero .hero-note {
+    margin: 10px 0 0;
+    font-size: 12px;
+}
+@media (max-width: 480px) {
+    .home-hero form.page-search input[type="text"] { padding: 12px; }
+    .home-hero form.page-search input[type="submit"] { padding: 0 16px; }
+}
+
 form.page-search {
     display: flex;
     align-items: stretch;
@@ -885,6 +904,7 @@ table th:last-child, table thead tr td:last-child { border-radius: 0; }
 /* ---------- icons ---------- */
 
 span.icon, .icon { filter: none; }
+.tx-fee { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .linked-icon { text-decoration: none; }
 .TXType {
     display: inline-block;
@@ -952,6 +972,32 @@ p.state-change-pubkey { word-break: break-all; }
 .mn { word-break: break-all; }
 
 .mn-details { padding-bottom: 24px; }
+.mn-details .info_list > span {
+    display: block;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+.mn-details .info_list > span > label {
+    display: block;
+    margin-bottom: 10px;
+}
+.mn-contribution-value {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+}
+.mn-contribution-percent {
+    display: inline-block;
+    padding: 2px 6px;
+    border: 1px solid var(--border-strong);
+    color: var(--green);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: nowrap;
+}
 .mn-details .mn-details-main {
     display: flex;
     gap: 20px;
@@ -1057,23 +1103,76 @@ td.mn-more { color: var(--text-faint); font-size: 12px; }
 
 /* ---------- quorums ---------- */
 
-div.quorums { display: flex; flex-wrap: wrap; gap: 16px; margin: 16px 0; }
+div.quorums {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 16px;
+    margin: 16px 0;
+}
 
 div.quorums > div {
     border: 1px solid var(--border);
     background: var(--bg-panel);
-    padding: 14px 16px;
-    flex: 1 1 280px;
+    padding: 0;
+    min-width: 0;
+    border-radius: 0;
+    overflow: hidden;
 }
 
 div.quorums h2 {
-    margin: 0 0 10px;
-    font-size: 12px;
-    letter-spacing: 0.2em;
-    color: var(--text-dim);
+    margin: 0;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-bottom: 1px solid var(--border-strong);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.5;
+    letter-spacing: 0;
+    color: var(--text);
 }
-div.quorums > div.now { border-color: rgba(0, 217, 89, 0.4); }
+div.quorums > div > .validators,
+div.quorums > div > .workers {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+    gap: 4px;
+    padding: 10px;
+}
+div.quorums > div > .validators > label,
+div.quorums > div > .workers > label {
+    grid-column: 1 / -1;
+    margin-bottom: 2px;
+}
+div.quorums > div > .validators > .mn,
+div.quorums > div > .workers > .mn {
+    min-width: 0;
+    text-align: center;
+    padding: 4px;
+}
+div.quorums > div > .validators + .workers,
+div.quorums > div > .workers + .validators,
+div.quorums > div > .validators + .validators {
+    border-top: 1px solid var(--border-strong);
+}
+div.quorums > div.now {
+    border-color: var(--green);
+    /* background: linear-gradient(var(--green-dim), var(--green-dim)), var(--bg-panel); */
+    box-shadow: inset 3px 0 0 var(--green);
+}
 div.quorums > div.now h2 { color: var(--green); }
+div.quorums > div.now h2::before {
+    content: 'ACTIVE';
+    display: inline-block;
+    margin-right: 10px;
+    padding: 3px 7px;
+    background: var(--green);
+    color: var(--bg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    vertical-align: middle;
+}
 
 div.quorums h5 {
     margin: 12px 0 6px;
@@ -1086,21 +1185,49 @@ div.quorums h5 {
     display: inline-block;
     font-size: 11px;
     color: var(--green);
-    border: 1px solid var(--border);
-    padding: 1px 6px;
-    margin: 2px;
+    border: 1px solid var(--border-strong);
+    border-radius: 0;
+    background: rgba(255, 255, 255, 0.07);
+    padding: 5px 7px;
+    margin: 0;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
     transition: border-color 0.12s;
 }
 .quorums .mn:hover { border-color: var(--green); text-decoration: none; }
 
 .quorums .workers label, .quorums .validators label {
-    display: block;
-    font-family: var(--font-display);
-    font-size: 8.5px;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: none;
     color: var(--text-faint);
-    margin: 6px 0 4px;
+    margin: 0;
+}
+
+@media (max-width: 1100px) {
+    div.quorums { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 700px) {
+    div.quorums { grid-template-columns: minmax(0, 1fr); }
+}
+
+.obligations.quorums .validators .mn,
+.obligations.quorums .validators label,
+.POS.quorums .workers .mn,
+.POS.quorums .workers label {
+    color: var(--green);
+}
+
+.obligations.quorums .workers .mn,
+.obligations.quorums .workers label,
+.POS.quorums .validators .mn,
+.POS.quorums .validators label {
+    color: #fff;
 }
 
 div.tx-state-change-quorum div.workers .mn.testee {

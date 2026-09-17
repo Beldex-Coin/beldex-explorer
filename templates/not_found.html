@@ -50,7 +50,7 @@
         {%endif%}
 
         <form action="/search" method="get" class="page-search">
-            <input type="text" name="value" placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">
+            <input type="text" name="value" required pattern=".*\S.*" title="Enter a search value." placeholder="Block height, Block hash, Transaction ID, Master Node pubkey or BNS">
             <input type="submit" value="SEARCH">
         </form>
     </div>

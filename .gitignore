@@ -3,6 +3,7 @@ testnet.sock
 devnet.sock
 pylokimq.cpython-*.so
 __pycache__
+.venv/
 local_config.py
 .stats_cache.json
 .info_cache.json
