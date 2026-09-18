@@ -44,11 +44,9 @@
         {%include 'include/mn_inactive.html'%}
     </div>
 
-    <div class="panel">
+    <div class="mn-active-section">
         <div class="panel-head">
-            <h2 class="title">Active Master Nodes</h2>
-            <span class="spacer"></span>
-            <span class="meta">{{active_mns | count}} nodes</span>
+            <h2 class="title">Active Master Nodes ({{active_mns | count}})</h2>
         </div>
         {%include 'include/mn_active.html'%}
     </div>

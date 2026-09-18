@@ -197,7 +197,7 @@ code {
     font-size: 9.5px;
     letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--text);
+    color: var(--green);
     border: 1px solid var(--border-strong);
     padding: 5px 12px;
     user-select: none;
@@ -235,6 +235,19 @@ code {
 a.net-item:hover { color: var(--green) !important; background: rgba(255, 255, 255, 0.03); }
 .net-item.current { color: var(--green) !important; }
 .net-item.current::after { content: ' ✓'; }
+.net-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+}
+.net-row:last-child { border-bottom: 0; }
+.net-row .net-item { border-bottom: 0; white-space: nowrap; }
+.net-row > .net-item:first-child { flex: 1; }
+.net-row .net-via-belnet {
+    border-left: 1px solid var(--border);
+    font-size: 8px;
+    letter-spacing: 0.08em;
+}
 
 /* ---------- header ---------- */
 
@@ -464,10 +477,11 @@ details.legend { margin: 14px 0; color: var(--text-dim); }
 details.legend summary {
     cursor: pointer;
     font-family: var(--font-display);
-    font-size: 9.5px;
+    font-size: 12px;
+    font-weight: 700;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--text-faint);
+    color: var(--text);
 }
 details.legend summary:hover { color: var(--green); }
 details.legend .legend-items { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 2px; font-size: 12px; }
@@ -797,7 +811,7 @@ table {
     width: 100%;
     background: var(--bg-panel);
     border: 1px solid var(--border);
-    font-size: 13px;
+    font-size: 12px;
 }
 
 .Table { margin: 12px 0 24px; }
@@ -976,6 +990,34 @@ tr.tx-input-key-image > td {
 p.state-change-pubkey { word-break: break-all; }
 
 /* ---------- master nodes ---------- */
+
+.mn-active-section { margin: 28px 0; }
+.mn-active-section > .panel-head {
+    padding: 0 0 16px;
+    border: 0;
+}
+.mn-active-section > .panel-head .title {
+    font-family: var(--font-display);
+    font-size: 20px;
+    letter-spacing: 0;
+    text-transform: none;
+}
+.mn-active-section > table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 12px 12px 0 0;
+    overflow: hidden;
+}
+.mn-active-section > table thead td {
+    color: #fff;
+    text-align: center;
+    vertical-align: middle;
+    font-family: var(--font-display);
+    font-size: 11px;
+    line-height: 1.4;
+    padding: 10px 8px;
+}
+.mn-active-section > table tbody td:not(:first-child) { text-align: center; }
 
 .mn { word-break: break-all; }
 
@@ -1247,6 +1289,16 @@ div.quorums h5 {
 .flash.quorums > .now .validators .mn,
 .flash.quorums > .now .validators label {
     color: var(--green);
+}
+
+.quorums .tx-state-change-quorum .mn {
+    color: #fff;
+}
+.quorums .tx-state-change-quorum .validators .mn.voted {
+    background: var(--green);
+    border-color: var(--green);
+    color: var(--bg);
+    font-weight: 700;
 }
 
 div.tx-state-change-quorum div.workers .mn.testee {

@@ -40,12 +40,24 @@
         <details class="net-switch">
             <summary>◈ {{ net | capitalize }}</summary>
             <div class="net-menu">
-                {% if net == 'mainnet' %}<span class="net-item current">Mainnet</span>
-                {% elif config.mainnet_url %}<a class="net-item" href="{{config.mainnet_url}}">Mainnet</a>{% endif %}
-                {% if net == 'testnet' %}<span class="net-item current">Testnet</span>
-                {% elif config.testnet_url %}<a class="net-item" href="{{config.testnet_url}}">Testnet</a>{% endif %}
-                {% if net == 'devnet' %}<span class="net-item current">Devnet</span>
-                {% elif config.devnet_url %}<a class="net-item" href="{{config.devnet_url}}">Devnet</a>{% endif %}
+                {% for network, regular_url, belnet_url in [
+                    ('mainnet', config.mainnet_url, config.belnet_mainnet_url),
+                    ('testnet', config.testnet_url, config.belnet_testnet_url),
+                    ('devnet', config.devnet_url, config.belnet_devnet_url)
+                ] %}
+                {% if regular_url or belnet_url or net == network %}
+                <div class="net-row">
+                    {% if regular_url %}
+                    <a class="net-item{% if net == network %} current{% endif %}" href="{{ regular_url }}">{{ network | capitalize }}</a>
+                    {% else %}
+                    <span class="net-item{% if net == network %} current{% endif %}">{{ network | capitalize }}</span>
+                    {% endif %}
+                    {% if belnet_url %}
+                    <a class="net-item net-via-belnet" href="{{ belnet_url }}" title="Open {{ network | capitalize }} explorer via Belnet" aria-label="{{ network | capitalize }} explorer via Belnet">via Belnet ↗</a>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% endfor %}
             </div>
         </details>
     </div>

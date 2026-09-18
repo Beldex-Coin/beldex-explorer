@@ -10,7 +10,7 @@
 
         {# ---------- hero ---------- #}
         <div class="hero home-hero">
-            <div class="eyebrow">Beldex{{ ' · TESTNET' if info and info.testnet else ' · DEVNET' if info and info.devnet else ' · MAINNET' }}</div>
+            <!-- <div class="eyebrow">Beldex{{ ' · TESTNET' if info and info.testnet else ' · DEVNET' if info and info.devnet else ' · MAINNET' }}</div> -->
             <h1 class="hero-title">Blockchain Explorer</h1>
             <p class="hero-note">Server time: {{ server.datetime | format_datetime }}</p>
             <form action="/search" method="get" class="page-search">
@@ -25,7 +25,7 @@
                 {% if refresh %}<a href="/">Autorefresh: ON ({{refresh}}s)</a>
                 {% else %}<a href="/autorefresh/10">Autorefresh: OFF</a>{% endif %}
             {% endif %}
-            {% if config.testnet_url and not info.testnet %}<a href="{{config.testnet_url}}">Testnet Explorer</a>{% endif %}
+            <!-- {% if config.testnet_url and not info.testnet %}<a href="{{config.testnet_url}}">Testnet Explorer</a>{% endif %} -->
         </div>
 
         {# ---------- headline stats ---------- #}
