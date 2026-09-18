@@ -2,6 +2,10 @@
 
 {% block content %}
     {%set limit_awaiting = none%}
+    {# Support older route deployments and always pass integer slice limits. #}
+    {%set limit_active = [limit_active | default(request.args.get('active_limit', 25)) | int(25), 25] | max%}
+    {%set limit_inactive = [limit_inactive | default(request.args.get('inactive_limit', 25)) | int(25), 25] | max%}
+    {%set mn_load_more = true%}
 
     {%include 'include/master_nodes_lists.html'%}
 {% endblock %}
