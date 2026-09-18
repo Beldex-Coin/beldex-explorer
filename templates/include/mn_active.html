@@ -31,7 +31,7 @@
             </tr>
         {%endfor%}
     </tbody>
-    {%if limit_active and active_mns|length > limit_active%}
+    {%if limit_active and active_mns|length > limit_active and not mn_load_more%}
     <tr>
         <td class="mn-more" colspan="7"><a href="/master_nodes">+ {{active_mns|length - limit_active}} more ↪</a></td>
     </tr>

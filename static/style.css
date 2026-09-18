@@ -1000,6 +1000,17 @@ p.state-change-pubkey { word-break: break-all; }
 
 /* ---------- master nodes ---------- */
 
+.mn-load-more {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 16px;
+    color: var(--text-dim);
+    font-size: 12px;
+}
+
 .mn-active-section { margin: 28px 0; }
 .mn-active-section > .panel-head {
     padding: 0 0 16px;

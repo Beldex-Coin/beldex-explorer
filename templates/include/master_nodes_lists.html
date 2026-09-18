@@ -42,17 +42,33 @@
             <span class="meta" title="These master nodes are currently decommissioned for failing network obligations, are not earning rewards, and face deregistration soon">{{inactive_mns | count}} nodes</span>
         </div>
         {%include 'include/mn_inactive.html'%}
+        {% if mn_load_more %}
+        <div class="mn-load-more">
+            <span>Showing {{ [limit_inactive, inactive_mns | count] | min }} of {{ inactive_mns | count }} nodes</span>
+            {% if inactive_mns | count > limit_inactive %}
+            <a class="pager-btn" href="{{ url_for('mns', active_limit=limit_active, inactive_limit=inactive_mns | count) }}#master-nodes-inactive">View all decommissioned nodes</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 
-    <div class="mn-active-section">
+    <div class="mn-active-section" id="master-nodes-active">
         <div class="panel-head">
             <h2 class="title">Active Master Nodes ({{active_mns | count}})</h2>
         </div>
         {%include 'include/mn_active.html'%}
+        {% if mn_load_more %}
+        <div class="mn-load-more">
+            <span>Showing {{ [limit_active, active_mns | count] | min }} of {{ active_mns | count }} nodes</span>
+            {% if active_mns | count > limit_active %}
+            <a class="pager-btn" href="{{ url_for('mns', active_limit=active_mns | count, inactive_limit=limit_inactive) }}#master-nodes-active">View all active nodes</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 
-{%if limit_active%}
+{%if limit_active and not mn_load_more%}
 <div class="Wrapper">
     <div class="chips">
         <a href="/master_nodes">Full master node list (at most {{limit_active}} shown here) →</a>
