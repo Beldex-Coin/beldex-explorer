@@ -160,12 +160,21 @@ code {
     box-shadow: 0 0 0 1px var(--green);
 }
 .topbar-search .ts-icon {
+    background: transparent;
+    border: 0;
+    padding: 6px 0;
+    cursor: pointer;
     color: var(--text-faint);
     font-size: 16px;
     line-height: 1;
     flex-shrink: 0;
     display: flex;
     align-items: center;
+}
+.topbar-search .ts-icon:hover { color: var(--green); }
+.topbar-search .ts-icon:focus-visible {
+    outline: 1px solid var(--green);
+    outline-offset: 3px;
 }
 .topbar-search input[type="text"],
 .topbar-search input[type="text"]:focus {
@@ -1295,9 +1304,8 @@ div.quorums h5 {
     color: #fff;
 }
 .quorums .tx-state-change-quorum .validators .mn.voted {
-    background: var(--green);
     border-color: var(--green);
-    color: var(--bg);
+    color: var(--green);
     font-weight: 700;
 }
 
