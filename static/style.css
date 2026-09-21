@@ -825,14 +825,23 @@ table {
 
 .Table { margin: 12px 0 24px; }
 
+table thead th,
+table thead td,
+table .TableHeader > th,
+table .TableHeader > td,
+table th {
+    background: #242424;
+    color: var(--text);
+}
+
 table th, .TableHeader {
     font-family: var(--font-display);
     font-weight: 400;
     font-size: 9px;
     letter-spacing: 0.22em;
     text-transform: uppercase;
-    color: var(--text-faint);
-    background: var(--bg-panel);
+    color: var(--text);
+    background: #242424;
     text-align: left;
     padding: 12px 16px;
     border-bottom: 1px solid var(--border);
@@ -1011,24 +1020,24 @@ p.state-change-pubkey { word-break: break-all; }
     font-size: 12px;
 }
 
-.mn-active-section { margin: 28px 0; }
-.mn-active-section > .panel-head {
+.mn-list-section { margin: 28px 0; }
+.mn-list-section > .panel-head {
     padding: 0 0 16px;
     border: 0;
 }
-.mn-active-section > .panel-head .title {
+.mn-list-section > .panel-head .title {
     font-family: var(--font-display);
     font-size: 20px;
     letter-spacing: 0;
     text-transform: none;
 }
-.mn-active-section > table {
+.mn-list-section > table {
     border-collapse: separate;
     border-spacing: 0;
     border-radius: 12px 12px 0 0;
     overflow: hidden;
 }
-.mn-active-section > table thead td {
+.mn-list-section > table thead td {
     color: #fff;
     text-align: center;
     vertical-align: middle;
@@ -1037,7 +1046,7 @@ p.state-change-pubkey { word-break: break-all; }
     line-height: 1.4;
     padding: 10px 8px;
 }
-.mn-active-section > table tbody td:not(:first-child) { text-align: center; }
+.mn-list-section > table tbody td:not(:first-child) { text-align: center; }
 
 .mn { word-break: break-all; }
 

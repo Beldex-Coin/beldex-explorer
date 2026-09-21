@@ -26,20 +26,16 @@
         </div>
     </div>
 
-    <div class="panel" id="master-nodes-awaiting">
+    <div class="mn-list-section" id="master-nodes-awaiting">
         <div class="panel-head">
-            <h2 class="title">Awaiting Contributions</h2>
-            <span class="spacer"></span>
-            <span class="meta">{{awaiting_mns | count}} nodes</span>
+            <h2 class="title">Awaiting Contributions ({{awaiting_mns | count}})</h2>
         </div>
         {%include 'include/mn_awaiting.html'%}
     </div>
 
-    <div class="panel" id="master-nodes-inactive">
+    <div class="mn-list-section" id="master-nodes-inactive">
         <div class="panel-head">
-            <h2 class="title">Inactive / Decommissioned</h2>
-            <span class="spacer"></span>
-            <span class="meta" title="These master nodes are currently decommissioned for failing network obligations, are not earning rewards, and face deregistration soon">{{inactive_mns | count}} nodes</span>
+            <h2 class="title" title="These master nodes are currently decommissioned for failing network obligations, are not earning rewards, and face deregistration soon">Inactive / Decommissioned ({{inactive_mns | count}})</h2>
         </div>
         {%include 'include/mn_inactive.html'%}
         {% if mn_load_more %}
@@ -52,7 +48,7 @@
         {% endif %}
     </div>
 
-    <div class="mn-active-section" id="master-nodes-active">
+    <div class="mn-list-section" id="master-nodes-active">
         <div class="panel-head">
             <h2 class="title">Active Master Nodes ({{active_mns | count}})</h2>
         </div>
