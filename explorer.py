@@ -525,11 +525,17 @@ def mns():
     info = _CachedInfoFuture(lmq, beldexd)
     awaiting, active, inactive = get_mns(get_mns_future(lmq, beldexd), info)
 
+    active_limit = min(max(flask.request.args.get('active_limit', 25, type=int), 25), max(len(active), 25))
+    inactive_limit = min(max(flask.request.args.get('inactive_limit', 25, type=int), 25), max(len(inactive), 25))
+
     return flask.render_template('master_nodes.html',
         info=info.get(),
         active_mns=active,
         awaiting_mns=awaiting,
         inactive_mns=inactive,
+        limit_active=active_limit,
+        limit_inactive=inactive_limit,
+        mn_load_more=True,
         )
 
 def _mn_status(mn):
@@ -1108,13 +1114,14 @@ def search():
         # The above loads 260 bytes (5 bits per char * 52 chars), but we only want 256:
         v >>= 4
         val = "{:64x}".format(v)
-    if val and len(val) <= 68 and val.endswith(".bdx"):
-        val = val.rstrip('.bdx')
+    if val and len(val) <= 68 and val.lower().endswith(".bdx"):
+        # Strip the exact suffix, not trailing characters from the name.
+        val = val[:-4]
 
     # BNS can be of length 64 however with txids, and sn pubkey's being of length 64 
     # I have removed it from the possible searches.
     if val and len(val) < 64 and all(c.isalnum() or c in '_-' for c in val):
-        return flask.redirect(flask.url_for('show_bns', name=val), code=301) 
+        return flask.redirect(flask.url_for('show_bns', name=val), code=302)
     elif not val or len(val) != 64 or any(c not in string.hexdigits for c in val):
         return flask.render_template('not_found.html',
                 info=info.get(),
@@ -1158,8 +1165,11 @@ def api_networkinfo():
 
 @app.route('/api/bnslookup')
 def api_bnslookup():
-    lmq, beldexd = lmq_connection()
-    name = flask.request.args.get('name')
+    name = (flask.request.args.get('name') or '').strip().lower()
+    if not name or name == '.bdx':
+        return flask.jsonify({"status": "error", "message": "A BNS name is required"}), 400
+    if not name.endswith('.bdx'):
+        name += '.bdx'
 
     blocked_names = {"beldex.bdx", "localhost.bdx", "mnode.bdx"}
     bns_data = {
@@ -1175,6 +1185,7 @@ def api_bnslookup():
         bns_data['available'] = False
         return flask.jsonify({"bnsData": bns_data, "status": "ok"})
 
+    lmq, beldexd = lmq_connection()
     bnsinfo = bns_info(lmq, beldexd, name)
     result = bnsinfo.get('result')
 
@@ -1194,13 +1205,12 @@ def api_bnslookup():
             'wallet': 'encrypted_wallet_value',
             'eth_addr': 'encrypted_eth_addr_value',
         }
-        for key, value in types.items():
-            if len(bnsinfo[value]) != 0:
-                decrypted_value = bns_decrypt(lmq, beldexd, name, key, bnsinfo[value]).get()
-                if key == 'eth_addr':
-                    bns_data['ethAddress'] = decrypted_value['value']
-                else:
-                    bns_data[key] = decrypted_value['value']
+        for key, encrypted_field in field_map.items():
+            encrypted_value = info.get(encrypted_field)
+            if encrypted_value:
+                decrypted = bns_decrypt(lmq, beldexd, name, key, encrypted_value).get()
+                output_key = 'ethAddress' if key == 'eth_addr' else key
+                bns_data[output_key] = decrypted.get('value', "")
 
     return flask.jsonify({"bnsData": bns_data, "status": "ok"})
 
