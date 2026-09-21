@@ -1391,14 +1391,14 @@ def api_emission():
     if not coinbase:
         return flask.jsonify(None)
     info = info.get()
-    supply = fetch_circulating_supply()
-    circulating_supply = (supply * 1_000_000_000 if supply is not None
-            else coinbase["emission_amount"] - coinbase["burn_amount"])
+    # supply = fetch_circulating_supply()
+    # circulating_supply = (supply * 1_000_000_000 if supply is not None
+    #         else coinbase["emission_amount"] - coinbase["burn_amount"])
     return flask.jsonify({
         "data": {
             "blk_no": info['height'] - 1,
             "burn": coinbase["burn_amount"],
-            "circulating_supply": circulating_supply,
+            # "circulating_supply": coinbase["emission_amount"] - coinbase["burn_amount"],
             "coinbase": coinbase["emission_amount"] - coinbase["burn_amount"],
             "emission": coinbase["emission_amount"],
             "fee": coinbase["fee_amount"]
