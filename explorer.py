@@ -1227,7 +1227,8 @@ def api_get_stats():
     block = block_with_txs_req(lmq, beldexd, height).get()
     return flask.jsonify({
         "data": {
-            "difficulty": data['difficulty'],
+            "difficulty": data.get('difficulty', 0),
+            "bns_count": data.get('bns_counts',0),
             "height": block['block_header']['height'],
             "burn": coinbase["burn_amount"],
             "total_emission": coinbase["emission_amount"],
