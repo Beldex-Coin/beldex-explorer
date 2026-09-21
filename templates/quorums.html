@@ -17,10 +17,10 @@
         <input type="radio" name="qtab" id="qtab-flash">
 
         <div class="tabbar">
-            <label for="qtab-testing">Testing ({{quorums.obligation | length}})</label>
-            <label for="qtab-pos">POS ({{quorums.POS | length}})</label>
-            <label for="qtab-checkpoint">Checkpoint ({{quorums.checkpoint | length}})</label>
-            <label for="qtab-flash">Flash ({{[quorums.flash|length - 1, 0] | max}})</label>
+            <label for="qtab-testing">Testing ({{quorums.obligation[-18:] | length}})</label>
+            <label for="qtab-pos">POS ({{quorums.POS[-24:] | length}})</label>
+            <label for="qtab-checkpoint">Checkpoint ({{quorums.checkpoint[-12:] | length}})</label>
+            <label for="qtab-flash">Flash ({{quorums.flash[-9:-1] | length}})</label>
         </div>
 
         {# ---------- Testing (obligation) quorums ---------- #}
