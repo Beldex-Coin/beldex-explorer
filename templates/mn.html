@@ -9,7 +9,7 @@
 <div class="mn-details Wrapper">
   <div class="hero" style="padding: 24px 0 16px">
       <div class="eyebrow">Master Node{% if decommed %} · decommissioned{% elif mn.active %} · active{% elif not mn.funded %} · awaiting contributions{% endif %}</div>
-      <h1 class="hero-title" style="font-size: clamp(15px, 2vw, 24px)" title="{{mn.master_node_pubkey}}">{{mn.master_node_pubkey | ellipsize(8,8,'…')}}</h1>
+      <!-- <h1 class="hero-title" style="font-size: clamp(7px, 1vw, 12px)" title="{{mn.master_node_pubkey}}">{{mn.master_node_pubkey}}</h1> -->
   </div>
 
   <div class="mn-details-main">
@@ -71,10 +71,12 @@
     {%endif%}
 
     <span><label>Total contributed:</label>
-      {%if mn.total_contributed >= mn.staking_requirement%}100%
-      {%else%} 
-      {{mn.total_contributed | beldex}} ({{(mn.total_contributed / mn.staking_requirement * 100) | round(2) | chop0}}%)
-      {%endif%}
+      <span class="mn-contribution-value">
+        {{mn.total_contributed | beldex}}
+        {%if mn.staking_requirement > 0%}
+          <span class="mn-contribution-percent">{{(mn.total_contributed / mn.staking_requirement * 100) | round(2) | chop0}}%</span>
+        {%endif%}
+      </span>
     </span>
 
     {% if mn.total_reserved is defined and mn.total_reserved != mn.total_contributed %}

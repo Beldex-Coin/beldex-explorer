@@ -2,9 +2,10 @@
     <div class="hero" style="padding: 24px 0 0">
         <div class="eyebrow">Network backbone</div>
         <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Master Nodes</h1>
+        <p class="hero-note"><a href="/distribution">Node Distribution →</a></p>
     </div>
 
-    <div class="stat-grid">
+    <div class="stat-grid mn-stat-grid">
         <div class="stat-card">
             <span class="label">Active</span>
             <span class="value" style="color: var(--green)">{{active_mns | count}}</span>
@@ -21,39 +22,49 @@
         {% set total_staked = (active_mns | sum(attribute='staking_requirement')) %}
         <div class="stat-card" title="{{total_staked | beldex(tag=False, decimals=0)}} BDX staked across active master nodes">
             <span class="label">Total value staked</span>
-            <span class="value">{{(total_staked / 1e15) | roundish | chop0}}<span class="unit">M BDX</span></span>
+            <span class="value">{{(total_staked / 1000000000000000) | roundish | chop0}}<span class="unit">M BDX</span></span>
         </div>
     </div>
 
-    <div class="panel" id="master-nodes-awaiting">
+    <div class="mn-list-section" id="master-nodes-awaiting">
         <div class="panel-head">
-            <h2 class="title">Awaiting Contributions</h2>
-            <span class="spacer"></span>
-            <span class="meta">{{awaiting_mns | count}} nodes</span>
+            <h2 class="title">Awaiting Contributions ({{awaiting_mns | count}})</h2>
         </div>
         {%include 'include/mn_awaiting.html'%}
     </div>
 
-    <div class="panel" id="master-nodes-inactive">
+    <div class="mn-list-section" id="master-nodes-inactive">
         <div class="panel-head">
-            <h2 class="title">Inactive / Decommissioned</h2>
-            <span class="spacer"></span>
-            <span class="meta" title="These master nodes are currently decommissioned for failing network obligations, are not earning rewards, and face deregistration soon">{{inactive_mns | count}} nodes</span>
+            <h2 class="title" title="These master nodes are currently decommissioned for failing network obligations, are not earning rewards, and face deregistration soon">Inactive / Decommissioned ({{inactive_mns | count}})</h2>
         </div>
         {%include 'include/mn_inactive.html'%}
+        {% if mn_load_more %}
+        <div class="mn-load-more">
+            <span>Showing {{ [limit_inactive, inactive_mns | count] | min }} of {{ inactive_mns | count }} nodes</span>
+            {% if inactive_mns | count > limit_inactive %}
+            <a class="pager-btn" href="{{ url_for('mns', active_limit=limit_active, inactive_limit=inactive_mns | count) }}#master-nodes-inactive">View all decommissioned nodes</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 
-    <div class="panel">
+    <div class="mn-list-section" id="master-nodes-active">
         <div class="panel-head">
-            <h2 class="title">Active Master Nodes</h2>
-            <span class="spacer"></span>
-            <span class="meta">{{active_mns | count}} nodes</span>
+            <h2 class="title">Active Master Nodes ({{active_mns | count}})</h2>
         </div>
         {%include 'include/mn_active.html'%}
+        {% if mn_load_more %}
+        <div class="mn-load-more">
+            <span>Showing {{ [limit_active, active_mns | count] | min }} of {{ active_mns | count }} nodes</span>
+            {% if active_mns | count > limit_active %}
+            <a class="pager-btn" href="{{ url_for('mns', active_limit=active_mns | count, inactive_limit=limit_inactive) }}#master-nodes-active">View all active nodes</a>
+            {% endif %}
+        </div>
+        {% endif %}
     </div>
 </div>
 
-{%if limit_active%}
+{%if limit_active and not mn_load_more%}
 <div class="Wrapper">
     <div class="chips">
         <a href="/master_nodes">Full master node list (at most {{limit_active}} shown here) →</a>

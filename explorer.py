@@ -22,6 +22,7 @@ from jinja2 import Environment
 import config
 import local_config
 import token_ownership
+import geoip
 from lmq import FutureJSON, lmq_connection
 
 import base64
@@ -284,6 +285,14 @@ def format_beldex(atomic, tag=True, fixed=False, decimals=9, zero=None):
 
 # For some inexplicable reason some hex fields are provided as array of byte integer values rather
 # than hex.  This converts such a monstrosity to hex.
+@app.template_filter('flag')
+def country_flag(code):
+    """Regional-indicator flag emoji for a 2-letter ISO country code."""
+    if not code or len(code) != 2 or not code.isalpha():
+        return '\N{WAVING WHITE FLAG}'
+    return ''.join(chr(0x1F1E6 + ord(c) - ord('A')) for c in code.upper())
+
+
 @app.template_filter('bytes_to_hex')
 def bytes_to_hex(b):
     return "".join("{:02x}".format(x) for x in b)
@@ -344,33 +353,73 @@ def css():
     return flask.send_from_directory('static', 'style.css')
 
 
-# Remember the last successful get_info so a momentarily-unresponsive daemon
-# serves slightly stale pages (with a warning strip) instead of the busy page.
+# Centralized get_info with a stale fallback: every route goes through
+# _CachedInfoFuture, so a momentarily-unresponsive daemon serves slightly
+# stale pages instead of crashing or showing the busy page. The last good
+# snapshot also persists to disk so Flask restarts keep it.
+import os as _os_info
+_INFO_DISK_CACHE = _os_info.path.join(_os_info.path.dirname(_os_info.path.abspath(__file__)),
+        '.info_cache.json')
 _last_info = {'data': None, 'ts': 0}
-_LAST_INFO_MAX_AGE = 600  # seconds
+_LAST_INFO_MAX_AGE = 3600  # seconds
+
+def _info_cache_load():
+    if _last_info['data'] is None:
+        try:
+            with open(_INFO_DISK_CACHE) as f:
+                saved = json.load(f)
+            _last_info['data'] = saved['data']
+            _last_info['ts'] = saved['ts']
+        except Exception:
+            _last_info['ts'] = -1  # tried; nothing usable
+
+def _info_cache_store(info):
+    _last_info['data'] = dict(info)
+    _last_info['ts'] = time.time()
+    try:
+        with open(_INFO_DISK_CACHE, 'w') as f:
+            json.dump({'data': _last_info['data'], 'ts': _last_info['ts']}, f)
+    except Exception:
+        pass
+
+class _CachedInfoFuture:
+    """Drop-in replacement for the get_info FutureJSON: .get() returns fresh
+    info when the daemon answers, else the last snapshot (up to 1h old) with
+    .stale set, else None."""
+    def __init__(self, lmq, beldexd):
+        self._fut = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+        # self._fut = _CachedInfoFuture(lmq, beldexd)
+        self.stale = False
+
+    def get(self):
+        info = self._fut.get()
+        if info:
+            # Only store a pristine copy (routes mutate the returned dict)
+            if _last_info['data'] is None or time.time() - _last_info['ts'] > 5:
+                _info_cache_store(info)
+            return info
+        _info_cache_load()
+        if _last_info['data'] and time.time() - _last_info['ts'] < _LAST_INFO_MAX_AGE:
+            self.stale = True
+            return dict(_last_info['data'])
+        return None
+
 
 def get_info_or_stale(inforeq):
-    """Returns (info, stale). Fresh result is cached; on failure the cached
-    copy is returned with stale=True while it is under 10 minutes old."""
+    """Returns (info, stale) from a _CachedInfoFuture."""
     info = inforeq.get()
-    if info:
-        _last_info['data'] = dict(info)
-        _last_info['ts'] = time.time()
-        return dict(info), False
-    if _last_info['data'] and time.time() - _last_info['ts'] < _LAST_INFO_MAX_AGE:
-        return dict(_last_info['data']), True
-    return None, False
+    return info, (info is not None and getattr(inforeq, 'stale', False))
 
 
-def get_mns_future(lmq, beldexd):
-    return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 5,
+def get_mns_future(lmq, beldexd, cache_seconds=5, cache_key=''):
+    return FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', cache_seconds, cache_key=cache_key,
             args={
                 'all': False,
                 'fields': { x: True for x in ('master_node_pubkey', 'requested_unlock_height', 'last_reward_block_height',
                     'last_reward_transaction_index', 'active', 'funded', 'earned_downtime_blocks',
                     'master_node_version', 'contributors', 'total_contributed', 'total_reserved',
                     'staking_requirement', 'portions_for_operator', 'operator_address', 'pubkey_ed25519',
-                    'last_uptime_proof', 'state_height', 'swarm_id') } })
+                    'last_uptime_proof', 'state_height', 'swarm_id', 'public_ip') } })
 
 def get_mns(mns_future, info_future):
     info = info_future.get()
@@ -475,23 +524,7 @@ def template_globals():
 @app.route('/')
 def main(refresh=None, page=0, per_page=None, first=None, last=None):
     lmq, beldexd = lmq_connection()
-    inforeq = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
-    stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
-    base_fee = FutureJSON(lmq, beldexd, 'rpc.get_fee_estimate', 10)
-    hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
-    mempool = get_mempool_future(lmq, beldexd)
-    # Master node lists moved to /master_nodes; the home page only shows counts,
-    # so request just two booleans per node instead of the full states.
-    mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
-            args={'all': False, 'fields': {'active': True, 'funded': True}})
-    checkpoints = FutureJSON(lmq, beldexd, 'rpc.get_checkpoints', args={"count": 3})
-
-    # This call is slow the first time it gets called in beldexd but will be fast after that, so call
-    # it with a very short timeout.  It's also an admin-only command, so will always fail if we're
-    # using a restricted RPC interface.
-    coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
-            args={"height":0, "count":2**31-1})
-
+    inforeq = _CachedInfoFuture(lmq, beldexd)
     custom_per_page = ''
     if per_page is None or per_page <= 0 or per_page > config.max_blocks_per_page:
         per_page = config.blocks_per_page
@@ -511,6 +544,23 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
     if stale_info:
         print("serving {} with cached get_info (daemon busy)".format(flask.request.path),
                 file=sys.stderr)
+
+    # get_info answered (or we have a snapshot): NOW dispatch the secondary
+    # requests, in parallel. Firing these before the info gate meant every
+    # busy-page auto-refresh still hurled ~8 RPCs at a struggling daemon.
+    stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
+    base_fee = FutureJSON(lmq, beldexd, 'rpc.get_fee_estimate', 10)
+    hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
+    mempool = get_mempool_future(lmq, beldexd)
+    # Only counts are shown on the home page: request two booleans per node.
+    mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
+            args={'all': False, 'fields': {'active': True, 'funded': True}})
+    checkpoints = FutureJSON(lmq, beldexd, 'rpc.get_checkpoints', args={"count": 3})
+    # Slow the first time beldexd computes it and admin-only (fails on
+    # restricted RPC), hence the short timeout + fail_okay.
+    coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
+            args={"height":0, "count":2**31-1})
+
     height = info['height']
     info['testnet']  = info['nettype'] == 'testnet'
     info['devnet']   = info['nettype'] == 'devnet'
@@ -576,7 +626,8 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
         else:
             mn_counts['awaiting'] += 1
 
-    supply = fetch_circulating_supply()
+    # Render immediately; the browser refreshes supply through the API.
+    supply = circulating_supply_cache
     circulating_supply = supply * 1_000_000_000 if supply is not None else None
 
     # Fall back to safe defaults for any RPC that failed/timed out so a busy
@@ -606,7 +657,7 @@ def main(refresh=None, page=0, per_page=None, first=None, last=None):
 @app.route('/txpool')
 def mempool():
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     mempool = get_mempool_future(lmq, beldexd)
 
     return flask.render_template('mempool.html',
@@ -955,15 +1006,141 @@ def api_submission(token_id):
 @app.route('/master_nodes')
 def mns():
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     awaiting, active, inactive = get_mns(get_mns_future(lmq, beldexd), info)
+
+    active_limit = min(max(flask.request.args.get('active_limit', 25, type=int), 25), max(len(active), 25))
+    inactive_limit = min(max(flask.request.args.get('inactive_limit', 25, type=int), 25), max(len(inactive), 25))
 
     return flask.render_template('master_nodes.html',
         info=info.get(),
         active_mns=active,
         awaiting_mns=awaiting,
         inactive_mns=inactive,
+        limit_active=active_limit,
+        limit_inactive=inactive_limit,
+        mn_load_more=True,
         )
+
+def _mn_status(mn):
+    if mn.get('active'):
+        return 'active'
+    if mn.get('funded'):
+        return 'decommissioned'
+    return 'awaiting'
+
+
+def _distribution(mns, geo):
+    """Aggregates master nodes by country, ASN and map point from the
+    resolved geolocation map (see geoip.py)."""
+    ips = [mn.get('public_ip') for mn in mns if mn.get('public_ip')]
+
+    by_country, by_asn, points = {}, {}, {}
+    located = 0
+    for mn in mns:
+        g = geo.get(mn.get('public_ip'))
+        if not g:
+            continue
+        located += 1
+        status = _mn_status(mn)
+
+        cc = g.get('countryCode') or 'XX'
+        country = g.get('country') or 'Unknown'
+        c = by_country.setdefault(cc, {'country': country, 'code': cc, 'count': 0})
+        c['count'] += 1
+
+        asn_key = g.get('as') or g.get('asname') or 'Unknown'
+        a = by_asn.setdefault(asn_key, {
+            'asn': g.get('as'),
+            'name': g.get('asname') or g.get('isp') or g.get('as') or 'Unknown',
+            'count': 0})
+        a['count'] += 1
+
+        lat, lon = g.get('lat'), g.get('lon')
+        if isinstance(lat, (int, float)) and isinstance(lon, (int, float)):
+            key = '{:.1f},{:.1f}'.format(lat, lon)
+            p = points.setdefault(key, {'lat': lat, 'lon': lon, 'country': country,
+                'count': 0, 'active': 0, 'decommissioned': 0, 'awaiting': 0})
+            p['count'] += 1
+            p[status] += 1
+
+    by_count = lambda d: sorted(d.values(), key=lambda x: (-x['count'], x.get('name') or x.get('country')))
+    return {
+        'total': len(mns),
+        'with_ip': len(ips),
+        'located': located,
+        'unresolved': len(mns) - located,
+        'countries': len(by_country),
+        'providers': len(by_asn),
+        'by_country': by_count(by_country),
+        'by_asn': by_count(by_asn),
+        'points': sorted(points.values(), key=lambda p: -p['count']),
+    }
+
+
+# The distribution page is expensive on both sides: get_master_nodes returns
+# the full node list, and geolocation may hit ip-api. mn-dashboard caches its
+# equivalent endpoint for 60s; do the same here so repeated reloads cost the
+# daemon nothing between rebuilds. Like every other page in the explorer this
+# one never refreshes itself - the user reloads when they want fresher data.
+_DIST_CACHE_SECONDS = 60
+_dist_cache = {'at': 0, 'dist': None, 'geo': None}
+
+
+def _build_distribution(lmq, beldexd, inforeq):
+    """(dist, geo_info), rebuilt at most once per _DIST_CACHE_SECONDS."""
+    now = time.time()
+    if (_dist_cache['dist'] is not None
+            and now - _dist_cache['at'] < _DIST_CACHE_SECONDS
+            and not _dist_cache['geo'].get('remaining')):
+        return _dist_cache['dist'], _dist_cache['geo']
+
+    # Cached separately from /master_nodes (which wants fresher data) so this
+    # page's refreshes don't shorten that cache or duplicate its work.
+    mns_future = get_mns_future(lmq, beldexd, cache_seconds=_DIST_CACHE_SECONDS,
+                                cache_key='dist')
+    awaiting, active, inactive = get_mns(mns_future, inforeq)
+    mns = active + inactive + awaiting
+
+    ips = [mn['public_ip'] for mn in mns if mn.get('public_ip')]
+    try:
+        geo, geo_info = geoip.geolocate(ips)
+    except Exception as e:
+        print("geoip lookup failed: {}".format(e), file=sys.stderr)
+        geo, geo_info = {}, {'remaining': len(ips), 'error': str(e),
+                             'resolved': 0, 'rate_limited': False}
+
+    dist = _distribution(mns, geo)
+    dist['status_counts'] = {
+        'active': len(active),
+        'decommissioned': len(inactive),
+        'awaiting': len(awaiting),
+    }
+    _dist_cache.update(at=time.time(), dist=dist, geo=geo_info)
+    return dist, geo_info
+
+
+@app.route('/distribution')
+def distribution():
+    lmq, beldexd = lmq_connection()
+    inforeq = _CachedInfoFuture(lmq, beldexd)
+
+    info, stale_info = get_info_or_stale(inforeq)
+    if info is None:
+        print("daemon-busy page served for /distribution: get_info timed out", file=sys.stderr)
+        return flask.render_template('daemon_unavailable.html', info=None), 503
+    info['testnet'] = info['nettype'] == 'testnet'
+    info['devnet'] = info['nettype'] == 'devnet'
+
+    dist, geo_info = _build_distribution(lmq, beldexd, inforeq)
+
+    return flask.render_template('distribution.html',
+            info=info,
+            stale_info=stale_info,
+            dist=dist,
+            geo_status=geo_info,
+            )
+
 
 def tx_req(lmq, beldexd, txids, cache_key='single', **kwargs):
     return FutureJSON(lmq, beldexd, 'rpc.get_transactions', cache_seconds=10, cache_key=cache_key,
@@ -1048,7 +1225,7 @@ def bns_info(lmq, beldexd, name, **kwargs):
 def show_bns(name, more_details=False):
     name = name.lower()
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
 
     # Validation
     if len(name) > 64 or not all(c.isalnum() or c in '_-' for c in name):
@@ -1109,7 +1286,7 @@ def show_bns(name, more_details=False):
 @app.route('/mn/<hex64:pubkey>/<int:more_details>')
 def show_mn(pubkey, more_details=False):
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
     mn = mn_req(lmq, beldexd, pubkey).get()
     quos = get_quorums_future(lmq, beldexd, info.get()['height'])
@@ -1219,7 +1396,7 @@ def get_block_txs_future(lmq, beldexd, block):
 @app.route('/block/<hex64:hash>/<int:more_details>')
 def show_block(height=None, hash=None, more_details=False):
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
     if height is not None:
         val = height
@@ -1269,7 +1446,7 @@ def show_block(height=None, hash=None, more_details=False):
 @app.route('/block/latest')
 def show_block_latest():
     lmq, beldexd = lmq_connection()
-    height = FutureJSON(lmq, beldexd, 'rpc.get_info', 1).get()['height'] - 1
+    height = _CachedInfoFuture(lmq, beldexd).get()['height'] - 1
     return flask.redirect(flask.url_for('show_block', height=height), code=302)
 
 
@@ -1294,7 +1471,7 @@ def show_tx_rawjson(txid):
 @app.route('/tx/<hex64:txid>/<int:more_details>')
 def show_tx(txid, more_details=False):
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     txs = tx_req(lmq, beldexd, [txid]).get()
 
     if 'txs' not in txs or not txs['txs']:
@@ -1390,7 +1567,7 @@ def show_tx(txid, more_details=False):
 @app.route('/quorums')
 def show_quorums():
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     quos = get_quorums_future(lmq, beldexd, info.get()['height'])
 
     return flask.render_template('quorums.html',
@@ -1404,9 +1581,12 @@ base32z_map = {base32z_dict[i]: i for i in range(len(base32z_dict))}
 
 @app.route('/search')
 def search():
-    lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
     val = (flask.request.args.get('value') or '').strip()
+    if not val:
+        return flask.redirect(flask.url_for('main'))
+
+    lmq, beldexd = lmq_connection()
+    info = _CachedInfoFuture(lmq, beldexd)
 
     if val and len(val) < 10 and val.isdigit(): # Block height
         return flask.redirect(flask.url_for('show_block', height=val), code=301)
@@ -1418,13 +1598,14 @@ def search():
         # The above loads 260 bytes (5 bits per char * 52 chars), but we only want 256:
         v >>= 4
         val = "{:64x}".format(v)
-    if val and len(val) <= 68 and val.endswith(".bdx"):
-        val = val.rstrip('.bdx')
+    if val and len(val) <= 68 and val.lower().endswith(".bdx"):
+        # Strip the exact suffix, not trailing characters from the name.
+        val = val[:-4]
 
     # BNS can be of length 64 however with txids, and sn pubkey's being of length 64 
     # I have removed it from the possible searches.
-    if len(val) < 64 and all(c.isalnum() or c in '_-' for c in val):
-        return flask.redirect(flask.url_for('show_bns', name=val), code=301) 
+    if val and len(val) < 64 and all(c.isalnum() or c in '_-' for c in val):
+        return flask.redirect(flask.url_for('show_bns', name=val), code=302)
     elif not val or len(val) != 64 or any(c not in string.hexdigits for c in val):
         return flask.render_template('not_found.html',
                 info=info.get(),
@@ -1456,7 +1637,7 @@ def search():
 @app.route('/api/networkinfo')
 def api_networkinfo():
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     hfinfo = FutureJSON(lmq, beldexd, 'rpc.hard_fork_info', 10)
 
     info = info.get()
@@ -1468,33 +1649,59 @@ def api_networkinfo():
 
 @app.route('/api/bnslookup')
 def api_bnslookup():
-    lmq, beldexd = lmq_connection()
-    name = flask.request.args.get('name')
-    bnsinfo = bns_info(lmq, beldexd, name).get()
-    bns_data = {'name': name, 'bchat': "", 'belnet': "", 'wallet': "", 'ethAddress': ""}
+    name = (flask.request.args.get('name') or '').strip().lower()
+    if not name or name == '.bdx':
+        return flask.jsonify({"status": "error", "message": "A BNS name is required"}), 400
+    if not name.endswith('.bdx'):
+        name += '.bdx'
 
-    if 'result' in bnsinfo:
-        bnsinfo = bnsinfo['result'][0]
-        types = {
-        'bchat': 'encrypted_bchat_value',
-        'belnet': 'encrypted_belnet_value',
-        'wallet': 'encrypted_wallet_value',
-        'eth_addr': 'encrypted_eth_addr_value'
+    blocked_names = {"beldex.bdx", "localhost.bdx", "mnode.bdx"}
+    bns_data = {
+        'available': True,
+        'name': name,
+        'bchat': "",
+        'belnet': "",
+        'wallet': "",
+        'ethAddress': "",
+    }
+
+    if name in blocked_names:
+        bns_data['available'] = False
+        return flask.jsonify({"bnsData": bns_data, "status": "ok"})
+
+    lmq, beldexd = lmq_connection()
+    bnsinfo = bns_info(lmq, beldexd, name)
+    result = bnsinfo.get('result')
+
+    print(f"API BNS Lookup for name: {name}, Result: {result}")
+
+    if result:
+        info = result[0]
+        bns_data.update({
+            'owner': info.get('owner'),
+            'exp_height': info.get('expiration_height'),
+            'available': False,
+        })
+
+        field_map = {
+            'bchat': 'encrypted_bchat_value',
+            'belnet': 'encrypted_belnet_value',
+            'wallet': 'encrypted_wallet_value',
+            'eth_addr': 'encrypted_eth_addr_value',
         }
-        for key, value in types.items():
-            if len(bnsinfo[value]) != 0:
-                decrypted_value = bns_decrypt(lmq, beldexd, name, key, bnsinfo[value]).get()
-                if key == 'eth_addr':
-                    bns_data['ethAddress'] = decrypted_value['value']
-                else:
-                    bns_data[key] = decrypted_value['value']
+        for key, encrypted_field in field_map.items():
+            encrypted_value = info.get(encrypted_field)
+            if encrypted_value:
+                decrypted = bns_decrypt(lmq, beldexd, name, key, encrypted_value).get()
+                output_key = 'ethAddress' if key == 'eth_addr' else key
+                bns_data[output_key] = decrypted.get('value', "")
 
     return flask.jsonify({"bnsData": bns_data, "status": "ok"})
 
 @app.route('/api/get_stats')
 def api_get_stats():
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
             args={"height":0, "count":2**31-1}).get()
 
@@ -1504,7 +1711,8 @@ def api_get_stats():
     block = block_with_txs_req(lmq, beldexd, height).get()
     return flask.jsonify({
         "data": {
-            "difficulty": data['difficulty'],
+            "difficulty": data.get('difficulty', 0),
+            "bns_count": data.get('bns_counts',0),
             "height": block['block_header']['height'],
             "burn": coinbase["burn_amount"],
             "total_emission": coinbase["emission_amount"],
@@ -1517,7 +1725,7 @@ def api_get_stats():
 @app.route('/api/transaction_info/<hex64:txid>')
 def show_tx_info(txid, more_details=False):
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     txs = tx_req(lmq, beldexd, [txid]).get()
 
     if 'txs' not in txs or not txs['txs']:
@@ -1661,20 +1869,20 @@ def fetch_circulating_supply():
 @app.route('/api/emission')
 def api_emission():
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 10, timeout=1, fail_okay=True,
             args={"height":0, "count":2**31-1}).get()
     if not coinbase:
         return flask.jsonify(None)
     info = info.get()
-    supply = fetch_circulating_supply()
-    circulating_supply = (supply * 1_000_000_000 if supply is not None
-            else coinbase["emission_amount"] - coinbase["burn_amount"])
+    # supply = fetch_circulating_supply()
+    # circulating_supply = (supply * 1_000_000_000 if supply is not None
+    #         else coinbase["emission_amount"] - coinbase["burn_amount"])
     return flask.jsonify({
         "data": {
             "blk_no": info['height'] - 1,
             "burn": coinbase["burn_amount"],
-            "circulating_supply": circulating_supply,
+            # "circulating_supply": coinbase["emission_amount"] - coinbase["burn_amount"],
             "coinbase": coinbase["emission_amount"] - coinbase["burn_amount"],
             "emission": coinbase["emission_amount"],
             "fee": coinbase["fee_amount"]
@@ -1686,7 +1894,7 @@ def api_emission():
 @app.route('/api/master_node_stats')
 def api_master_node_stats():
     lmq, beldexd = lmq_connection()
-    info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    info = _CachedInfoFuture(lmq, beldexd)
     stakinginfo = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 30)
     mns = get_mns_future(lmq, beldexd)
     mns = mns.get()
@@ -1843,7 +2051,7 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
     """Yearly series (estimates from sampled headers + real per-year burn from
     the admin coinbase RPC), cached for 6h. Returns None if the daemon cannot
     answer."""
-    if _stats_history_cache['data'] is not None and _stats_history_cache['expiry'] > now_ts:
+    if _stats_history_cache['expiry'] > now_ts:
         return _stats_history_cache['data']
 
     try:
@@ -1983,24 +2191,31 @@ def _stats_history(lmq, beldexd, height, now_ts, include_burn=False):
             print("stats: newest year missing from series; will rebuild in 10 min",
                     file=sys.stderr)
         _stats_history_cache['expiry'] = now_ts + (600 if (burn_pending or newest_missing) else 6 * 3600)
-    return data
+    else:
+        # The daemon couldn't answer. Keep serving the last good series and
+        # don't rebuild on every reload - that only piles more requests onto
+        # a daemon that is already struggling.
+        _stats_history_cache['expiry'] = now_ts + 300
+    return _stats_history_cache['data']
 
 
 @app.route('/stats')
 def stats():
     lmq, beldexd = lmq_connection()
-    inforeq = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+    inforeq = _CachedInfoFuture(lmq, beldexd)
+
+    info, stale_info = get_info_or_stale(inforeq)
+    if info is None:
+        print("daemon-busy page served for /stats: get_info timed out", file=sys.stderr)
+        return flask.render_template('daemon_unavailable.html', info=None), 503
+
+    # Secondary requests only once the daemon is known to be responsive
     stake = FutureJSON(lmq, beldexd, 'rpc.get_staking_requirement', 10)
     mn_counts_req = FutureJSON(lmq, beldexd, 'rpc.get_master_nodes', 15, cache_key='counts',
             args={'all': False, 'fields': {'active': True, 'funded': True}})
     mempool = get_mempool_future(lmq, beldexd)
     coinbase = FutureJSON(lmq, beldexd, 'admin.get_coinbase_tx_sum', 120, timeout=1, fail_okay=True,
             args={"height": 0, "count": 2**31-1})
-
-    info, stale_info = get_info_or_stale(inforeq)
-    if info is None:
-        print("daemon-busy page served for /stats: get_info timed out", file=sys.stderr)
-        return flask.render_template('daemon_unavailable.html', info=None), 503
     info['testnet'] = info['nettype'] == 'testnet'
     info['devnet'] = info['nettype'] == 'devnet'
     height = info['height']
@@ -2024,12 +2239,16 @@ def stats():
         mp = {}
 
     emission = coinbase.get()
-    history = _stats_history(lmq, beldexd, height, now_ts,
-            include_burn=bool(emission and emission.get('status') == 'OK'))
+    # Per-year burn sums are off: they start at a non-zero height, so beldexd
+    # can't answer them from its running total and doesn't serialise them -
+    # each rescans a year of blocks, and several at once tie up its whole RPC
+    # worker pool. That is what left every page on the "daemon busy" screen.
+    history = _stats_history(lmq, beldexd, height, now_ts, include_burn=False)
 
     bns_counts = info.get('bns_counts', 0)
 
-    supply = fetch_circulating_supply()
+    # Render immediately; the browser refreshes supply through the API.
+    supply = circulating_supply_cache
     circulating_supply = supply * 1_000_000_000 if supply is not None else None
 
     # ---- derived insights ------------------------------------------------

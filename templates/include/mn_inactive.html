@@ -22,11 +22,10 @@
             </tr>
         {%endfor%}
 
-        {%if limit_inactive and inactive_mns | count > limit_inactive%}
+        {%if limit_inactive and inactive_mns | count > limit_inactive and not mn_load_more%}
             <tr>
                 <td class="mn-more" colspan="6"><a href="/master_nodes#master-nodes-inactive">+ {{inactive_mns | count - limit_inactive}} more ↪</a></td>
             </tr>
         {%endif%}
     </tbody>
 </table>
-
