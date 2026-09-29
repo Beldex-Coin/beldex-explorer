@@ -1,0 +1,241 @@
+{% extends "_basic.html" %}
+
+{% block title %}Tokens — {% endblock %}
+
+{% block content %}
+<div class="Wrapper">
+    <div class="hero" style="padding: 24px 0 8px">
+        <div class="eyebrow">Confidential Assets{{ ' · TESTNET' if info and info.testnet else ' · DEVNET' if info and info.devnet else '' }}</div>
+        <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Tokens</h1>
+        <p class="hero-note">On-chain tokens, with curated details for whitelisted projects</p>
+    </div>
+
+    <div class="chips">
+        <a href="/tokens/submit" target="_blank" rel="noopener">Verify &amp; list a token →</a>
+    </div>
+
+    <div class="stat-grid">
+        <div class="stat-card">
+            <span class="label">Total tokens</span>
+            <span class="value">{{ tokens_total if tokens_total is defined else tokens | length }}</span>
+        </div>
+        <div class="stat-card">
+            <span class="label">Whitelisted</span>
+            <span class="value" style="color: var(--green)">{{ whitelisted | length }}</span>
+        </div>
+    </div>
+
+    <div class="tabset tokens-tabset">
+        <input type="radio" name="ttab" id="ttab-all" checked>
+        <input type="radio" name="ttab" id="ttab-whitelisted">
+
+        <div class="tabbar">
+            <label for="ttab-all">All Tokens ({{ tokens_total if tokens_total is defined else tokens | length }})</label>
+            <label for="ttab-whitelisted">Whitelisted ({{ whitelisted | length }})</label>
+        </div>
+
+        <div class="tokens-search">
+            <input type="text" id="tokens-search-input" placeholder="Search by name, ticker or token ID">
+        </div>
+
+        {% macro tokens_table(rows, table_id) %}
+            <table class="Table tokens-table" id="{{table_id}}">
+              <thead>
+                <tr>
+                    <td>Name</td>
+                    <td>Ticker</td>
+                    <td>Token ID</td>
+                    <td>Price</td>
+                    <td>Source</td>
+                </tr>
+              </thead>
+              <tbody>
+                {% if rows %}
+                  {% for a in rows %}
+                    <tr class="token-row" data-name="{{ (a.name or '') | lower }}" data-ticker="{{ (a.ticker or '') | lower }}" data-token-id="{{ (a.token_id or '') | lower }}">
+                        <td>
+                            <span class="token-name-cell">
+                                {% if a.logo %}
+                                    <img class="token-logo" src="{{a.logo}}" alt="{{a.ticker}} logo">
+                                {% else %}
+                                    <span class="token-logo token-logo-fallback">{{ (a.ticker or a.name or '?')[0] | upper }}</span>
+                                {% endif %}
+                                <span>{{a.name}}</span>
+                            </span>
+                        </td>
+                        <td>{{a.ticker}}</td>
+                        <td>
+                            <span class="token-id-cell">
+                                <button type="button" class="token-copy" data-copy="{{a.token_id}}" title="Copy token ID" aria-label="Copy token ID">⧉</button>
+                                <a href="#" class="token-expand" title="Show token details">{{a.token_id}}</a>
+                            </span>
+                        </td>
+                        <td>{% if a.price %}{{a.price}}{% else %}<span class="comment">No data</span>{% endif %}</td>
+                        <td>{% if a.source %}{% if a.source.startswith('http') %}<a href="{{a.source}}" target="_blank" rel="noopener">{{a.source | source_name}}</a>{% else %}{{a.source}}{% endif %}{% else %}<span class="comment">No data</span>{% endif %}</td>
+                    </tr>
+                    <tr class="token-detail-row" style="display: none">
+                        <td colspan="5">
+                            <div class="token-detail-cards">
+                                <div class="token-card">
+                                    <h4 class="token-card-title">Overview</h4>
+                                    <div class="token-card-item">
+                                        <label>Max total supply</label>
+                                        <span>{{a.total_max_supply}} {{a.ticker}}</span>
+                                    </div>
+                                    <div class="token-card-item">
+                                        <label>Current supply</label>
+                                        <span>{{a.current_supply}} {{a.ticker}}</span>
+                                    </div>
+                                    <div class="token-card-item">
+                                        <label>Decimals</label>
+                                        <span>{{a.decimal_point}}</span>
+                                    </div>
+                                </div>
+
+                                <div class="token-card">
+                                    <h4 class="token-card-title">Market</h4>
+                                    <div class="token-card-item">
+                                        <label>Price</label>
+                                        <span>{% if a.price %}{{a.price}}{% else %}No data{% endif %}</span>
+                                    </div>
+                                    <div class="token-card-item">
+                                        <label>Source</label>
+                                        <span>{% if a.source %}{% if a.source.startswith('http') %}<a href="{{a.source}}" target="_blank" rel="noopener">{{a.source | source_name}}</a>{% else %}{{a.source}}{% endif %}{% else %}No data{% endif %}</span>
+                                    </div>
+                                    <div class="token-card-item">
+                                        <label>Social</label>
+                                        <span>{% if a.social %}{% if a.social.startswith('http') %}<a href="{{a.social}}" target="_blank" rel="noopener">{{a.social}}</a>{% else %}{{a.social}}{% endif %}{% else %}No data{% endif %}</span>
+                                    </div>
+                                </div>
+
+                                <div class="token-card token-card-wide">
+                                    <h4 class="token-card-title">Other Info</h4>
+                                    <div class="token-card-item">
+                                        <label>Token ID (with {{a.decimal_point}} decimals)</label>
+                                        <span class="token-card-id">
+                                            <button type="button" class="token-copy" data-copy="{{a.token_id}}" title="Copy token ID" aria-label="Copy token ID">⧉</button>
+                                            {{a.token_id}}
+                                        </span>
+                                    </div>
+                                    <div class="token-card-item">
+                                        <label>Owner</label>
+                                        <span class="token-card-id">{{a.owner}}</span>
+                                    </div>
+                                    <div class="token-card-item">
+                                        <label>Name / Ticker</label>
+                                        <span>{{a.full_name}} ({{a.ticker}})</span>
+                                    </div>
+                                    {% if a.meta_info %}
+                                    <div class="token-card-item">
+                                        <label>Meta info</label>
+                                        <span>{{a.meta_info}}</span>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                  {% endfor %}
+                {% else %}
+                    <tr class="token-empty"><td colspan="5" style="text-align: center" class="comment">No tokens to display.</td></tr>
+                {% endif %}
+              </tbody>
+            </table>
+        {% endmacro %}
+
+        <div class="tabpanel" id="tpanel-all">
+            {{ tokens_table(tokens, 'tokens-table-all') }}
+
+            <div class="pager">
+                {% if offset > 0 %}
+                    <a class="pager-btn" href="/tokens/{{ [offset - count, 0] | max }}/{{ count }}">◂ Previous</a>
+                {% else %}
+                    <span class="pager-btn disabled">◂ Previous</span>
+                {% endif %}
+
+                <span class="pager-info">Page <span class="page-number">{{ page + 1 }}</span> <span class="pager-sep">/</span> {{ total_pages }}</span>
+
+                {% if offset + count < tokens_total %}
+                    <a class="pager-btn" href="/tokens/{{ offset + count }}/{{ count }}">Next ▸</a>
+                {% else %}
+                    <span class="pager-btn disabled">Next ▸</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="tabpanel" id="tpanel-whitelisted">
+            {{ tokens_table(whitelisted, 'tokens-table-whitelisted') }}
+        </div>
+    </div>
+</div>
+
+<script>
+    (function () {
+        var search = document.getElementById('tokens-search-input');
+
+        function applyFilter() {
+            var q = (search.value || '').trim().toLowerCase();
+            var rows = document.querySelectorAll('.token-row');
+            for (var i = 0; i < rows.length; i++) {
+                var name = rows[i].getAttribute('data-name') || '';
+                var ticker = rows[i].getAttribute('data-ticker') || '';
+                var tokenId = rows[i].getAttribute('data-token-id') || '';
+                var match = !q || name.indexOf(q) !== -1 || ticker.indexOf(q) !== -1 || tokenId.indexOf(q) !== -1;
+                rows[i].classList.toggle('hidden', !match);
+                // Keep each row's detail panel in sync: hide it when the row is
+                // filtered out, and collapse it so it doesn't reopen on re-show.
+                var detail = rows[i].nextElementSibling;
+                if (detail && detail.classList.contains('token-detail-row')) {
+                    detail.style.display = 'none';
+                }
+            }
+        }
+
+        if (search) search.addEventListener('input', applyFilter);
+
+        function copyText(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                return navigator.clipboard.writeText(text);
+            }
+            var ta = document.createElement('textarea');
+            ta.value = text;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try { document.execCommand('copy'); } catch (e) {}
+            document.body.removeChild(ta);
+            return Promise.resolve();
+        }
+
+        document.querySelectorAll('.token-expand').forEach(function (link) {
+            link.addEventListener('click', function (e) {
+                e.preventDefault();
+                var row = link.closest('.token-row');
+                var detail = row && row.nextElementSibling;
+                if (!detail || !detail.classList.contains('token-detail-row')) return;
+                var willOpen = (detail.style.display === 'none');
+                // Accordion: close any other open detail panel first.
+                document.querySelectorAll('.token-detail-row').forEach(function (d) {
+                    if (d !== detail) d.style.display = 'none';
+                });
+                detail.style.display = willOpen ? '' : 'none';
+            });
+        });
+
+        document.querySelectorAll('.token-copy').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                copyText(btn.getAttribute('data-copy') || '').then(function () {
+                    var original = btn.textContent;
+                    btn.classList.add('copied');
+                    btn.textContent = '✓';
+                    setTimeout(function () {
+                        btn.classList.remove('copied');
+                        btn.textContent = original;
+                    }, 1200);
+                });
+            });
+        });
+    })();
+</script>
+
+{% endblock %}
