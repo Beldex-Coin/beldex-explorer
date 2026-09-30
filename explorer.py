@@ -669,12 +669,31 @@ def mempool():
 @app.route('/tokens/<int:offset>')
 @app.route('/tokens/<int:offset>/<int:count>')
 def list_tokens(offset=0, count=20):
+    """Page shell only — deliberately does none of the slow daemon/whitelist
+    work below. On mainnet a full get_token_info round trip per token (plus
+    the whitelist HTTP fetch) can take long enough to make the page feel
+    stuck, so the page renders instantly and the browser fetches the actual
+    token data from /api/tokens afterwards (see tokens.html)."""
     if count <= 0:
         count = 20
     if offset < 0:
         offset = 0
     lmq, beldexd = lmq_connection()
     info = FutureJSON(lmq, beldexd, 'rpc.get_info', 1)
+
+    return flask.render_template('tokens.html',
+            info=info.get(),
+            offset=offset,
+            count=count,
+            )
+
+
+def _load_tokens_page(offset, count):
+    """The slow part of the tokens page: get_token_list, a get_token_info RPC
+    per token (fired in parallel, but still bounded by the daemon's slowest
+    reply), and the admin portal's whitelist fetch. Split out of list_tokens()
+    so it can be called from /api/tokens instead of blocking the page load."""
+    lmq, beldexd = lmq_connection()
 
     # All tokens: the daemon's get_token_list only returns IDs, so we fetch the
     # full descriptor for each id via get_token_info (fired in parallel).
@@ -734,16 +753,34 @@ def list_tokens(offset=0, count=20):
     page = offset // count
     total_pages = max(1, -(-total_count // count))  # ceil division
 
-    return flask.render_template('tokens.html',
-            info=info.get(),
-            whitelisted=whitelisted,
-            tokens=all_tokens,
-            tokens_total=total_count,
-            offset=offset,
-            count=count,
-            page=page,
-            total_pages=total_pages,
-            )
+    return {
+        'tokens': all_tokens,
+        'whitelisted': whitelisted,
+        'tokens_total': total_count,
+        'offset': offset,
+        'count': count,
+        'page': page,
+        'total_pages': total_pages,
+        }
+
+
+@app.route('/api/tokens')
+@app.route('/api/tokens/<int:offset>')
+@app.route('/api/tokens/<int:offset>/<int:count>')
+def api_tokens(offset=0, count=20):
+    """JSON backing the tokens page — see list_tokens()/_load_tokens_page()."""
+    if count <= 0:
+        count = 20
+    if offset < 0:
+        offset = 0
+    try:
+        data = _load_tokens_page(offset, count)
+    except Exception as e:
+        print("Failed to load tokens page (offset={}, count={}): {}".format(offset, count, e),
+                file=sys.stderr)
+        return flask.jsonify({'ok': False, 'error': 'Could not load tokens from the daemon right now.'}), 502
+    data['ok'] = True
+    return flask.jsonify(data)
 
 TOKEN_SOCIAL_FIELDS = ['whitepaper', 'github', 'telegram', 'discord', 'twitter',
                        'linkedin', 'medium', 'reddit', 'facebook',
@@ -907,6 +944,7 @@ def submit_token(token_id=None):
                     'method': 'sign_value',
                 },
             }
+
             url = getattr(config, 'token_submit_url', None)
             key = getattr(config, 'token_submit_api_key', '') or ''
             if not url:

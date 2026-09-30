@@ -14,7 +14,7 @@
 {% block content %}
     <div class="Wrapper">
         <div class="hero" style="padding: 24px 0 8px">
-            <div class="eyebrow">Confidential Assets{{ ' · TESTNET' if info and info.testnet else ' · DEVNET' if info and info.devnet else '' }}</div>
+            <div class="eyebrow">Privacy Tokens · {{ 'Testnet' if info and info.testnet else 'Devnet' if info and info.devnet else 'Mainnet' }}</div>
             <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Token Submission</h1>
             <p class="hero-note">Verify ownership of an on-chain token, then submit it for whitelist review.</p>
         </div>

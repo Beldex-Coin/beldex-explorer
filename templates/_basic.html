@@ -24,7 +24,7 @@
         <span class="topbar-item">BDX Price: <span class="topbar-price" id="topbarPrice">…</span> <span id="topbarChange"></span></span>
         <span class="topbar-item dim-item" title="Current chain height">Height: <span class="topbar-price">{{ info.height if info else '…' }}</span></span>
         <span class="topbar-spacer"></span>
-        {% if request.endpoint != 'main' %}
+        {% if request.endpoint != 'main' and not request.path.startswith('/tokens') %}
         <form action="/search" method="get" class="topbar-search">
             <button type="submit" class="ts-icon" aria-label="Search" title="Search">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
@@ -114,7 +114,7 @@
             <a href="/master_nodes" class="{% if request.path == '/master_nodes' %}active{% endif %}">Master Nodes</a>
             <a href="/txpool" class="{% if request.path == '/txpool' %}active{% endif %}">Mempool</a>
             <a href="/quorums" class="{% if request.path == '/quorums' %}active{% endif %}">Quorums</a>
-            <a href="/stats" class="{% if request.path == '/stats' %}active{% endif %}">Stats</a>
+            {# <a href="/stats" class="{% if request.path == '/stats' %}active{% endif %}">Stats</a> #}
             <a href="/tokens" class="{% if request.path.startswith('/tokens') %}active{% endif %}">Tokens</a>
         </nav>
     </div>
