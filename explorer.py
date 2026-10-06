@@ -57,6 +57,7 @@ class Hex64Converter(BaseConverter):
 
 app.url_map.converters['hex64'] = Hex64Converter
 
+@app.template_filter('token_amount')
 def format_token_amount(raw, decimals):
     """Convert a token's atomic-unit amount to a human-readable string using its
     decimal_point, with thousands separators and trailing zeros trimmed."""
@@ -1505,6 +1506,52 @@ def show_tx_rawjson(txid):
     })
 
 
+def privacy_token_rings(tx, lmq, beldexd):
+    """Resolve ZY ring offsets through the daemon's shared amount-zero output bucket."""
+    rings = []
+    for inp in tx.get('vin', []):
+        if 'zy_input' not in inp:
+            continue
+        ring = []
+        index = 0
+        for offset in inp['zy_input'].get('key_offsets', []):
+            index += offset
+            ring.append({'index': index})
+        rings.append(ring)
+
+    indices = list(dict.fromkeys(member['index'] for ring in rings for member in ring))
+    if not indices or not config.enable_mixins_details:
+        return rings
+
+    result = FutureJSON(lmq, beldexd, 'rpc.get_outs', fail_okay=True, args={
+        'get_txid': True,
+        'outputs': [{'amount': 0, 'index': index} for index in indices],
+    }).get()
+    outputs = result.get('outs') if isinstance(result, dict) else None
+    # Positional mapping is safe only if the daemon returned the full requested list.
+    if not isinstance(outputs, list) or len(outputs) != len(indices):
+        return rings
+    by_index = dict(zip(indices, outputs))
+    heights = sorted({output['height'] for output in outputs
+                      if isinstance(output, dict) and isinstance(output.get('height'), int)})
+    headers = {}
+    if heights:
+        response = FutureJSON(lmq, beldexd, 'rpc.get_block_header_by_height',
+                fail_okay=True, args={'heights': heights}).get()
+        if isinstance(response, dict):
+            headers = {header['height']: header for header in (response.get('block_headers') or [])
+                       if isinstance(header, dict) and 'height' in header}
+    for ring in rings:
+        for member in ring:
+            output = by_index[member['index']]
+            if isinstance(output, dict) and output.get('key'):
+                member['output'] = output
+                header = headers.get(output.get('height'), {})
+                if isinstance(header.get('timestamp'), (int, float)):
+                    member['timestamp'] = header['timestamp']
+    return rings
+
+
 @app.route('/tx/<hex64:txid>')
 @app.route('/tx/<hex64:txid>/<int:more_details>')
 def show_tx(txid, more_details=False):
@@ -1531,10 +1578,12 @@ def show_tx(txid, more_details=False):
     if 'vin' in tx:
         if len(tx['vin']) == 1 and 'gen' in tx['vin'][0]:
             tx['coinbase'] = True
-        elif tx['vin'] and config.enable_mixins_details:
+        elif any('key' in inp for inp in tx['vin']) and config.enable_mixins_details:
             # Load output details for all outputs contained in the inputs
             outs_req = []
             for inp in tx['vin']:
+                if 'key' not in inp:
+                    continue
                 # Key positions are stored as offsets from the previous index rather than indices,
                 # so de-delta them back into indices:
                 if 'key_offsets' in inp['key'] and 'key_indices' not in inp['key']:
@@ -1546,7 +1595,7 @@ def show_tx(txid, more_details=False):
                         kis.append(kbase)
                     del inp['key']['key_offsets']
 
-            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['vin'] for ki in inp['key']['key_indices']]
+            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['vin'] if 'key' in inp for ki in inp['key'].get('key_indices', [])]
             outputs = FutureJSON(lmq, beldexd, 'rpc.get_outs', args={
                 'get_txid': True,
                 'outputs': outs_req,
@@ -1559,11 +1608,13 @@ def show_tx(txid, more_details=False):
                 })
                 i = 0
                 for inp in tx['vin']:
+                    if 'key' not in inp:
+                        continue
                     amount = inp['key']['amount']
                     if amount not in kindex_info:
                         kindex_info[amount] = {}
                     ki = kindex_info[amount]
-                    for ko in inp['key']['key_indices']:
+                    for ko in inp['key'].get('key_indices', []):
                         ki[ko] = outputs[i]
                         i += 1
 
@@ -1579,7 +1630,7 @@ def show_tx(txid, more_details=False):
     block_info = {} # { height => {block-info} }
     if block_info_req:
         bi = block_info_req.get()
-        if 'block_headers' in bi:
+        if bi and 'block_headers' in bi:
             for bh in bi['block_headers']:
                 block_info[bh['height']] = bh
 
@@ -1598,6 +1649,7 @@ def show_tx(txid, more_details=False):
             kindex_info=kindex_info,
             block_info=block_info,
             testing_quorum=testing_quorum,
+            privacy_rings=privacy_token_rings(tx, lmq, beldexd),
             **more_details,
             )
 
@@ -1784,11 +1836,13 @@ def show_tx_info(txid, more_details=False):
     if 'vin' in tx:
         if len(tx['vin']) == 1 and 'gen' in tx['vin'][0]:
             tx['coinbase'] = True
-        elif tx['vin'] and config.enable_mixins_details:
+        elif any('key' in inp for inp in tx['vin']) and config.enable_mixins_details:
             tx['coinbase'] = False
             # Load output details for all outputs contained in the inputs
             outs_req = []
             for inp in tx['vin']:
+                if 'key' not in inp:
+                    continue
                 # Key positions are stored as offsets from the previous index rather than indices,
                 # so de-delta them back into indices:
                 if 'key_offsets' in inp['key'] and 'key_indices' not in inp['key']:
@@ -1800,7 +1854,7 @@ def show_tx_info(txid, more_details=False):
                         kis.append(kbase)
                     del inp['key']['key_offsets']
 
-            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['vin'] for ki in inp['key']['key_indices']]
+            outs_req = [{"amount":inp['key']['amount'], "index":ki} for inp in tx['vin'] if 'key' in inp for ki in inp['key'].get('key_indices', [])]
             outputs = FutureJSON(lmq, beldexd, 'rpc.get_outs', args={
                 'get_txid': True,
                 'outputs': outs_req,
@@ -1813,11 +1867,13 @@ def show_tx_info(txid, more_details=False):
                 })
                 i = 0
                 for inp in tx['vin']:
+                    if 'key' not in inp:
+                        continue
                     amount = inp['key']['amount']
                     if amount not in kindex_info:
                         kindex_info[amount] = {}
                     ki = kindex_info[amount]
-                    for ko in inp['key']['key_indices']:
+                    for ko in inp['key'].get('key_indices', []):
                         ki[ko] = outputs[i]
                         i += 1
 
@@ -1833,7 +1889,7 @@ def show_tx_info(txid, more_details=False):
     block_info = {} # { height => {block-info} }
     if block_info_req:
         bi = block_info_req.get()
-        if 'block_headers' in bi:
+        if bi and 'block_headers' in bi:
             for bh in bi['block_headers']:
                 block_info[bh['height']] = bh
 
@@ -1856,9 +1912,9 @@ def show_tx_info(txid, more_details=False):
     for inp in data["info"]["vin"]:
         x=0
         if 'key' in inp:
-            inp["key"]["mixins"] = inp["key"]["key_indices"]
+            inp["key"]["mixins"] = inp["key"].get("key_indices", [])
             data["BDX_inputs"] = data["BDX_inputs"] + inp["key"]["amount"]
-            del inp["key"]["key_indices"]
+            inp["key"].pop("key_indices", None)
             for kindex in inp["key"]["mixins"]:
                 if inp["key"]["amount"] in kindex_info and kindex in kindex_info[inp["key"]["amount"]]:
                     oinfo = kindex_info[inp["key"]["amount"]][kindex]

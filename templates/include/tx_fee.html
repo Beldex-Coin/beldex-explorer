@@ -1,6 +1,6 @@
 {% macro display(tx, show_zero=false) -%}
     {% set fee =
-        (tx.rct_signatures.txnFee if 'rct_signatures' in tx and 'txnFee' in tx.rct_signatures else 0)
+        (tx.rct_signatures.txnFee if 'rct_signatures' in tx and 'txnFee' in tx.rct_signatures else tx.fee | default(0, true))
     -%}
     {% if fee > 0 or show_zero -%}
         <span class="tx-fee">

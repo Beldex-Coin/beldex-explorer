@@ -66,11 +66,12 @@
         <div class="kv">
             <div class="k">Fee (per kB)</div>
             <div class="v">
-            {%if tx.coinbase or 'rct_signatures' not in tx%}
+            {%if tx.coinbase or ('rct_signatures' not in tx and tx.fee is not defined)%}
                 N/A
             {%else%}
                 {{fee.display(tx)}}
-                ({{(tx.rct_signatures.txnFee * 1000 / tx.size) | beldex(tag=false, decimals=6)}})
+                {% set tx_fee = tx.rct_signatures.txnFee if tx.rct_signatures is defined and tx.rct_signatures.txnFee is defined else tx.fee | default(0, true) %}
+                ({{(tx_fee * 1000 / tx.size) | beldex(tag=false, decimals=6)}})
             {%endif%}
             </div>
         </div>
@@ -105,6 +106,8 @@
         </div>
         {%endif%}
     </div>
+
+    {% include 'include/token_operation.html' %}
 
     {% if tx.version >= 4 -%}
         {% if tx.type == 1 and 'mn_state_change' in tx.extra %}
@@ -254,7 +257,11 @@ This tx does not includes a vote from this testing master node (only 7 votes are
     {%if tx.vout%}
         <h2>Outputs</h2>
         <h4 class="Subtitle">{{tx.vout|length}} output(s) for total of
-            {{tx.vout | sum(attribute='amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}</h4>
+            {% if tx.vout | selectattr('target.zyphora', 'defined') | list | length %}
+                <span title="Privacy-token output amounts are confidential">Private</span>
+            {% else %}
+                {{tx.vout | sum(attribute='amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}
+            {% endif %}</h4>
         <div class="TitleDivider"></div>
         <div class="tx-outputs">
             <table class="Table">
@@ -269,8 +276,13 @@ This tx does not includes a vote from this testing master node (only 7 votes are
                 <tbody>
                     {%for out in tx.vout%}
                         <tr>
+                            {% if out.target.zyphora is defined %}
+                            <td><label>{{loop.index0}}:</label> {{out.target.zyphora.stealth_address}}</td>
+                            <td>Private</td>
+                            {% else %}
                             <td><label>{{loop.index0}}:</label> {{out.target.key}}</td>
                             <td>{{out.amount | beldex(zero='?')}}</td>
+                            {% endif %}
                             <td>{%if 'output_indices' in tx%}{{tx.output_indices[loop.index0]}}{# FIXME: of {{num_outputs}}#}{%endif%}</td>
                         </tr>
                     {%endfor%}
@@ -589,7 +601,11 @@ This tx does not includes a vote from this testing master node (only 7 votes are
 
       <h2>Inputs</h2>
       <h4 class="Subtitle">{{tx.vin|length}} input(s) for total of
-        {{tx.vin | sum(attribute='key.amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}</h4>
+        {% if tx.vin | selectattr('zy_input', 'defined') | list | length %}
+          <span title="Privacy-token input amounts are confidential">Private</span>
+        {% else %}
+          {{tx.vin | selectattr('key', 'defined') | sum(attribute='key.amount') | beldex(zero='<span title="Regular BELDEX tx amounts are private">???</span>') | safe}}
+        {% endif %}</h4>
       <div class="TitleDivider"></div>
 
       {#FIXME#}
@@ -608,8 +624,41 @@ This tx does not includes a vote from this testing master node (only 7 votes are
 
 
       <div class="tx-inputs">
-        <table class="Table">
-          {%for inp in tx.vin if 'key' in inp%}
+          {%set private_input = namespace(index=0)%}
+          {%for inp in tx.vin%}
+          <table class="Table">
+          {%if 'zy_input' in inp or 'key' in inp%}
+          {%if 'zy_input' in inp%}
+            {%set ring = privacy_rings[private_input.index]%}
+            {%set private_input.index = private_input.index + 1%}
+            <tr class="tx-input-key-image">
+              <td colspan="2"><label>Privacy-token Key Image {{loop.index0}}:</label> {{inp.zy_input.k_image}}</td>
+              <td>Amount: Private</td>
+            </tr>
+            {%if config.enable_mixins_details%}
+            <tr class="TableHeader">
+              <td>Ring Members</td><td>Block</td><td>Timestamp (UTC)</td>
+            </tr>
+            {%for member in ring%}
+            <tr>
+              <td title="Output index {{member.index}}">
+                {%if member.output is defined%}
+                  {%if member.output.txid%}
+                    <a href="/tx/{{member.output.txid}}">{{member.output.key}}</a>
+                  {%else%}{{member.output.key}}{%endif%}
+                {%else%}
+                  <span class="comment">Output details temporarily unavailable</span>
+                {%endif%}
+              </td>
+              <td>{%if member.output is defined and member.output.height is defined%}<a href="/block/{{member.output.height}}">{{member.output.height}}</a>{%endif%}</td>
+              <td>{%if member.timestamp is defined%}
+                {{member.timestamp | from_timestamp | format_datetime('short')}}
+                ({{(member.timestamp | from_timestamp - server.datetime) | reltime}})
+                {%else%}—{%endif%}</td>
+            </tr>
+            {%endfor%}
+            {%endif%}
+          {%else%}
             <tr class="tx-input-key-image">
               <td style="text-align: left;" colspan="2">
                 <label>Key Image {{loop.index0}}:</label> {{inp.key.k_image}}
@@ -663,8 +712,10 @@ This tx does not includes a vote from this testing master node (only 7 votes are
                 {%endif%}
               {%endfor%}
             {%endif%}
+          {%endif%}
+          {%endif%}
+          </table>
           {%endfor%}
-        </table>
       </div>
     {%endif%}
 
