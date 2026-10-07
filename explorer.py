@@ -950,11 +950,15 @@ def submit_token(token_id=None):
             key = getattr(config, 'token_submit_api_key', '') or ''
             if not url:
                 submit_result = {'ok': False, 'message': 'Submission endpoint is not configured.'}
+            elif not key.strip():
+                submit_result = {'ok': False, 'message': 'Submission API key is not configured. Set token_submit_api_key to match the review service INGEST_API_KEY and restart the explorer.'}
             else:
                 try:
                     resp = requests.post(url, json=payload, headers={'X-Api-Key': key}, timeout=10)
                     if resp.status_code in (200, 201, 202):
                         submit_result = {'ok': True, 'message': 'Your submission was received and is pending review.'}
+                    elif resp.status_code == 401:
+                        submit_result = {'ok': False, 'message': 'The review service rejected the API key. Check that token_submit_api_key matches its INGEST_API_KEY and restart the explorer.'}
                     else:
                         # The admin portal rejects an ownership proof it can't independently
                         # verify (e.g. a stale/expired grant) with a specific reason in the
