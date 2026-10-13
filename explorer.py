@@ -929,7 +929,6 @@ def submit_token(token_id=None):
                     'logo': form.get('logo', '').strip(),
                     'price_url': form.get('price_url', ''),
                     'source': form.get('source', ''),
-                    'explorer_url': form.get('explorer_url', ''),
                     'notes': form.get('notes', ''),
                     'socials': {k: form.get(k, '') for k in TOKEN_SOCIAL_FIELDS},
                 },
