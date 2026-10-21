@@ -5,7 +5,7 @@
 {% block content %}
 <div class="Wrapper">
     <div class="hero" style="padding: 24px 0 8px">
-        <div class="eyebrow">Confidential Assets{{ ' · TESTNET' if info and info.testnet else ' · DEVNET' if info and info.devnet else '' }}</div>
+        <div class="eyebrow">Privacy Tokens · {{ 'Testnet' if info and info.testnet else 'Devnet' if info and info.devnet else 'Mainnet' }}</div>
         <h1 class="hero-title" style="font-size: clamp(18px, 2.6vw, 30px)">Tokens</h1>
         <p class="hero-note">On-chain tokens, with curated details for whitelisted projects</p>
     </div>
@@ -14,14 +14,14 @@
         <a href="/tokens/submit" target="_blank" rel="noopener">Verify &amp; list a token →</a>
     </div>
 
-    <div class="stat-grid">
+    <div class="stat-grid mn-stat-grid">
         <div class="stat-card">
             <span class="label">Total tokens</span>
-            <span class="value">{{ tokens_total if tokens_total is defined else tokens | length }}</span>
+            <span class="value" id="tokens-total-value">…</span>
         </div>
         <div class="stat-card">
             <span class="label">Whitelisted</span>
-            <span class="value" style="color: var(--green)">{{ whitelisted | length }}</span>
+            <span class="value" id="tokens-whitelisted-value" style="color: var(--green)">…</span>
         </div>
     </div>
 
@@ -30,16 +30,16 @@
         <input type="radio" name="ttab" id="ttab-whitelisted">
 
         <div class="tabbar">
-            <label for="ttab-all">All Tokens ({{ tokens_total if tokens_total is defined else tokens | length }})</label>
-            <label for="ttab-whitelisted">Whitelisted ({{ whitelisted | length }})</label>
+            <label for="ttab-all" id="ttab-all-label">All Tokens</label>
+            <label for="ttab-whitelisted" id="ttab-whitelisted-label">Whitelisted</label>
         </div>
 
         <div class="tokens-search">
             <input type="text" id="tokens-search-input" placeholder="Search by name, ticker or token ID">
         </div>
 
-        {% macro tokens_table(rows, table_id) %}
-            <table class="Table tokens-table" id="{{table_id}}">
+        <div class="tabpanel" id="tpanel-all">
+            <table class="Table tokens-table" id="tokens-table-all">
               <thead>
                 <tr>
                     <td>Name</td>
@@ -50,127 +50,269 @@
                 </tr>
               </thead>
               <tbody>
-                {% if rows %}
-                  {% for a in rows %}
-                    <tr class="token-row" data-name="{{ (a.name or '') | lower }}" data-ticker="{{ (a.ticker or '') | lower }}" data-token-id="{{ (a.token_id or '') | lower }}">
-                        <td>
-                            <span class="token-name-cell">
-                                {% if a.logo %}
-                                    <img class="token-logo" src="{{a.logo}}" alt="{{a.ticker}} logo">
-                                {% else %}
-                                    <span class="token-logo token-logo-fallback">{{ (a.ticker or a.name or '?')[0] | upper }}</span>
-                                {% endif %}
-                                <span>{{a.name}}</span>
-                            </span>
-                        </td>
-                        <td>{{a.ticker}}</td>
-                        <td>
-                            <span class="token-id-cell">
-                                <button type="button" class="token-copy" data-copy="{{a.token_id}}" title="Copy token ID" aria-label="Copy token ID">⧉</button>
-                                <a href="#" class="token-expand" title="Show token details">{{a.token_id}}</a>
-                            </span>
-                        </td>
-                        <td>{% if a.price %}{{a.price}}{% else %}<span class="comment">No data</span>{% endif %}</td>
-                        <td>{% if a.source %}{% if a.source.startswith('http') %}<a href="{{a.source}}" target="_blank" rel="noopener">{{a.source | source_name}}</a>{% else %}{{a.source}}{% endif %}{% else %}<span class="comment">No data</span>{% endif %}</td>
-                    </tr>
-                    <tr class="token-detail-row" style="display: none">
-                        <td colspan="5">
-                            <div class="token-detail-cards">
-                                <div class="token-card">
-                                    <h4 class="token-card-title">Overview</h4>
-                                    <div class="token-card-item">
-                                        <label>Max total supply</label>
-                                        <span>{{a.total_max_supply}} {{a.ticker}}</span>
-                                    </div>
-                                    <div class="token-card-item">
-                                        <label>Current supply</label>
-                                        <span>{{a.current_supply}} {{a.ticker}}</span>
-                                    </div>
-                                    <div class="token-card-item">
-                                        <label>Decimals</label>
-                                        <span>{{a.decimal_point}}</span>
-                                    </div>
-                                </div>
-
-                                <div class="token-card">
-                                    <h4 class="token-card-title">Market</h4>
-                                    <div class="token-card-item">
-                                        <label>Price</label>
-                                        <span>{% if a.price %}{{a.price}}{% else %}No data{% endif %}</span>
-                                    </div>
-                                    <div class="token-card-item">
-                                        <label>Source</label>
-                                        <span>{% if a.source %}{% if a.source.startswith('http') %}<a href="{{a.source}}" target="_blank" rel="noopener">{{a.source | source_name}}</a>{% else %}{{a.source}}{% endif %}{% else %}No data{% endif %}</span>
-                                    </div>
-                                    <div class="token-card-item">
-                                        <label>Social</label>
-                                        <span>{% if a.social %}{% if a.social.startswith('http') %}<a href="{{a.social}}" target="_blank" rel="noopener">{{a.social}}</a>{% else %}{{a.social}}{% endif %}{% else %}No data{% endif %}</span>
-                                    </div>
-                                </div>
-
-                                <div class="token-card token-card-wide">
-                                    <h4 class="token-card-title">Other Info</h4>
-                                    <div class="token-card-item">
-                                        <label>Token ID (with {{a.decimal_point}} decimals)</label>
-                                        <span class="token-card-id">
-                                            <button type="button" class="token-copy" data-copy="{{a.token_id}}" title="Copy token ID" aria-label="Copy token ID">⧉</button>
-                                            {{a.token_id}}
-                                        </span>
-                                    </div>
-                                    <div class="token-card-item">
-                                        <label>Owner</label>
-                                        <span class="token-card-id">{{a.owner}}</span>
-                                    </div>
-                                    <div class="token-card-item">
-                                        <label>Name / Ticker</label>
-                                        <span>{{a.full_name}} ({{a.ticker}})</span>
-                                    </div>
-                                    {% if a.meta_info %}
-                                    <div class="token-card-item">
-                                        <label>Meta info</label>
-                                        <span>{{a.meta_info}}</span>
-                                    </div>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        </td>
-                    </tr>
-                  {% endfor %}
-                {% else %}
-                    <tr class="token-empty"><td colspan="5" style="text-align: center" class="comment">No tokens to display.</td></tr>
-                {% endif %}
+                <tr><td colspan="5" style="text-align: center" class="comment">Loading tokens…</td></tr>
               </tbody>
             </table>
-        {% endmacro %}
 
-        <div class="tabpanel" id="tpanel-all">
-            {{ tokens_table(tokens, 'tokens-table-all') }}
-
-            <div class="pager">
-                {% if offset > 0 %}
-                    <a class="pager-btn" href="/tokens/{{ [offset - count, 0] | max }}/{{ count }}">◂ Previous</a>
-                {% else %}
-                    <span class="pager-btn disabled">◂ Previous</span>
-                {% endif %}
-
-                <span class="pager-info">Page <span class="page-number">{{ page + 1 }}</span> <span class="pager-sep">/</span> {{ total_pages }}</span>
-
-                {% if offset + count < tokens_total %}
-                    <a class="pager-btn" href="/tokens/{{ offset + count }}/{{ count }}">Next ▸</a>
-                {% else %}
-                    <span class="pager-btn disabled">Next ▸</span>
-                {% endif %}
-            </div>
+            <div class="pager" id="tokens-pager"></div>
         </div>
         <div class="tabpanel" id="tpanel-whitelisted">
-            {{ tokens_table(whitelisted, 'tokens-table-whitelisted') }}
+            <table class="Table tokens-table" id="tokens-table-whitelisted">
+              <thead>
+                <tr>
+                    <td>Name</td>
+                    <td>Ticker</td>
+                    <td>Token ID</td>
+                    <td>Price</td>
+                    <td>Source</td>
+                </tr>
+              </thead>
+              <tbody>
+                <tr><td colspan="5" style="text-align: center" class="comment">Loading tokens…</td></tr>
+              </tbody>
+            </table>
         </div>
     </div>
 </div>
 
 <script>
     (function () {
+        // The page shell above renders instantly; the (potentially slow —
+        // per-token get_token_info RPCs plus a whitelist HTTP fetch) token
+        // data is loaded afterwards from /api/tokens so a busy/slow daemon
+        // never blocks the page itself from showing up.
+        var OFFSET = {{ offset | tojson }};
+        var COUNT = {{ count | tojson }};
+
+        var tbodyAll = document.querySelector('#tokens-table-all tbody');
+        var tbodyWhitelisted = document.querySelector('#tokens-table-whitelisted tbody');
+        var pagerEl = document.getElementById('tokens-pager');
+        var totalValue = document.getElementById('tokens-total-value');
+        var whitelistedValue = document.getElementById('tokens-whitelisted-value');
+        var labelAll = document.getElementById('ttab-all-label');
+        var labelWhitelisted = document.getElementById('ttab-whitelisted-label');
         var search = document.getElementById('tokens-search-input');
+
+        function el(tag, opts) {
+            var e = document.createElement(tag);
+            opts = opts || {};
+            if (opts.class) e.className = opts.class;
+            if (opts.text != null) e.textContent = opts.text;
+            return e;
+        }
+
+        function sourceName(url) {
+            if (!url || url.indexOf('http') !== 0) return url || '';
+            try {
+                var host = new URL(url).hostname.replace(/^www\./, '');
+                var labels = host.split('.');
+                var name = labels.length >= 2 ? labels[labels.length - 2] : labels[0];
+                return name.charAt(0).toUpperCase() + name.slice(1);
+            } catch (e) {
+                return url;
+            }
+        }
+
+        function linkOrText(value, asSourceName) {
+            if (!value) return document.createTextNode('No data');
+            if (value.indexOf('http') === 0) {
+                var a = document.createElement('a');
+                a.href = value;
+                a.target = '_blank';
+                a.rel = 'noopener';
+                a.textContent = asSourceName ? sourceName(value) : value;
+                return a;
+            }
+            return document.createTextNode(value);
+        }
+
+        function tdText(text) {
+            var td = document.createElement('td');
+            td.textContent = text || '';
+            return td;
+        }
+
+        function tdOrNoData(value, asSourceName) {
+            var td = document.createElement('td');
+            if (!value) {
+                td.appendChild(el('span', { class: 'comment', text: 'No data' }));
+            } else {
+                td.appendChild(linkOrText(value, asSourceName));
+            }
+            return td;
+        }
+
+        function nameCell(a) {
+            var td = document.createElement('td');
+            var wrap = el('span', { class: 'token-name-cell' });
+            if (a.logo) {
+                var img = document.createElement('img');
+                img.className = 'token-logo';
+                img.src = a.logo;
+                img.alt = (a.ticker || '') + ' logo';
+                wrap.appendChild(img);
+            } else {
+                wrap.appendChild(el('span', {
+                    class: 'token-logo token-logo-fallback',
+                    text: ((a.ticker || a.name || '?')[0] || '?').toUpperCase()
+                }));
+            }
+            wrap.appendChild(el('span', { text: a.name || '' }));
+            td.appendChild(wrap);
+            return td;
+        }
+
+        function idCell(a) {
+            var td = document.createElement('td');
+            var wrap = el('span', { class: 'token-id-cell' });
+            wrap.appendChild(copyButton(a.token_id));
+            var link = el('a', { class: 'token-expand', text: a.token_id || '' });
+            link.href = '#';
+            link.title = 'Show token details';
+            wrap.appendChild(link);
+            td.appendChild(wrap);
+            return td;
+        }
+
+        function copyButton(tokenId) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'token-copy';
+            btn.setAttribute('data-copy', tokenId || '');
+            btn.title = 'Copy token ID';
+            btn.setAttribute('aria-label', 'Copy token ID');
+            btn.textContent = '⧉';
+            return btn;
+        }
+
+        function cardItem(label, valueNode) {
+            var item = el('div', { class: 'token-card-item' });
+            item.appendChild(el('label', { text: label }));
+            var span = document.createElement('span');
+            if (typeof valueNode === 'string') {
+                span.textContent = valueNode;
+            } else {
+                span.appendChild(valueNode);
+            }
+            item.appendChild(span);
+            return item;
+        }
+
+        function detailRow(a) {
+            var tr = el('tr', { class: 'token-detail-row' });
+            tr.style.display = 'none';
+            var td = document.createElement('td');
+            td.colSpan = 5;
+            var cards = el('div', { class: 'token-detail-cards' });
+
+            var overview = el('div', { class: 'token-card' });
+            overview.appendChild(el('h4', { class: 'token-card-title', text: 'Overview' }));
+            overview.appendChild(cardItem('Max total supply', (a.total_max_supply || '') + ' ' + (a.ticker || '')));
+            overview.appendChild(cardItem('Current supply', (a.current_supply || '') + ' ' + (a.ticker || '')));
+            overview.appendChild(cardItem('Decimals', a.decimal_point != null ? String(a.decimal_point) : ''));
+
+            var market = el('div', { class: 'token-card' });
+            market.appendChild(el('h4', { class: 'token-card-title', text: 'Market' }));
+            market.appendChild(cardItem('Price', a.price || 'No data'));
+            market.appendChild(cardItem('Source', linkOrText(a.source, true)));
+            market.appendChild(cardItem('Social', linkOrText(a.social, false)));
+
+            var other = el('div', { class: 'token-card token-card-wide' });
+            other.appendChild(el('h4', { class: 'token-card-title', text: 'Other Info' }));
+
+            var idItem = el('div', { class: 'token-card-item' });
+            idItem.appendChild(el('label', {
+                text: 'Token ID (with ' + (a.decimal_point != null ? a.decimal_point : '') + ' decimals)'
+            }));
+            var idSpan = el('span', { class: 'token-card-id' });
+            idSpan.appendChild(copyButton(a.token_id));
+            idSpan.appendChild(document.createTextNode(' ' + (a.token_id || '')));
+            idItem.appendChild(idSpan);
+            other.appendChild(idItem);
+
+            var ownerItem = el('div', { class: 'token-card-item' });
+            ownerItem.appendChild(el('label', { text: 'Owner' }));
+            ownerItem.appendChild(el('span', { class: 'token-card-id', text: a.owner || '' }));
+            other.appendChild(ownerItem);
+
+            other.appendChild(cardItem('Name / Ticker', (a.full_name || '') + ' (' + (a.ticker || '') + ')'));
+
+            if (a.meta_info) {
+                other.appendChild(cardItem('Meta info', a.meta_info));
+            }
+
+            cards.appendChild(overview);
+            cards.appendChild(market);
+            cards.appendChild(other);
+            td.appendChild(cards);
+            tr.appendChild(td);
+            return tr;
+        }
+
+        function tokenRow(a) {
+            var tr = el('tr', { class: 'token-row' });
+            tr.setAttribute('data-name', (a.name || '').toLowerCase());
+            tr.setAttribute('data-ticker', (a.ticker || '').toLowerCase());
+            tr.setAttribute('data-token-id', (a.token_id || '').toLowerCase());
+            tr.appendChild(nameCell(a));
+            tr.appendChild(tdText(a.ticker));
+            tr.appendChild(idCell(a));
+            tr.appendChild(tdOrNoData(a.price, false));
+            tr.appendChild(tdOrNoData(a.source, true));
+            return tr;
+        }
+
+        function renderMessage(tbody, message) {
+            tbody.innerHTML = '';
+            var tr = document.createElement('tr');
+            var td = el('td', { class: 'comment', text: message });
+            td.colSpan = 5;
+            td.style.textAlign = 'center';
+            tr.appendChild(td);
+            tbody.appendChild(tr);
+        }
+
+        function renderTable(tbody, rows) {
+            if (!rows || !rows.length) {
+                renderMessage(tbody, 'No tokens to display.');
+                return;
+            }
+            tbody.innerHTML = '';
+            rows.forEach(function (a) {
+                tbody.appendChild(tokenRow(a));
+                tbody.appendChild(detailRow(a));
+            });
+        }
+
+        function renderPager(data) {
+            pagerEl.innerHTML = '';
+
+            var prev;
+            if (data.offset > 0) {
+                prev = el('a', { class: 'pager-btn', text: '◂ Previous' });
+                prev.href = '/tokens/' + Math.max(data.offset - data.count, 0) + '/' + data.count;
+            } else {
+                prev = el('span', { class: 'pager-btn disabled', text: '◂ Previous' });
+            }
+
+            var info = el('span', { class: 'pager-info' });
+            info.appendChild(document.createTextNode('Page '));
+            info.appendChild(el('span', { class: 'page-number', text: String(data.page + 1) }));
+            info.appendChild(el('span', { class: 'pager-sep', text: '/' }));
+            info.appendChild(document.createTextNode(' ' + data.total_pages));
+
+            var next;
+            if (data.offset + data.count < data.tokens_total) {
+                next = el('a', { class: 'pager-btn', text: 'Next ▸' });
+                next.href = '/tokens/' + (data.offset + data.count) + '/' + data.count;
+            } else {
+                next = el('span', { class: 'pager-btn disabled', text: 'Next ▸' });
+            }
+
+            pagerEl.appendChild(prev);
+            pagerEl.appendChild(info);
+            pagerEl.appendChild(next);
+        }
 
         function applyFilter() {
             var q = (search.value || '').trim().toLowerCase();
@@ -207,34 +349,60 @@
             return Promise.resolve();
         }
 
-        document.querySelectorAll('.token-expand').forEach(function (link) {
-            link.addEventListener('click', function (e) {
+        // Delegated so rows added after the initial fetch (built client-side)
+        // are handled without re-binding listeners.
+        document.addEventListener('click', function (e) {
+            var expand = e.target.closest && e.target.closest('.token-expand');
+            if (expand) {
                 e.preventDefault();
-                var row = link.closest('.token-row');
+                var row = expand.closest('.token-row');
                 var detail = row && row.nextElementSibling;
                 if (!detail || !detail.classList.contains('token-detail-row')) return;
                 var willOpen = (detail.style.display === 'none');
-                // Accordion: close any other open detail panel first.
                 document.querySelectorAll('.token-detail-row').forEach(function (d) {
                     if (d !== detail) d.style.display = 'none';
                 });
                 detail.style.display = willOpen ? '' : 'none';
-            });
-        });
+                return;
+            }
 
-        document.querySelectorAll('.token-copy').forEach(function (btn) {
-            btn.addEventListener('click', function () {
-                copyText(btn.getAttribute('data-copy') || '').then(function () {
-                    var original = btn.textContent;
-                    btn.classList.add('copied');
-                    btn.textContent = '✓';
+            var copyBtn = e.target.closest && e.target.closest('.token-copy');
+            if (copyBtn) {
+                copyText(copyBtn.getAttribute('data-copy') || '').then(function () {
+                    var original = copyBtn.textContent;
+                    copyBtn.classList.add('copied');
+                    copyBtn.textContent = '✓';
                     setTimeout(function () {
-                        btn.classList.remove('copied');
-                        btn.textContent = original;
+                        copyBtn.classList.remove('copied');
+                        copyBtn.textContent = original;
                     }, 1200);
                 });
-            });
+            }
         });
+
+        fetch('/api/tokens/' + OFFSET + '/' + COUNT)
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || data.ok === false) {
+                    throw new Error((data && data.error) || 'Failed to load tokens.');
+                }
+                totalValue.textContent = data.tokens_total;
+                whitelistedValue.textContent = data.whitelisted.length;
+                labelAll.textContent = 'All Tokens (' + data.tokens_total + ')';
+                labelWhitelisted.textContent = 'Whitelisted (' + data.whitelisted.length + ')';
+                renderTable(tbodyAll, data.tokens);
+                renderTable(tbodyWhitelisted, data.whitelisted);
+                renderPager(data);
+                applyFilter();
+            })
+            .catch(function (e) {
+                totalValue.textContent = '—';
+                whitelistedValue.textContent = '—';
+                var msg = 'Could not load tokens right now — try refreshing.';
+                renderMessage(tbodyAll, msg);
+                renderMessage(tbodyWhitelisted, msg);
+                console.error('Failed to load /api/tokens:', e);
+            });
     })();
 </script>
 

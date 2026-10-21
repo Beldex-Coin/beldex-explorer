@@ -1,0 +1,40 @@
+{% set operation = tx.extra.token if tx.extra.token is defined else tx.extra.asset | default(none) %}
+{% if operation %}
+{% set descriptor = operation.descriptor | default({}, true) %}
+{% set token_id = operation.token_id | default(operation.asset_id | default('')) %}
+{% set labels = {'register': 'Registration', 'mint': 'Mint', 'emit': 'Mint', 'update': 'Update', 'burn_token': 'Burn', 'burn_asset': 'Burn'} %}
+<div class="panel">
+    <div class="panel-head"><h2 class="title">Privacy Token {{ labels.get(operation.operation_type, 'Operation') }}</h2></div>
+    {% if token_id %}
+    <div class="kv"><div class="k">Token ID</div><div class="v mn-addr">{{ token_id }}</div></div>
+    {% endif %}
+    {% for field, label in [('full_name', 'Name'), ('ticker', 'Ticker'), ('owner', 'Owner public key'), ('decimal_point', 'Decimal places')] %}
+    {% if descriptor[field] is defined %}
+    <div class="kv"><div class="k">{{ label }}</div><div class="v">{{ descriptor[field] }}</div></div>
+    {% endif %}
+    {% endfor %}
+    {% if operation.amount is defined %}
+    <div class="kv"><div class="k">Operation amount</div><div class="v">
+        {% if descriptor.decimal_point is defined %}
+            {{ operation.amount | token_amount(descriptor.decimal_point) }} {{ descriptor.ticker | default('') }}
+        {% else %}
+            {{ operation.amount }} atomic units
+        {% endif %}
+    </div></div>
+    {% endif %}
+    {% for field, label in [('current_supply', 'Supply at this operation'), ('total_max_supply', 'Maximum supply')] %}
+    {% if descriptor[field] is defined %}
+    <div class="kv"><div class="k">{{ label }}</div><div class="v">
+        {% if descriptor.decimal_point is defined %}
+            {{ descriptor[field] | token_amount(descriptor.decimal_point) }} {{ descriptor.ticker | default('') }}
+        {% else %}
+            {{ descriptor[field] }} atomic units
+        {% endif %}
+    </div></div>
+    {% endif %}
+    {% endfor %}
+    {% if operation.amount_commitment is defined %}
+    <div class="kv"><div class="k">Amount commitment</div><div class="v mn-addr">{{ operation.amount_commitment }}</div></div>
+    {% endif %}
+</div>
+{% endif %}

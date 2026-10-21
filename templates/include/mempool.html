@@ -18,6 +18,11 @@
             <span>⏳ BNS Renew</span>
             <span>🎁 Block Reward</span>
             <span>🕯︎ Coin Burn</span>
+            <span>🛡️ Privacy Token</span>
+            <span>®️ Token Registration</span>
+            <span>🅴 Token Mint</span>
+            <span>🅤 Token Update</span>
+            <span>🔥 Token Burn</span>
         </div>
     </details>
 
@@ -50,8 +55,9 @@
                     <td>{{symbol.display(tx)}}</td>
                     <td><a href="/tx/{{tx.tx_hash}}">{{tx.tx_hash}}</a></td>
                     <td>
-                        {%if 'rct_signatures' in tx%}
-                            {{fee.display(tx)}} / {{(tx.rct_signatures.txnFee * 1000 / tx.size) | beldex(tag=false, decimals=4)}}
+                        {%if 'rct_signatures' in tx or tx.fee is defined%}
+                            {% set tx_fee = tx.rct_signatures.txnFee if tx.rct_signatures is defined and tx.rct_signatures.txnFee is defined else tx.fee | default(0, true) %}
+                            {{fee.display(tx)}} / {{(tx_fee * 1000 / tx.size) | beldex(tag=false, decimals=4)}}
                         {%else%}
                             N/A
                         {%endif%}

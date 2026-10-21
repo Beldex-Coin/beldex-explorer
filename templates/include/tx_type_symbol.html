@@ -1,4 +1,5 @@
 {%- macro display(tx, text=false) -%}
+    {% set token_op = tx.extra.token if tx.extra.token is defined else tx.extra.asset | default(none) %}
     {% if tx.version >= 4 -%}
         {% if tx.type == 1 and 'mn_state_change' in tx.extra -%}
             {% if tx.extra.mn_state_change.type == 'decom' -%}
@@ -22,6 +23,19 @@
             {% elif 'renew' in tx.extra.bns -%}
                 <span class="icon" title="Beldex Name Service Renewing">⏳{%if text%} BNS renew{%endif%}</span>
             {% endif -%}
+        {% elif token_op -%}
+            {% set operation = token_op.operation_type %}
+            {% if operation == 'register' %}
+                <span class="icon" title="Privacy Token Registration" aria-label="Privacy Token Registration">®️{%if text%} token registration{%endif%}</span>
+            {% elif operation in ('mint', 'emit') %}
+                <span class="icon" title="Privacy Token Mint" aria-label="Privacy Token Mint">🅴{%if text%} token mint{%endif%}</span>
+            {% elif operation == 'update' %}
+                <span class="icon" title="Privacy Token Update" aria-label="Privacy Token Update">🅤{%if text%} token update{%endif%}</span>
+            {% elif operation in ('burn_token', 'burn_asset') %}
+                <span class="icon" title="Privacy Token Burn" aria-label="Privacy Token Burn">🔥{%if text%} token burn{%endif%}</span>
+            {% else %}
+                <span class="icon" title="Privacy Token Operation">🛡️{%if text%} token operation{%endif%}</span>
+            {% endif %}
         {% elif tx.type == 5 -%}
             <span class="icon" title="Coin Burn"> 🕯{%if text%}Coin Burn{%endif%}</span>
         {% elif 'mn_registration' in tx.extra -%}
@@ -38,6 +52,9 @@
             {%-if text%} contribution{%endif%}</span>
         {%- elif tx.coinbase%}
             <span class="icon" title="Block reward">🎁{%if text%} block reward{%endif%}</span>
+        {%- elif (tx.vin | default([]) | selectattr('zy_input', 'defined') | list | length)
+            or (tx.vout | default([]) | selectattr('target', 'defined') | selectattr('target.zyphora', 'defined') | list | length) %}
+            <span class="icon" title="Privacy token transaction" aria-label="Privacy token transaction">🛡️{%if text%} privacy token{%endif%}</span>
         {%- elif text -%}
             transfer
         {%- endif -%}
