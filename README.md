@@ -142,3 +142,25 @@ using testnet.py or devnet.py pointing to a beldexd.sock from a testnet or devne
 
 - `design-revamp` — the same visual revamp built as a React (Vite) SPA in `frontend/`, backed by
   JSON API v2 endpoints added to `explorer.py`. See that branch's `frontend/README.md`.
+
+### Token submission CAPTCHA
+
+Token submissions require Cloudflare Turnstile, following the testnet faucet's
+server-side verification and one-minute expiry. Add these settings to the
+explorer's ignored `local_config.py`:
+
+```python
+config.captcha_site_key = 'your-public-turnstile-site-key'
+config.captcha_secret_key = 'your-private-turnstile-secret-key'
+config.captcha_allowed_hostnames = ['explorer.example.com', 'localhost']
+```
+
+Configure the explorer's hostnames in the Turnstile dashboard, then restart the
+explorer. Use a widget/key pair configured for the explorer; do not assume the
+faucet's hostname permissions cover it. The secret stays on the server. Missing
+configuration, verification failures, expired tokens, and service timeouts block
+forwarding to the admin portal. Complete CAPTCHA immediately before submitting;
+after a failed POST, complete a fresh challenge before retrying. Ownership
+verification remains required.
+
+Provider reference: https://developers.cloudflare.com/turnstile/get-started/server-side-validation/

@@ -22,6 +22,7 @@ from jinja2 import Environment
 import config
 import local_config
 import token_ownership
+import captcha
 import geoip
 from lmq import FutureJSON, lmq_connection
 
@@ -914,6 +915,14 @@ def submit_token(token_id=None):
         elif sum(1 for k in TOKEN_SOCIAL_FIELDS if form.get(k, '').strip()) < 1:
             submit_result = {'ok': False, 'message': 'Please provide at least 1 social link.'}
         else:
+            captcha_ok, captcha_error = captcha.verify(
+                form.get('captcha_token', ''),
+                getattr(config, 'captcha_secret_key', ''),
+                getattr(config, 'captcha_allowed_hostnames', []))
+            if not captcha_ok:
+                submit_result = {'ok': False, 'message': captcha_error}
+
+        if submit_result is None:
             payload = {
                 'token_id': token_id,
                 'requester_name': form.get('requester_name', ''),
@@ -983,6 +992,7 @@ def submit_token(token_id=None):
         token_not_found=token_not_found,
         submit_result=submit_result,
         portal_enabled=bool(getattr(config, 'token_submit_url', None)),
+        captcha_site_key=getattr(config, 'captcha_site_key', ''),
     )
 
 

@@ -12,6 +12,11 @@
 {% endblock %}
 
 {% block content %}
+    <style>
+        #captcha-section[disabled] { opacity: 0.4; }
+        #captcha-section[disabled] legend::after { content: ' 🔒'; font-size: 11px; }
+        #captcha-section[disabled] #captcha-widget { display: none !important; pointer-events: none; }
+    </style>
     <div class="Wrapper">
         <div class="hero" style="padding: 24px 0 8px">
             <div class="eyebrow">Privacy Tokens · {{ 'Testnet' if info and info.testnet else 'Devnet' if info and info.devnet else 'Mainnet' }}</div>
@@ -245,12 +250,24 @@
             {# Honeypot: real users leave this empty; bots tend to fill it. #}
             <input type="text" name="company" class="submit-honeypot" tabindex="-1" autocomplete="off">
 
+            <fieldset class="submit-section" id="captcha-section" disabled>
+                <legend>Verification</legend>
+                <div id="captcha-widget" data-sitekey="{{ captcha_site_key }}"></div>
+                <input type="hidden" name="captcha_token" id="captcha-token">
+                <p id="captcha-note" role="status" aria-live="polite">Verify token ownership to enable CAPTCHA verification.</p>
+                <noscript>Enable JavaScript to complete CAPTCHA verification.</noscript>
+            </fieldset>
+
             <div class="submit-actions">
                 <button type="submit" class="btn-primary" id="submit-btn" disabled>Submit for Review</button>
             </div>
         </form>
     </div>
 
+    <script src="{{ url_for('static', filename='token-captcha.js', v='ownership-gate-2') }}"></script>
+    {% if captcha_site_key %}
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=initTokenCaptcha&amp;render=explicit" async defer onerror="tokenCaptchaFailed()"></script>
+    {% endif %}
     <script src="{{ url_for('static', filename='bdx-web3.global.js') }}"></script>
     <script>
         (function () {
@@ -396,7 +413,7 @@
 
             function setGated(locked) {
                 Array.prototype.forEach.call(gated, function (fs) { fs.disabled = locked; });
-                if (submitBtn) submitBtn.disabled = locked;
+                window.setTokenCaptchaOwnership(!locked);
                 if (lockedNote) lockedNote.style.display = locked ? '' : 'none';
             }
 
@@ -773,7 +790,8 @@
                             idInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         } else if (!logoOk) {
                             logoInput.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        } else if (socialsOk()) {
+                        } else if (socialsOk() && window.tokenCaptchaReady()) {
+                            submitBtn.disabled = true;
                             form.submit();
                         }
                     });

@@ -53,3 +53,10 @@ devnet_url='https://testnet.beldex.dev'
 belnet_mainnet_url='http://blocks.beldex'
 belnet_testnet_url='http://testnet.beldex'
 belnet_devnet_url='http://devnet.kcpyawm9se7trdbzncimdi5t7st4p5mh9i1mg7gkpuubi4k4ku1y.beldex'
+
+# Cloudflare Turnstile for token submissions (same provider as the faucet).
+# Set these in local_config.py. Never put the secret in a template or JavaScript.
+captcha_site_key = ''
+captcha_secret_key = ''
+# Optional additional hostname check; also configure allowed hosts in Turnstile.
+captcha_allowed_hostnames = []
