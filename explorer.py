@@ -689,67 +689,152 @@ def list_tokens(offset=0, count=20):
             )
 
 
-def _load_tokens_page(offset, count):
-    """The slow part of the tokens page: get_token_list, a get_token_info RPC
-    per token (fired in parallel, but still bounded by the daemon's slowest
-    reply), and the admin portal's whitelist fetch. Split out of list_tokens()
-    so it can be called from /api/tokens instead of blocking the page load."""
+def _token_row(tid, a):
+    """One All-Tokens row from a get_token_info reply."""
+    return {
+        'name': a.get('full_name', ''),
+        'ticker': a.get('ticker', ''),
+        'token_id': a.get('token_id', tid),
+        # price/source require an external price feed / DEX, which Beldex does
+        # not have yet, so leave them empty for now (rendered as "No data").
+        'price': '',
+        'source': '',
+        # Full descriptor fields, shown in the expandable detail panel.
+        'full_name': a.get('full_name', ''),
+        'total_max_supply': format_token_amount(a.get('total_max_supply'), a.get('decimal_point')),
+        'current_supply': format_token_amount(a.get('current_supply'), a.get('decimal_point')),
+        'decimal_point': a.get('decimal_point', ''),
+        'meta_info': a.get('meta_info', ''),
+        'owner': a.get('owner', ''),
+        # off-chain metadata (from the whitelist later); empty for on-chain-only tokens
+        'social': '',
+        'logo': '',
+        }
+
+
+def _token_rows(token_ids, skip_missing=False):
+    """get_token_info for each id, fired in parallel. skip_missing drops ids the
+    daemon doesn't know about (a whitelist entry for a token that isn't on this
+    chain, say) instead of emitting a blank row."""
     lmq, beldexd = lmq_connection()
-
-    # All tokens: the daemon's get_token_list only returns IDs, so we fetch the
-    # full descriptor for each id via get_token_info (fired in parallel).
-    token_list = FutureJSON(lmq, beldexd, 'rpc.get_token_list', 5,
-            args={'offset': offset, 'count': count}).get() or {}
-    token_ids = token_list.get('token_ids', [])
-    total_count = token_list.get('total_count', len(token_ids))
-
-    info_futures = [
+    futures = [
         FutureJSON(lmq, beldexd, 'rpc.get_token_info', 5, cache_key=tid,
             args={'token_id': tid})
         for tid in token_ids]
-
-    all_tokens = []
-    for tid, fut in zip(token_ids, info_futures):
+    rows = []
+    for tid, fut in zip(token_ids, futures):
         a = fut.get() or {}
-        all_tokens.append({
-            'name': a.get('full_name', ''),
-            'ticker': a.get('ticker', ''),
-            'token_id': a.get('token_id', tid),
-            # price/source require an external price feed / DEX, which Beldex does
-            # not have yet, so leave them empty for now (rendered as "No data").
-            'price': '',
-            'source': '',
-            # Full descriptor fields, shown in the expandable detail panel.
-            'full_name': a.get('full_name', ''),
-            'total_max_supply': format_token_amount(a.get('total_max_supply'), a.get('decimal_point')),
-            'current_supply': format_token_amount(a.get('current_supply'), a.get('decimal_point')),
-            'decimal_point': a.get('decimal_point', ''),
-            'meta_info': a.get('meta_info', ''),
-            'owner': a.get('owner', ''),
-            # off-chain metadata (from the whitelist later); empty for on-chain-only tokens
-            'social': '',
-            'logo': '',
-            })
+        if skip_missing and not a:
+            continue
+        rows.append(_token_row(tid, a))
+    return rows
 
-    # Whitelist: curated off-chain metadata (logo, source, socials, ...) published
-    # by the admin portal, keyed by token_id (cached for a short TTL).
+
+def _overlay_whitelist(rows, whitelist_by_id):
+    """Overlay the portal's curated off-chain fields onto on-chain rows."""
+    for a in rows:
+        entry = whitelist_by_id.get(a['token_id'])
+        if not entry:
+            continue
+        socials = entry.get('socials') or {}
+        a['logo'] = entry.get('logo', '') or a['logo']
+        a['source'] = entry.get('source', '') or a['source']
+        # Live price pulled from the whitelist's price_url (CoinGecko today).
+        a['price'] = fetch_coingecko_price(entry.get('price_url', '')) or a['price']
+        # macro renders a single social link; prefer the website
+        a['social'] = entry.get('website') or socials.get('twitter', '') or a['social']
+    return rows
+
+
+# Search and the Whitelisted tab must see every token, not just the page the
+# user happens to be on, so both are served from a full index of the chain's
+# tokens. Building it costs one get_token_info per token, so it is cached and
+# capped; past the cap, search falls back to exact token-id lookup.
+_TOKEN_INDEX_TTL = 120
+_token_index_cache = {'at': 0, 'rows': [], 'total': 0, 'truncated': False}
+
+
+def _all_token_ids():
+    """Every token id the daemon knows, paged out of get_token_list."""
+    lmq, beldexd = lmq_connection()
+    cap = getattr(config, 'token_index_max', 5000)
+    chunk = 200
+    ids, offset, total = [], 0, None
+    while True:
+        page = FutureJSON(lmq, beldexd, 'rpc.get_token_list', _TOKEN_INDEX_TTL,
+                cache_key='idx{}'.format(offset),
+                args={'offset': offset, 'count': chunk}).get() or {}
+        batch = page.get('token_ids', [])
+        if total is None:
+            total = page.get('total_count', len(batch))
+        ids.extend(batch)
+        offset += len(batch)
+        if not batch or offset >= total or len(ids) >= cap:
+            break
+    return ids[:cap], (total if total is not None else len(ids))
+
+
+def _token_index():
+    """{'rows', 'total', 'truncated'} for every token, cached for a short TTL."""
+    now = time.time()
+    if _token_index_cache['rows'] and now - _token_index_cache['at'] < _TOKEN_INDEX_TTL:
+        return _token_index_cache
+
+    ids, total = _all_token_ids()
+    # Deliberately NOT overlaid with the whitelist: curated fields are applied
+    # per request instead. Baking them in here would keep serving a token's
+    # logo/source out of this cache after an admin revoked its whitelisting.
+    rows = _token_rows(ids)
+    _token_index_cache.update(at=now, rows=rows, total=total, truncated=len(ids) < total)
+    return _token_index_cache
+
+
+def _matches(row, q):
+    return (q in (row.get('name') or '').lower()
+            or q in (row.get('ticker') or '').lower()
+            or q in (row.get('token_id') or '').lower())
+
+
+def _load_tokens_page(offset, count, query=''):
+    """Data behind the tokens page.
+
+    Without a query this pages through the chain with get_token_list. With one
+    it filters the full index, so a match is found wherever it lives rather
+    than only on the page already on screen. The Whitelisted tab is always
+    built from the whole whitelist for the same reason.
+    """
+    query = (query or '').strip().lower()
     whitelist_by_id = load_whitelist_by_id(getattr(config, 'token_whitelist_url', None))
 
-    # When an on-chain token is also whitelisted, overlay the curated off-chain
-    # fields (logo, price, source, social) onto its All Tokens row.
-    for a in all_tokens:
-        entry = whitelist_by_id.get(a['token_id'])
-        if entry:
-            socials = entry.get('socials') or {}
-            a['logo'] = entry.get('logo', '') or a['logo']
-            a['source'] = entry.get('source', '') or a['source']
-            # Live price pulled from the whitelist's price_url (CoinGecko today).
-            a['price'] = fetch_coingecko_price(entry.get('price_url', '')) or a['price']
-            # macro renders a single social link; prefer the website
-            a['social'] = entry.get('website') or socials.get('twitter', '') or a['social']
+    truncated = False
+    if query:
+        index = _token_index()
+        # Copy: _overlay_whitelist mutates, and these rows live in the cache.
+        matched = [dict(r) for r in index['rows'] if _matches(r, query)]
+        _overlay_whitelist(matched, whitelist_by_id)
+        truncated = index['truncated']
+        # A token id is exact and unique: if the index is capped and missed it,
+        # ask the daemon directly rather than reporting "no results".
+        if not matched and truncated and len(query) >= 8:
+            direct = _token_rows([query], skip_missing=True)
+            matched = _overlay_whitelist(direct, whitelist_by_id)
+        total_count = len(matched)
+        all_tokens = matched[offset:offset + count]
+    else:
+        lmq, beldexd = lmq_connection()
+        token_list = FutureJSON(lmq, beldexd, 'rpc.get_token_list', 5,
+                args={'offset': offset, 'count': count}).get() or {}
+        token_ids = token_list.get('token_ids', [])
+        total_count = token_list.get('total_count', len(token_ids))
+        all_tokens = _overlay_whitelist(_token_rows(token_ids), whitelist_by_id)
 
-    # Whitelisted tab shows only the tokens that are both curated and on-chain.
-    whitelisted = [a for a in all_tokens if a['token_id'] in whitelist_by_id]
+    # Whitelisted tab: every whitelisted token that exists on-chain, regardless
+    # of which page of All Tokens is being viewed.
+    whitelisted = _overlay_whitelist(
+            _token_rows(list(whitelist_by_id), skip_missing=True), whitelist_by_id)
+    whitelisted_total = len(whitelisted)
+    if query:
+        whitelisted = [r for r in whitelisted if _matches(r, query)]
 
     page = offset // count
     total_pages = max(1, -(-total_count // count))  # ceil division
@@ -758,6 +843,9 @@ def _load_tokens_page(offset, count):
         'tokens': all_tokens,
         'whitelisted': whitelisted,
         'tokens_total': total_count,
+        'whitelisted_total': whitelisted_total,
+        'query': query,
+        'truncated': truncated,
         'offset': offset,
         'count': count,
         'page': page,
@@ -769,19 +857,22 @@ def _load_tokens_page(offset, count):
 @app.route('/api/tokens/<int:offset>')
 @app.route('/api/tokens/<int:offset>/<int:count>')
 def api_tokens(offset=0, count=20):
-    """JSON backing the tokens page — see list_tokens()/_load_tokens_page()."""
+    """JSON backing the tokens page — see list_tokens()/_load_tokens_page().
+    Optional ?q= filters across every token, not just this page."""
     if count <= 0:
         count = 20
     if offset < 0:
         offset = 0
+    query = flask.request.args.get('q', '', type=str)[:128]
     try:
-        data = _load_tokens_page(offset, count)
+        data = _load_tokens_page(offset, count, query)
     except Exception as e:
-        print("Failed to load tokens page (offset={}, count={}): {}".format(offset, count, e),
-                file=sys.stderr)
+        print("Failed to load tokens page (offset={}, count={}, q={!r}): {}".format(
+                offset, count, query, e), file=sys.stderr)
         return flask.jsonify({'ok': False, 'error': 'Could not load tokens from the daemon right now.'}), 502
     data['ok'] = True
     return flask.jsonify(data)
+
 
 TOKEN_SOCIAL_FIELDS = ['whitepaper', 'github', 'telegram', 'discord', 'twitter',
                        'linkedin', 'medium', 'reddit', 'facebook',

@@ -291,6 +291,7 @@
             if (data.offset > 0) {
                 prev = el('a', { class: 'pager-btn', text: '◂ Previous' });
                 prev.href = '/tokens/' + Math.max(data.offset - data.count, 0) + '/' + data.count;
+                prev.addEventListener('click', pageTo(Math.max(data.offset - data.count, 0)));
             } else {
                 prev = el('span', { class: 'pager-btn disabled', text: '◂ Previous' });
             }
@@ -305,6 +306,7 @@
             if (data.offset + data.count < data.tokens_total) {
                 next = el('a', { class: 'pager-btn', text: 'Next ▸' });
                 next.href = '/tokens/' + (data.offset + data.count) + '/' + data.count;
+                next.addEventListener('click', pageTo(data.offset + data.count));
             } else {
                 next = el('span', { class: 'pager-btn disabled', text: 'Next ▸' });
             }
@@ -314,25 +316,19 @@
             pagerEl.appendChild(next);
         }
 
-        function applyFilter() {
-            var q = (search.value || '').trim().toLowerCase();
-            var rows = document.querySelectorAll('.token-row');
-            for (var i = 0; i < rows.length; i++) {
-                var name = rows[i].getAttribute('data-name') || '';
-                var ticker = rows[i].getAttribute('data-ticker') || '';
-                var tokenId = rows[i].getAttribute('data-token-id') || '';
-                var match = !q || name.indexOf(q) !== -1 || ticker.indexOf(q) !== -1 || tokenId.indexOf(q) !== -1;
-                rows[i].classList.toggle('hidden', !match);
-                // Keep each row's detail panel in sync: hide it when the row is
-                // filtered out, and collapse it so it doesn't reopen on re-show.
-                var detail = rows[i].nextElementSibling;
-                if (detail && detail.classList.contains('token-detail-row')) {
-                    detail.style.display = 'none';
-                }
-            }
+        // Search runs on the server against every token, not just the rows
+        // already rendered — otherwise a match on another page is invisible.
+        var searchTimer = null;
+        function onSearchInput() {
+            clearTimeout(searchTimer);
+            searchTimer = setTimeout(function () { load(0, search.value); }, 300);
         }
-
-        if (search) search.addEventListener('input', applyFilter);
+        if (search) {
+            search.addEventListener('input', onSearchInput);
+            search.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { e.preventDefault(); clearTimeout(searchTimer); load(0, search.value); }
+            });
+        }
 
         function copyText(text) {
             if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -380,29 +376,54 @@
             }
         });
 
-        fetch('/api/tokens/' + OFFSET + '/' + COUNT)
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                if (!data || data.ok === false) {
-                    throw new Error((data && data.error) || 'Failed to load tokens.');
-                }
-                totalValue.textContent = data.tokens_total;
-                whitelistedValue.textContent = data.whitelisted.length;
-                labelAll.textContent = 'All Tokens (' + data.tokens_total + ')';
-                labelWhitelisted.textContent = 'Whitelisted (' + data.whitelisted.length + ')';
-                renderTable(tbodyAll, data.tokens);
-                renderTable(tbodyWhitelisted, data.whitelisted);
-                renderPager(data);
-                applyFilter();
-            })
-            .catch(function (e) {
-                totalValue.textContent = '—';
-                whitelistedValue.textContent = '—';
-                var msg = 'Could not load tokens right now — try refreshing.';
-                renderMessage(tbodyAll, msg);
-                renderMessage(tbodyWhitelisted, msg);
-                console.error('Failed to load /api/tokens:', e);
-            });
+        function pageTo(offset) {
+            return function (e) { e.preventDefault(); load(offset, search ? search.value : ''); };
+        }
+
+        var currentOffset = OFFSET;
+
+        function load(offset, query) {
+            query = (query || '').trim();
+            currentOffset = offset;
+            var url = '/api/tokens/' + offset + '/' + COUNT
+                    + (query ? '?q=' + encodeURIComponent(query) : '');
+            // Keep the address bar shareable without reloading the page.
+            try {
+                history.replaceState(null, '', '/tokens/' + offset + '/' + COUNT
+                        + (query ? '?q=' + encodeURIComponent(query) : ''));
+            } catch (err) { /* non-fatal */ }
+
+            fetch(url)
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data || data.ok === false) {
+                        throw new Error((data && data.error) || 'Failed to load tokens.');
+                    }
+                    totalValue.textContent = data.tokens_total;
+                    whitelistedValue.textContent = data.whitelisted_total;
+                    labelAll.textContent = (data.query ? 'Matches (' : 'All Tokens (')
+                            + data.tokens_total + ')';
+                    labelWhitelisted.textContent = 'Whitelisted ('
+                            + (data.query ? data.whitelisted.length : data.whitelisted_total) + ')';
+                    renderTable(tbodyAll, data.tokens);
+                    renderTable(tbodyWhitelisted, data.whitelisted);
+                    renderPager(data);
+                })
+                .catch(function (e) {
+                    totalValue.textContent = '—';
+                    whitelistedValue.textContent = '—';
+                    var msg = 'Could not load tokens right now — try refreshing.';
+                    renderMessage(tbodyAll, msg);
+                    renderMessage(tbodyWhitelisted, msg);
+                    console.error('Failed to load /api/tokens:', e);
+                });
+        }
+
+        // Restore a query shared via the URL (?q=…).
+        var initialQuery = new URLSearchParams(window.location.search).get('q') || '';
+        if (initialQuery && search) search.value = initialQuery;
+        load(OFFSET, initialQuery);
+
     })();
 </script>
 
